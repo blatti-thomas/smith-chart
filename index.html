@@ -1,0 +1,667 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Abaque de Smith</title>
+</head>
+<body>
+<main id="app">
+  <p>Abaque de Smith — moteur numérique seul (phase 1). L'interface arrive en phase 2.</p>
+</main>
+
+<script id="smith-core">
+/* ============================================================================
+ * smith-core — numerical engine.
+ *
+ * Pure code: no access to the page, no I/O, no logging. tests.mjs extracts this
+ * block verbatim and runs it in a bare VM context, so what is tested is exactly
+ * what ships.
+ *
+ * Sections: complex · rf-math · network
+ * Units: SI everywhere (Hz, ohm, siemens, henry, farad, metre). Angles are in
+ * degrees at the API surface.
+ * Convention: networks are built from the LOAD towards the SOURCE. Element 0
+ * touches the load; the input impedance is seen after the last element.
+ * ========================================================================== */
+const SmithCore = (() => {
+  'use strict';
+
+  /* ==========================================================================
+   * § complex
+   * ======================================================================== */
+
+  const cx = (re = 0, im = 0) => ({ re, im });
+  const ZERO = Object.freeze(cx(0, 0));
+  const ONE = Object.freeze(cx(1, 0));
+
+  const add = (a, b) => cx(a.re + b.re, a.im + b.im);
+  const sub = (a, b) => cx(a.re - b.re, a.im - b.im);
+  const mul = (a, b) => cx(a.re * b.re - a.im * b.im, a.re * b.im + a.im * b.re);
+  const scale = (a, k) => cx(a.re * k, a.im * k);
+  const neg = (a) => cx(-a.re, -a.im);
+  const conj = (a) => cx(a.re, -a.im);
+  const abs = (a) => Math.hypot(a.re, a.im);
+  const arg = (a) => Math.atan2(a.im, a.re);
+  const isZero = (a) => a.re === 0 && a.im === 0;
+  const isFiniteCx = (a) => Number.isFinite(a.re) && Number.isFinite(a.im);
+  const hasNaN = (a) => Number.isNaN(a.re) || Number.isNaN(a.im);
+
+  /** Complex division (Smith's algorithm, avoids intermediate overflow).
+   *  Dividing by exactly zero yields NaN/Infinity parts: callers that can meet
+   *  a zero divisor test for it first (see the homogeneous forms below). */
+  const div = (a, b) => {
+    if (Math.abs(b.re) >= Math.abs(b.im)) {
+      const r = b.im / b.re;
+      const d = b.re + b.im * r;
+      return cx((a.re + a.im * r) / d, (a.im - a.re * r) / d);
+    }
+    const r = b.re / b.im;
+    const d = b.re * r + b.im;
+    return cx((a.re * r + a.im) / d, (a.im * r - a.re) / d);
+  };
+  const inv = (a) => div(ONE, a);
+
+  /** Principal square root. */
+  const sqrt = (a) => {
+    const m = abs(a);
+    if (m === 0) return cx(0, 0);
+    const t = Math.sqrt((m + Math.abs(a.re)) / 2);
+    if (a.re >= 0) return cx(t, a.im / (2 * t));
+    return cx(Math.abs(a.im) / (2 * t), a.im >= 0 ? t : -t);
+  };
+
+  const DEG = Math.PI / 180;
+  /** sin/cos of an angle in degrees, exact at multiples of 90° so that
+   *  quarter-wave and half-wave lines hit their ideal values exactly. */
+  const sind = (d) => {
+    const r = ((d % 360) + 360) % 360;
+    if (r === 0 || r === 180) return 0;
+    if (r === 90) return 1;
+    if (r === 270) return -1;
+    return Math.sin(d * DEG);
+  };
+  const cosd = (d) => sind(d + 90);
+  const polar = (mag, deg) => cx(mag * cosd(deg), mag * sind(deg));
+
+  /* ==========================================================================
+   * § rf-math
+   * ======================================================================== */
+
+  const C0 = 299792458;                 // speed of light, m/s
+  const NP_PER_DB = Math.LN10 / 20;     // 1 dB = 0.1151 Np
+  const TWO_PI = 2 * Math.PI;
+
+  /* --- One-port state -------------------------------------------------------
+   * A one-port is carried as a homogeneous pair (v, i) with Z = v / i. A short
+   * is (0, 1), an open is (1, 0): both are ordinary values, and nothing is
+   * divided until a quantity is read out. Only the ratio matters, so states are
+   * rescaled freely. */
+
+  const ST_SHORT = Object.freeze({ v: ZERO, i: ONE });
+  const ST_OPEN = Object.freeze({ v: ONE, i: ZERO });
+  const ST_INVALID = Object.freeze({ v: Object.freeze(cx(NaN, NaN)), i: Object.freeze(cx(NaN, NaN)) });
+
+  const maxPart = (a, b) => Math.max(Math.abs(a.re), Math.abs(a.im), Math.abs(b.re), Math.abs(b.im));
+
+  /** Rescale a state; (0, 0) is replaced by `fallback`, non-finite by invalid. */
+  const stMake = (v, i, fallback = ST_INVALID) => {
+    const m = maxPart(v, i);
+    if (m === 0) return fallback;
+    if (!(m < Infinity)) return ST_INVALID;   // also catches NaN
+    return { v: scale(v, 1 / m), i: scale(i, 1 / m) };
+  };
+
+  /** State from an impedance in ohms. A non-finite impedance is an open circuit. */
+  const stFromZ = (z) => {
+    if (hasNaN(z)) return ST_INVALID;
+    if (!isFiniteCx(z)) return ST_OPEN;
+    return stMake(z, ONE, ST_SHORT);
+  };
+  /** State from an admittance in siemens. A non-finite admittance is a short. */
+  const stFromY = (y) => {
+    if (hasNaN(y)) return ST_INVALID;
+    if (!isFiniteCx(y)) return ST_SHORT;
+    return stMake(ONE, y, ST_OPEN);
+  };
+  /** State from a reflection coefficient referred to z0. */
+  const stFromGamma = (g, z0) => {
+    if (!isFiniteCx(g)) return ST_INVALID;
+    return stMake(scale(add(ONE, g), z0), sub(ONE, g), ST_INVALID);
+  };
+
+  const INF = () => cx(Infinity, 0);    // "complex infinity" marker for read-outs
+
+  const stZ = (st) => (isZero(st.i) ? INF() : div(st.v, st.i));
+  const stY = (st) => (isZero(st.v) ? INF() : div(st.i, st.v));
+  /** Reflection coefficient. Infinite when Z = -z0 exactly. */
+  const stGamma = (st, z0) => {
+    const den = add(st.v, scale(st.i, z0));
+    if (isZero(den)) return INF();
+    return div(sub(st.v, scale(st.i, z0)), den);
+  };
+
+  /* --- Simple conversions ---------------------------------------------------- */
+
+  const zToGamma = (z, z0 = 1) => stGamma(stFromZ(z), z0);
+  const gammaToZ = (g, z0 = 1) => stZ(stFromGamma(g, z0));
+  const gammaToY = (g, z0 = 1) => stY(stFromGamma(g, z0));
+  /** 1/z with z = 0 -> infinity and z = infinity -> 0, never NaN. */
+  const invZ = (z) => stY(stFromZ(z));
+
+  /** Component realising a series reactance X (ohms) at frequency f. */
+  const componentForReactance = (x, f) => {
+    const w = TWO_PI * f;
+    if (!(w > 0) || x === 0 || !Number.isFinite(x)) return null;
+    return x > 0 ? { kind: 'L', value: x / w } : { kind: 'C', value: -1 / (w * x) };
+  };
+  /** Component realising a shunt susceptance B (siemens) at frequency f. */
+  const componentForSusceptance = (b, f) => {
+    const w = TWO_PI * f;
+    if (!(w > 0) || b === 0 || !Number.isFinite(b)) return null;
+    return b > 0 ? { kind: 'C', value: b / w } : { kind: 'L', value: -1 / (w * b) };
+  };
+
+  /** Series equivalent R + (L or C) of an impedance at frequency f. */
+  const seriesEquivalent = (z, f) => {
+    if (!isFiniteCx(z)) return null;
+    return { r: z.re, x: z.im, reactive: componentForReactance(z.im, f) };
+  };
+  /** Parallel equivalent Rp // (L or C) of an admittance at frequency f. */
+  const parallelEquivalent = (y, f) => {
+    if (!isFiniteCx(y)) return null;
+    return { r: y.re === 0 ? Infinity : 1 / y.re, b: y.im, reactive: componentForSusceptance(y.im, f) };
+  };
+
+  /** Resonance of an RLC circuit. Series: Q = (1/R)·sqrt(L/C). Parallel: Q = R·sqrt(C/L). */
+  const rlcResonance = ({ r, l, c, topology = 'series' }) => {
+    const f0 = 1 / (TWO_PI * Math.sqrt(l * c));
+    const x0 = Math.sqrt(l / c);                       // reactance of L and C at f0
+    const q = topology === 'parallel' ? r / x0 : x0 / r;
+    return { f0, x0, q, bw: f0 / q };
+  };
+
+  /* --- Read-out ----------------------------------------------------------------
+   * Everything the cursor panel and the data-point table show, from one state.
+   * Conventions for the edge cases:
+   *   |gamma| = 1  -> vswr = Infinity, ml = Infinity
+   *   |gamma| > 1  -> active: vswr and ml are undefined (null), rl is negative
+   *   z = 0 or infinity -> q is undefined (null); r = 0 with x != 0 -> q = Infinity
+   */
+  const UNIT_SNAP = 1e-12;   // |gamma| this close to 1 is treated as exactly 1
+
+  const metrics = (st, z0, f = null) => {
+    const valid = !(hasNaN(st.v) || hasNaN(st.i));
+    const gamma = stGamma(st, z0);
+    const gFinite = isFiniteCx(gamma);
+    let mag = gFinite ? abs(gamma) : (valid ? Infinity : NaN);
+    if (Math.abs(mag - 1) < UNIT_SNAP) mag = 1;
+    const z = stZ(st);
+    const y = stY(st);
+    const zFinite = isFiniteCx(z);
+    const yFinite = isFiniteCx(y);
+
+    let vswr = null;
+    if (mag < 1) vswr = (1 + mag) / (1 - mag);
+    else if (mag === 1) vswr = Infinity;
+
+    let ml = null;
+    if (mag < 1) ml = -10 * Math.log10(1 - mag * mag);
+    else if (mag === 1) ml = Infinity;
+
+    let q = null;
+    if (zFinite) {
+      const r = Math.abs(z.re);
+      const x = Math.abs(z.im);
+      if (r > 0) q = x / r;
+      else if (x > 0) q = Infinity;
+    }
+
+    return {
+      f,
+      valid,
+      gamma,
+      mag,
+      ang: gFinite ? arg(gamma) / DEG : null,
+      z,
+      y,
+      zn: zFinite ? scale(z, 1 / z0) : z,
+      yn: yFinite ? scale(y, z0) : y,
+      vswr,
+      rl: mag === 0 ? Infinity : -20 * Math.log10(mag),
+      ml,
+      reflected: mag * mag,
+      q,
+      active: mag > 1,
+      series: f > 0 ? seriesEquivalent(z, f) : null,
+      parallel: f > 0 ? parallelEquivalent(y, f) : null,
+    };
+  };
+
+  /* --- Chart geometry -----------------------------------------------------------
+   * Circles in the gamma plane, u = Re(gamma) to the right, v = Im(gamma) UP.
+   * The admittance chart is the impedance chart rotated by 180° (gamma -> -gamma). */
+
+  const rCircle = (r) => ({ cx: r / (r + 1), cy: 0, rad: 1 / (r + 1) });
+  const xArc = (x) => ({ cx: 1, cy: 1 / x, rad: 1 / Math.abs(x) });
+  const gCircle = (g) => ({ cx: -g / (g + 1), cy: 0, rad: 1 / (g + 1) });
+  const bArc = (b) => ({ cx: -1, cy: -1 / b, rad: 1 / Math.abs(b) });
+  const vswrCircle = (s) => ({ cx: 0, cy: 0, rad: (s - 1) / (s + 1) });
+  /** Constant-Q locus, Q = |x| / r: two circular arcs through gamma = -1 and +1.
+   *  `upper` selects the inductive half (x > 0). */
+  const qArc = (q, upper = true) => ({ cx: 0, cy: upper ? -1 / q : 1 / q, rad: Math.sqrt(1 + 1 / (q * q)) });
+  const circlePoint = (c, deg) => cx(c.cx + c.rad * cosd(deg), c.cy + c.rad * sind(deg));
+
+  /* --- Transmission lines ---------------------------------------------------------
+   * A line element stores its electrical length `deg` at a reference frequency
+   * `fref`, i.e. a delay. Its physical length follows from `er` (effective
+   * relative permittivity) and stays fixed when the frequency is swept.
+   *   alpha    attenuation in dB per metre of physical length, at fref
+   *   alphaLaw 'sqrt' (conductor loss, alpha·sqrt(f/fref)) or 'const'
+   * The characteristic impedance stays real (low-loss approximation). */
+
+  const lineLengths = (el) => {
+    const er = el.er > 0 ? el.er : 1;
+    const elec = el.fref > 0 ? (el.deg / 360) * C0 / el.fref : 0;
+    return {
+      deg: el.deg,
+      lambda: el.deg / 360,
+      elec,                              // "electrical length" as Smith V4 shows it, m
+      phys: elec / Math.sqrt(er),        // m
+      vf: 1 / Math.sqrt(er),
+      delay: el.fref > 0 ? el.deg / (360 * el.fref) : 0,
+    };
+  };
+
+  /** Same physical line, described at another reference frequency. */
+  const rereferenceLine = (el, fref) => {
+    if (!(el.fref > 0) || !(fref > 0)) return { ...el, fref };
+    const k = fref / el.fref;
+    const out = { ...el, fref, deg: el.deg * k };
+    if (el.alpha && el.alphaLaw !== 'const') out.alpha = el.alpha * Math.sqrt(k);
+    return out;
+  };
+
+  /** cosh(gamma·l) and sinh(gamma·l) for a fraction t of the line, both divided
+   *  by exp(|alpha·l|): the common factor is irrelevant on a homogeneous state
+   *  and removing it means a very lossy line cannot overflow. */
+  const lineTerms = (el, f, t = 1) => {
+    const ratio = el.fref > 0 ? f / el.fref : 0;
+    const theta = el.deg * ratio * t;                              // degrees
+    let a = (el.alpha || 0) * lineLengths(el).phys * t * NP_PER_DB; // nepers
+    if (el.alphaLaw !== 'const') a *= Math.sqrt(ratio);
+    const e = Math.exp(-2 * Math.abs(a));
+    const ch = (1 + e) / 2;
+    const sh = Math.sign(a) * (1 - e) / 2;
+    const c = cosd(theta);
+    const s = sind(theta);
+    return { ch: cx(ch * c, sh * s), sh: cx(sh * c, ch * s) };
+  };
+
+  /* --- Engineering notation --------------------------------------------------------- */
+
+  const PREFIX = { f: 1e-15, p: 1e-12, n: 1e-9, u: 1e-6, 'µ': 1e-6, 'μ': 1e-6, m: 1e-3, k: 1e3, K: 1e3, M: 1e6, G: 1e9, T: 1e12 };
+  const UNIT_ALIASES = {
+    'Ω': ['Ω', 'ohms', 'Ohms', 'ohm', 'Ohm'],
+    '°': ['°', 'deg'],
+  };
+
+  /** Parse "6.8p", "15nH", "869M", "2k2", "4R7", "1e-9", "6,8 pF" ... into a number.
+   *  `unit` is the unit of the field ("F", "H", "Hz", "Ω", "m", ...): a trailing
+   *  unit is always read as the unit, so with unit "m", "10mm" is 0.01 and "10m"
+   *  is 10. Prefixes and units are case-sensitive (m = milli, M = mega), so an
+   *  ambiguous "869mhz" is refused rather than read as millihertz; "meg" also
+   *  works. Returns NaN when the text is not a number. */
+  const parseEng = (input, unit = '') => {
+    if (typeof input === 'number') return input;
+    if (input == null) return NaN;
+    let s = String(input).trim().replace(/\s+/g, '').replace(',', '.');
+    if (s === '') return NaN;
+    if (/^[+-]?(inf|infinity|∞)$/i.test(s)) return s[0] === '-' ? -Infinity : Infinity;
+    if (unit) {
+      for (const u of UNIT_ALIASES[unit] || [unit]) {
+        if (s.length > u.length && s.endsWith(u)) { s = s.slice(0, -u.length); break; }
+      }
+    }
+    let m = /^([+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)(meg|MEG|Meg|[fpnuµμmkKMGT])?$/.exec(s);
+    if (m) return parseFloat(m[1]) * (m[2] ? (m[2].length === 3 ? 1e6 : PREFIX[m[2]]) : 1);
+    m = /^([+-]?\d+)([fpnuµμmkKMGTR])(\d+)$/.exec(s);          // 2k2, 4n7, 4R7
+    if (m) return parseFloat(`${m[1]}.${m[3]}`) * (m[2] === 'R' ? 1 : PREFIX[m[2]]);
+    return NaN;
+  };
+
+  const SI_PREFIX = { '-15': 'f', '-12': 'p', '-9': 'n', '-6': 'µ', '-3': 'm', 0: '', 3: 'k', 6: 'M', 9: 'G', 12: 'T' };
+
+  /** Format a number with an SI prefix: formatEng(6.8e-12, 'F') -> "6.8 pF". */
+  const formatEng = (value, unit = '', sig = 4) => {
+    const tail = unit ? ` ${unit}` : '';
+    if (value == null || Number.isNaN(value)) return '—';
+    if (!Number.isFinite(value)) return `${value < 0 ? '-' : ''}∞${tail}`;
+    if (value === 0) return `0${tail}`;
+    const digits = (x) => String(Number(x.toPrecision(sig)));
+    let e = Math.min(12, Math.max(-15, Math.floor(Math.log10(Math.abs(value)) / 3) * 3));
+    let text = digits(value / 10 ** e);
+    if (Math.abs(Number(text)) >= 1000 && e < 12) { e += 3; text = digits(value / 10 ** e); }
+    const p = SI_PREFIX[e];
+    return p || unit ? `${text} ${p}${unit}` : text;
+  };
+
+  /** Format a complex number the way the course writes it: "0.6 + j0.8". */
+  const formatCx = (z, sig = 4) => {
+    if (!z || hasNaN(z)) return '—';
+    if (!isFiniteCx(z)) return '∞';
+    const num = (x) => String(Number(x.toPrecision(sig)));
+    return `${num(z.re)} ${z.im < 0 ? '-' : '+'} j${num(Math.abs(z.im))}`;
+  };
+
+  /* ==========================================================================
+   * § network
+   *
+   * project = {
+   *   z0,                 reference impedance, ohms (real, > 0)
+   *   f0,                 design frequency, Hz
+   *   load,               { kind: 'z', z: {re, im} }                       fixed impedance
+   *                       { kind: 'rlc', topology: 'series'|'parallel', r, l, c }   (null = absent)
+   *                       { kind: 'table', points: [{ f, z: {re, im} }] }   sorted by f
+   *   elements: [         ordered from the load towards the source
+   *     { kind: 'R', conn, value }
+   *     { kind: 'L', conn, value, loss? }      loss = { mode: 'esr', esr } | { mode: 'q', q, f }
+   *     { kind: 'C', conn, value, loss? }
+   *     { kind: 'RLC', conn, topology, r, l, c }
+   *     { kind: 'TL', zc, deg, fref, er?, alpha?, alphaLaw? }           series line
+   *     { kind: 'STUB', term: 'open'|'short', zc, deg, fref, er?, alpha?, alphaLaw? }   shunt stub
+   *     { kind: 'XFMR', n }                    ideal transformer, Zin = n²·Z
+   *   ]                   conn = 'series' | 'shunt'; any element may carry off: true
+   * }
+   * ======================================================================== */
+
+  /* --- Branch impedances, in homogeneous form { n, d } with Z = n / d ------------- */
+
+  const H_SHORT = Object.freeze({ n: ZERO, d: ONE });
+  const H_OPEN = Object.freeze({ n: ONE, d: ZERO });
+
+  const hMake = (n, d, fallback) => {
+    const m = maxPart(n, d);
+    if (m === 0) return fallback;
+    if (!(m < Infinity)) return { n: cx(NaN, NaN), d: cx(NaN, NaN) };
+    return { n: scale(n, 1 / m), d: scale(d, 1 / m) };
+  };
+  const hIsShort = (h) => isZero(h.n);
+  const hIsOpen = (h) => isZero(h.d);
+
+  const hSeries = (a, b) => {
+    if (hIsOpen(a) || hIsOpen(b)) return H_OPEN;
+    return hMake(add(mul(a.n, b.d), mul(b.n, a.d)), mul(a.d, b.d), H_SHORT);
+  };
+  const hParallel = (a, b) => {
+    if (hIsShort(a) || hIsShort(b)) return H_SHORT;
+    if (hIsOpen(a)) return b;
+    if (hIsOpen(b)) return a;
+    return hMake(mul(a.n, b.n), add(mul(a.d, b.n), mul(b.d, a.n)), H_OPEN);
+  };
+
+  const zOfR = (r) => (Number.isFinite(r) ? hMake(cx(r, 0), ONE, H_SHORT) : H_OPEN);
+
+  /** Inductor with optional series resistance: Z = esr + jwL. */
+  const zOfL = (l, w, esr = 0) => {
+    if (!Number.isFinite(esr)) return H_OPEN;
+    if (!Number.isFinite(l)) return w > 0 ? H_OPEN : hMake(cx(esr, 0), ONE, H_SHORT);
+    return hMake(cx(esr, w * l), ONE, H_SHORT);
+  };
+
+  /** Capacitor with optional series resistance: Z = esr + 1/(jwC) = (1 + jwC·esr) / (jwC). */
+  const zOfC = (c, w, esr = 0) => {
+    if (c === 0 || w === 0 || !Number.isFinite(esr)) return H_OPEN;
+    if (!Number.isFinite(c)) return hMake(cx(esr, 0), ONE, H_SHORT);
+    return hMake(cx(1, w * c * esr), cx(0, w * c), H_OPEN);
+  };
+
+  /** Series resistance of a lossy L or C, from its `loss` description. */
+  const esrOf = (el) => {
+    const loss = el.loss;
+    if (!loss) return 0;
+    if (loss.mode === 'esr') return loss.esr > 0 ? loss.esr : 0;
+    if (loss.mode === 'q') {
+      const w = TWO_PI * loss.f;
+      if (!(loss.q > 0) || !Number.isFinite(loss.q) || !(w > 0) || !(el.value > 0)) return 0;
+      return el.kind === 'L' ? (w * el.value) / loss.q : 1 / (w * el.value * loss.q);
+    }
+    return 0;
+  };
+
+  const zOfRLC = (el, w) => {
+    const parts = [];
+    if (el.r != null) parts.push(zOfR(el.r));
+    if (el.l != null) parts.push(zOfL(el.l, w));
+    if (el.c != null) parts.push(zOfC(el.c, w));
+    if (el.topology === 'parallel') return parts.length ? parts.reduce(hParallel) : H_OPEN;
+    return parts.length ? parts.reduce(hSeries) : H_SHORT;
+  };
+
+  /** Impedance of the branch an element inserts (lumped elements and stubs). */
+  const branchOf = (el, f) => {
+    const w = TWO_PI * f;
+    switch (el.kind) {
+      case 'R': return zOfR(el.value);
+      case 'L': return zOfL(el.value, w, esrOf(el));
+      case 'C': return zOfC(el.value, w, esrOf(el));
+      case 'RLC': return zOfRLC(el, w);
+      case 'STUB': {
+        const { ch, sh } = lineTerms(el, f);
+        // open stub: Zc·coth(gamma·l); shorted stub: Zc·tanh(gamma·l)
+        return el.term === 'short'
+          ? hMake(scale(sh, el.zc), ch, H_SHORT)
+          : hMake(scale(ch, el.zc), sh, H_OPEN);
+      }
+      default: return null;
+    }
+  };
+
+  const isShunt = (el) => el.kind === 'STUB' || (el.kind !== 'TL' && el.kind !== 'XFMR' && el.conn === 'shunt');
+
+  /** State after an element, given the state before it.
+   *  `t` in [0, 1] applies a fraction of the element (used to draw its path):
+   *  a series branch contributes t·Z, a shunt branch t·Y, a line t·length, and
+   *  a transformer the ratio n^t. */
+  const applyElement = (st, el, f, t = 1) => {
+    if (t === 0 || el.off) return st;
+    if (el.kind === 'TL') {
+      const { ch, sh } = lineTerms(el, f, t);
+      return stMake(
+        add(mul(ch, st.v), scale(mul(sh, st.i), el.zc)),
+        add(scale(mul(sh, st.v), 1 / el.zc), mul(ch, st.i)),
+      );
+    }
+    if (el.kind === 'XFMR') {
+      const n = Math.abs(el.n);
+      if (!Number.isFinite(n)) return isZero(st.v) ? ST_INVALID : ST_OPEN;
+      return stMake(scale(st.v, n ** (2 * t)), st.i, ST_SHORT);
+    }
+    const h = branchOf(el, f);
+    if (!h) return ST_INVALID;
+    if (isShunt(el)) {
+      // Y' = Y + t·d/n  ->  (v·n, i·n + t·d·v)
+      return stMake(mul(st.v, h.n), add(mul(st.i, h.n), scale(mul(h.d, st.v), t)), ST_SHORT);
+    }
+    // Z' = Z + t·n/d  ->  (v·d + t·n·i, i·d)
+    return stMake(add(mul(st.v, h.d), scale(mul(h.n, st.i), t)), mul(st.i, h.d), ST_OPEN);
+  };
+
+  /* --- Load ------------------------------------------------------------------------- */
+
+  /** Index i such that points[i].f <= f < points[i+1].f, clamped to the table. */
+  const tableSegment = (points, f) => {
+    let lo = 0;
+    let hi = points.length - 1;
+    while (hi - lo > 1) {
+      const mid = (lo + hi) >> 1;
+      if (points[mid].f <= f) lo = mid; else hi = mid;
+    }
+    return lo;
+  };
+
+  /** Load state at frequency f. A table is interpolated linearly on gamma and
+   *  held constant outside its frequency range (no extrapolation). */
+  const loadState = (load, f, z0) => {
+    switch (load.kind) {
+      case 'z': return stFromZ(load.z);
+      case 'rlc': {
+        const h = zOfRLC(load, TWO_PI * f);
+        return stMake(h.n, h.d);
+      }
+      case 'table': {
+        const pts = load.points;
+        if (!pts || !pts.length) return ST_INVALID;
+        if (pts.length === 1 || f <= pts[0].f) return stFromZ(pts[0].z);
+        if (f >= pts[pts.length - 1].f) return stFromZ(pts[pts.length - 1].z);
+        const k = tableSegment(pts, f);
+        const a = pts[k];
+        const b = pts[k + 1];
+        const ga = zToGamma(a.z, z0);
+        const gb = zToGamma(b.z, z0);
+        if (!isFiniteCx(ga) || !isFiniteCx(gb)) return stFromZ(a.z);
+        const u = (f - a.f) / (b.f - a.f);
+        return stFromGamma(add(ga, scale(sub(gb, ga), u)), z0);
+      }
+      default: return ST_INVALID;
+    }
+  };
+
+  /** True when f lies inside the frequency range a table load covers. */
+  const loadCovers = (load, f) => {
+    if (load.kind !== 'table') return true;
+    const pts = load.points;
+    return pts.length > 0 && f >= pts[0].f && f <= pts[pts.length - 1].f;
+  };
+
+  /* --- Evaluation ---------------------------------------------------------------------- */
+
+  /** States at every node: [load, after element 0, after element 1, ...]. */
+  const evaluate = (project, f = project.f0) => {
+    const states = [loadState(project.load, f, project.z0)];
+    for (const el of project.elements) states.push(applyElement(states[states.length - 1], el, f));
+    return states;
+  };
+
+  /** Read-outs at every node, same indexing as evaluate(). */
+  const solve = (project, f = project.f0) => evaluate(project, f).map((st) => metrics(st, project.z0, f));
+
+  /** Read-out at the input (after the last element). */
+  const inputAt = (project, f = project.f0) => {
+    const states = evaluate(project, f);
+    return metrics(states[states.length - 1], project.z0, f);
+  };
+
+  /** Frequencies of a sweep { start, stop, points, scale: 'lin' | 'log' }. */
+  const frequencyList = ({ start, stop, points = 201, scale: mode = 'lin' }) => {
+    const n = Math.max(1, Math.floor(points));
+    if (n === 1 || start === stop) return [start];
+    const log = mode === 'log' && start > 0 && stop > 0;
+    const out = new Array(n);
+    for (let k = 0; k < n; k += 1) {
+      const u = k / (n - 1);
+      out[k] = log ? start * (stop / start) ** u : start + (stop - start) * u;
+    }
+    out[n - 1] = stop;
+    return out;
+  };
+
+  /** Read-outs versus frequency at one node (default: the input). */
+  const sweep = (project, spec, node = -1) => frequencyList(spec).map((f) => {
+    const states = evaluate(project, f);
+    return metrics(states[node < 0 ? states.length + node : node], project.z0, f);
+  });
+
+  /** Path drawn on the chart by element `index` as it grows from nothing to its
+   *  full value: [{ t, gamma }], t from 0 to 1. Sampling is refined until
+   *  consecutive points are closer than `maxStep` in the gamma plane. */
+  const trajectory = (project, index, f = project.f0, opts = {}) => {
+    const maxStep = opts.maxStep ?? 0.02;
+    const maxDepth = opts.maxDepth ?? 10;
+    const el = project.elements[index];
+    let st0 = loadState(project.load, f, project.z0);
+    for (let k = 0; k < index; k += 1) st0 = applyElement(st0, project.elements[k], f);
+    const at = (t) => stGamma(applyElement(st0, el, f, t), project.z0);
+
+    // A long line wraps around the chart: start from segments of at most 30°.
+    let base = 4;
+    if (el.kind === 'TL' && el.fref > 0) base = Math.max(4, Math.ceil(Math.abs(el.deg * f / el.fref) / 30));
+    base = Math.min(base, 2000);
+
+    const out = [{ t: 0, gamma: at(0) }];
+    const refine = (t0, g0, t1, g1, depth) => {
+      if (depth >= maxDepth) return;
+      const tm = (t0 + t1) / 2;
+      const gm = at(tm);
+      const chord = Math.hypot(g1.re - g0.re, g1.im - g0.im);
+      const sag = Math.hypot(gm.re - (g0.re + g1.re) / 2, gm.im - (g0.im + g1.im) / 2);
+      if (!(chord > maxStep || sag > maxStep / 4)) return;      // also stops on NaN / Infinity
+      refine(t0, g0, tm, gm, depth + 1);
+      out.push({ t: tm, gamma: gm });
+      refine(tm, gm, t1, g1, depth + 1);
+    };
+    let tPrev = 0;
+    let gPrev = out[0].gamma;
+    for (let k = 1; k <= base; k += 1) {
+      const t = k / base;
+      const g = at(t);
+      refine(tPrev, gPrev, t, g, 0);
+      out.push({ t, gamma: g });
+      tPrev = t;
+      gPrev = g;
+    }
+    return out;
+  };
+
+  /** What element `index` does on the chart, in the course's vocabulary:
+   *  the normalised steps dz and dy, and the curve it follows when there is one
+   *  (locus.type 'r' | 'x' | 'g' | 'b' | 'gamma', with its constant `value` and
+   *  the displacement `delta` along it). */
+  const stepInfo = (project, index, f = project.f0) => {
+    const states = evaluate(project, f);
+    const el = project.elements[index];
+    const before = metrics(states[index], project.z0, f);
+    const after = metrics(states[index + 1], project.z0, f);
+    const both = (a, b) => isFiniteCx(a) && isFiniteCx(b);
+    const dz = both(before.zn, after.zn) ? sub(after.zn, before.zn) : null;
+    const dy = both(before.yn, after.yn) ? sub(after.yn, before.yn) : null;
+    const small = (x, ref) => Math.abs(x) <= 1e-9 * (1 + Math.abs(ref));
+
+    let locus = null;
+    if (el.kind === 'TL') {
+      if (el.zc === project.z0 && small(after.mag - before.mag, before.mag)) {
+        locus = { type: 'gamma', value: before.mag, delta: after.ang - before.ang };
+      }
+    } else if (el.kind !== 'XFMR') {
+      if (isShunt(el) && dy) {
+        if (small(dy.re, before.yn.re)) locus = { type: 'g', value: before.yn.re, delta: dy.im };
+        else if (small(dy.im, before.yn.im)) locus = { type: 'b', value: before.yn.im, delta: dy.re };
+      } else if (!isShunt(el) && dz) {
+        if (small(dz.re, before.zn.re)) locus = { type: 'r', value: before.zn.re, delta: dz.im };
+        else if (small(dz.im, before.zn.im)) locus = { type: 'x', value: before.zn.im, delta: dz.re };
+      }
+    }
+    return { element: el, shunt: isShunt(el), before, after, dz, dy, locus };
+  };
+
+  /* ==========================================================================
+   * Public surface
+   * ======================================================================== */
+  return {
+    VERSION: '0.1.0',
+    cx: { make: cx, ZERO, ONE, add, sub, mul, div, inv, scale, neg, conj, abs, arg, sqrt, polar, sind, cosd, isZero, isFinite: isFiniteCx },
+    rf: {
+      C0, NP_PER_DB,
+      stFromZ, stFromY, stFromGamma, stZ, stY, stGamma, ST_SHORT, ST_OPEN,
+      zToGamma, gammaToZ, gammaToY, invZ, metrics,
+      componentForReactance, componentForSusceptance, seriesEquivalent, parallelEquivalent, rlcResonance,
+      rCircle, xArc, gCircle, bArc, vswrCircle, qArc, circlePoint,
+      lineLengths, rereferenceLine,
+    },
+    eng: { parse: parseEng, format: formatEng, formatCx },
+    net: { applyElement, branchOf, loadState, loadCovers, evaluate, solve, inputAt, frequencyList, sweep, trajectory, stepInfo },
+  };
+})();
+</script>
+</body>
+</html>
