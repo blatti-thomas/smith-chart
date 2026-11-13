@@ -965,6 +965,81 @@ test('polylignes et flèches', () => {
 });
 
 /* ========================================================================== */
+group('11. Édition du réseau');
+
+const { io } = Core;
+
+test('éléments par défaut : réactances de ±Z0 à f₀, ligne et stub de 45° à Z0', () => {
+  const p = project(75, 433e6, c(75, 0));
+  const z = (el) => { const h = net.branchOf(el, p.f0); return K.div(h.n, h.d); };
+  close(z(net.defaultElement('L', 'series', p)), c(0, 75), EXACT);
+  close(z(net.defaultElement('C', 'shunt', p)), c(0, -75), EXACT);
+  close(z(net.defaultElement('R', 'series', p)), c(75, 0), EXACT);
+  close(z(net.defaultElement('RLC', 'shunt', p)), c(75, 0), 1e-9);      // R-L-C série à la résonance
+  close(z(net.defaultElement('RLC', 'series', p)), c(75, 0), 1e-9);     // R-L-C parallèle à la résonance
+  same(net.defaultElement('RLC', 'shunt', p).topology, 'series');
+  same(net.defaultElement('RLC', 'series', p).topology, 'parallel');
+  const line = net.defaultElement('TL', 'series', p);
+  same(line.zc, 75); same(line.deg, 45); same(line.fref, 433e6);
+  same(net.defaultElement('STUB', 'short', p).term, 'short');
+  same(net.defaultElement('STUB', 'open', p).term, 'open');
+  for (const [kind, variant] of [['R', 'series'], ['L', 'shunt'], ['C', 'series'], ['RLC', 'series'], ['RLC', 'shunt'], ['TL', 'series'], ['STUB', 'open'], ['STUB', 'short'], ['XFMR', 'series']]) {
+    const m = net.inputAt({ ...p, load: { kind: 'z', z: c(20, 35) }, elements: [net.defaultElement(kind, variant, p)] });
+    noNaN(m);
+    ok(m.valid, `${kind} ${variant} : résultat invalide`);
+  }
+});
+test('glisser un point : la valeur retrouvée ramène le point sur la cible', () => {
+  const f = 869e6;
+  const cases = [
+    [L('series', 15e-9), 'value'], [C('series', 6.8e-12), 'value'], [R('series', 33), 'value'],
+    [L('shunt', 12e-9), 'value'], [C('shunt', 3.9e-12), 'value'], [R('shunt', 180), 'value'],
+    [TL(50, 67, f), 'deg'], [TL(75, 112, 500e6, { er: 3.4, alpha: 3 }), 'deg'],
+    [STUB('open', 50, 49.7, f), 'deg'], [STUB('short', 80, 139.7, f), 'deg'], [{ kind: 'XFMR', n: 1.7 }, 'n'],
+  ];
+  for (const [el, key] of cases) {
+    const before = [C('shunt', 2e-12), L('series', 4e-9)];
+    const truth = project(50, f, c(20, 35), [...before, el]);
+    const target = net.inputAt(truth).gamma;
+    // R, L, C, n : on part d'une valeur très différente, la recherche ne dépend pas du point de départ.
+    // Lignes et stubs : la recherche reste à moins d'une demi-onde de la longueur actuelle, pour
+    // qu'une ligne de plus de λ/2 (ici 112° à 500 MHz, soit 195° à 869 MHz) garde ses tours.
+    const start = project(50, f, c(20, 35), [...before, { ...el, [key]: key === 'deg' ? el.deg * 0.8 : el[key] * 37 }]);
+    same(net.primaryKey(el), key);
+    const found = net.tuneToward(start, 2, target);
+    const landed = net.inputAt(project(50, f, c(20, 35), [...before, { ...el, [key]: found }])).gamma;
+    ok(Math.hypot(landed.re - target.re, landed.im - target.im) < 1e-7, `${el.kind} ${el.conn || el.term || ''} : cible manquée (${found} au lieu de ${el[key]})`);
+  }
+});
+test('glisser hors du lieu : on obtient le point du lieu le plus proche de la cible', () => {
+  const f = 869e6;
+  const p = project(50, f, c(20.365, -25.382), [L('series', 15e-9)]);
+  const target = c(0.05, 0.35);                              // pas sur le cercle r = 0,407
+  const best = net.tuneToward(p, 0, target);
+  const dist = (v) => { const g = net.inputAt(project(50, f, c(20.365, -25.382), [L('series', v)])).gamma; return Math.hypot(g.re - target.re, g.im - target.im); };
+  for (const k of [0.9, 0.99, 1.01, 1.1, 3, 0.2]) ok(dist(best) <= dist(best * k) + 1e-12, `une inductance ${k} fois plus grande est plus proche`);
+  close(net.inputAt(project(50, f, c(20.365, -25.382), [L('series', best)])).zn.re, 20.365 / 50, EXACT);   // reste sur son cercle r
+  same(net.tuneToward(project(50, f, c(50, 0), [{ kind: 'RLC', conn: 'series', topology: 'series', r: 1, l: 1e-9, c: 1e-12 }]), 0, target), null);
+});
+test('sérialisation : un projet avec circuit ouvert survit à l\'aller-retour', () => {
+  const p = project(50, 869e6, OPEN, [L('series', 15e-9), TL(50, 90, 869e6)]);
+  const back = io.parse(io.stringify(p));
+  same(back.load.z.re, Infinity); same(back.load.z.im, 0);
+  same(io.stringify(back), io.stringify(p));
+  close(net.inputAt(back).gamma, net.inputAt(p).gamma, EXACT);
+  const odd = io.parse(io.stringify({ a: -Infinity, b: NaN, c: [1, Infinity], d: { $num: 'x', other: 1 }, e: 'Infinity' }));
+  same(odd.a, -Infinity); ok(Number.isNaN(odd.b), 'NaN perdu'); same(odd.c[1], Infinity); same(odd.d.other, 1); same(odd.e, 'Infinity');
+});
+test('signe moins typographique accepté à la saisie ; graduations des graphes', () => {
+  close(eng.parse('−12.5'), -12.5, EXACT);
+  close(eng.parse('−j'.slice(0, 1) + '3n'), -3e-9, EXACT);
+  same(JSON.stringify(Chart.ticks(700e6, 1000e6, 4)), JSON.stringify([700e6, 800e6, 900e6, 1000e6]));
+  same(JSON.stringify(Chart.ticks(-40, 0, 4)), JSON.stringify([-40, -30, -20, -10, 0]));
+  same(JSON.stringify(Chart.ticks(1, 6, 4)), JSON.stringify([2, 4, 6]));
+  same(JSON.stringify(Chart.ticks(5, 5)), JSON.stringify([5]));
+});
+
+/* ========================================================================== */
 const total = passed + failures.length;
 console.log(`\n${total} tests : ${passed} réussis, ${failures.length} en échec`);
 if (failures.length) {

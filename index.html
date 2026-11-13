@@ -237,6 +237,80 @@ td .sub { display: block; color: var(--muted); font-size: 11px; }
   .inspector { border-left: 0; border-top: 1px solid var(--border); overflow: visible; }
   .chart-box { height: min(100vw, 70vh); }
 }
+/* -------------------------------------------------------------- schematic */
+.work { grid-template-rows: auto minmax(0, 1fr) auto; grid-template-columns: minmax(0, 1fr); }
+.schem-scroll { overflow-x: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; }
+#schem { display: block; }
+.s-wire { fill: none; stroke: var(--ink); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.s-sym { fill: var(--panel); stroke: var(--ink); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.s-sym path { fill: none; }
+.s-dot { fill: var(--ink); }
+.s-port { fill: var(--panel); stroke: var(--ink); stroke-width: 1.5; }
+.s-val { fill: var(--ink); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.s-name { fill: var(--muted); font-size: 10px; }
+.s-in { fill: var(--ink); stroke: none; font-size: 9px; }
+.s-hit { fill: transparent; stroke: transparent; cursor: pointer; }
+.s-hit:hover { fill: var(--wash); }
+.s-hit.sel { fill: var(--wash-2); stroke: var(--ink-2); stroke-width: 1; }
+.s-off { opacity: 0.4; }
+.palette { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-top: 8px; font-size: 12px; color: var(--ink-2); }
+.palette .grp { display: inline-flex; align-items: center; gap: 4px; }
+.btn.sm { height: 24px; padding: 0 8px; font-size: 12px; }
+.btn:disabled { opacity: 0.4; cursor: default; }
+.btn[aria-pressed="true"] { background: var(--wash-2); }
+
+/* ------------------------------------------------------------------ plots */
+.plots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0 14px 14px; }
+.plots[hidden] { display: none; }
+.plot { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.plot svg { display: block; width: 100%; height: 150px; cursor: crosshair; touch-action: none; }
+.plots-empty { grid-column: 1 / -1; padding: 12px 14px; border: 1px dashed var(--border); border-radius: 10px; color: var(--muted); }
+.p-grid { stroke: var(--hair); stroke-width: 1; }
+.p-axis { stroke: var(--axis); stroke-width: 1; }
+.p-tick { fill: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+.p-title { fill: var(--ink-2); font-size: 11px; font-weight: 600; }
+.p-line { fill: none; stroke: var(--sweep); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.p-f0 { stroke: var(--ink-2); stroke-width: 1; stroke-dasharray: 4 3; }
+.p-cross { stroke: var(--muted); stroke-width: 1; }
+.p-dot { fill: var(--sweep); stroke: var(--surface); stroke-width: 2; }
+.p-read { fill: var(--ink); font-size: 11px; font-variant-numeric: tabular-nums; }
+.sweep-dot { fill: var(--sweep); stroke: var(--surface); stroke-width: 2; }
+
+/* ----------------------------------------------------------------- editor */
+.ed .row label { width: 104px; flex: none; }
+.vf, .ed select {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.ed input[type="range"] { flex: 1; min-width: 0; accent-color: var(--ink); }
+.ed input[type="checkbox"] { accent-color: var(--ink); }
+.ed .seg { flex: 1; }
+.ed .seg button { flex: 1; }
+.ed .narrow { flex: none; width: 96px; }
+.info { margin: 6px 0; color: var(--ink-2); font-size: 12px; font-variant-numeric: tabular-nums; }
+.info b { color: var(--ink); font-weight: 600; }
+.empty { color: var(--muted); }
+.actions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
+.ed textarea {
+  width: 100%;
+  min-height: 96px;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--ink);
+  font: 12px ui-monospace, Consolas, monospace;
+}
+.sub-head { margin: 10px 0 6px; color: var(--ink-2); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; }
+@media (max-width: 860px) {
+  .plots { grid-template-columns: minmax(0, 1fr); }
+}
 </style>
 </head>
 <body>
@@ -256,14 +330,38 @@ td .sub { display: block; color: var(--muted); font-size: 11px; }
     </div>
     <label class="field">Exemple <select id="sel-preset" aria-label="Exemples du cours"></select></label>
     <span class="spacer"></span>
-    <span class="convention" title="Le premier élément touche la charge ; l'impédance d'entrée est vue après le dernier élément.">Construction : charge → source</span>
+    <button type="button" class="btn" id="btn-undo" title="Annuler (Ctrl+Z)">Annuler</button>
+    <button type="button" class="btn" id="btn-redo" title="Rétablir (Ctrl+Y)">Rétablir</button>
+    <button type="button" class="btn" id="btn-plots" aria-pressed="true" title="Afficher ou masquer les graphes en fréquence">Graphes</button>
     <button type="button" class="btn" id="btn-theme" aria-label="Basculer entre thème clair et thème sombre">Thème</button>
   </header>
 
   <main class="work">
-    <section class="strip" aria-label="Réseau"><div class="chain" id="chain"></div></section>
+    <section class="strip" aria-label="Réseau">
+      <div class="schem-scroll"><svg id="schem" role="group" aria-label="Schéma du réseau"></svg></div>
+      <div class="palette" id="palette">
+        <span class="convention" title="Le premier élément touche la charge ; l'impédance d'entrée est vue après le dernier élément. Un nouvel élément s'insère après l'élément sélectionné, côté source.">Construction : charge → source</span>
+        <span class="grp" role="group" aria-label="Ajouter un élément en série">Série
+          <button type="button" class="btn sm" data-add="R:series" title="Résistance série">R</button>
+          <button type="button" class="btn sm" data-add="L:series" title="Inductance série">L</button>
+          <button type="button" class="btn sm" data-add="C:series" title="Capacité série">C</button>
+          <button type="button" class="btn sm" data-add="TL:series" title="Ligne de transmission série">Ligne</button>
+          <button type="button" class="btn sm" data-add="XFMR:series" title="Transformateur idéal">Transfo</button>
+          <button type="button" class="btn sm" data-add="RLC:series" title="R-L-C parallèle inséré en série">RLC</button>
+        </span>
+        <span class="grp" role="group" aria-label="Ajouter un élément en parallèle">Parallèle
+          <button type="button" class="btn sm" data-add="R:shunt" title="Résistance parallèle">R</button>
+          <button type="button" class="btn sm" data-add="L:shunt" title="Inductance parallèle">L</button>
+          <button type="button" class="btn sm" data-add="C:shunt" title="Capacité parallèle">C</button>
+          <button type="button" class="btn sm" data-add="STUB:open" title="Stub parallèle en circuit ouvert">Stub ouvert</button>
+          <button type="button" class="btn sm" data-add="STUB:short" title="Stub parallèle court-circuité">Stub c-c</button>
+          <button type="button" class="btn sm" data-add="RLC:shunt" title="R-L-C série inséré en parallèle">RLC</button>
+        </span>
+        <button type="button" class="btn sm" id="btn-flip" title="Charge à droite (comme la slide 16) ou à gauche (comme Smith V3.10)">Inverser le schéma</button>
+      </div>
+    </section>
     <section class="chart-box">
-      <svg id="chart" tabindex="0" role="application" aria-label="Abaque de Smith. Molette pour zoomer, glisser pour déplacer, touches plus, moins, zéro et flèches.">
+      <svg id="chart" tabindex="0" role="application" aria-label="Abaque de Smith. Molette pour zoomer, glisser le fond pour déplacer, glisser un point pour régler son élément, touches plus, moins, zéro et flèches.">
         <g id="l-grid-z"></g>
         <g id="l-grid-y"></g>
         <g id="l-rim"></g>
@@ -279,11 +377,21 @@ td .sub { display: block; color: var(--muted); font-size: 11px; }
         <button type="button" class="btn" id="btn-zout" aria-label="Zoom arrière">−</button>
         <button type="button" class="btn" id="btn-zfit">Ajuster</button>
       </div>
-      <div class="hint">Molette : zoom · glisser : déplacer · double-clic : ajuster</div>
+      <div class="hint">Molette : zoom · glisser le fond : déplacer · glisser un point : régler · double-clic : ajuster</div>
+    </section>
+    <section class="plots" id="plots" aria-label="Graphes en fréquence">
+      <div class="plot"><svg id="plot-s11" role="img" aria-label="Module de S11 en décibels en fonction de la fréquence"></svg></div>
+      <div class="plot"><svg id="plot-vswr" role="img" aria-label="VSWR en fonction de la fréquence"></svg></div>
+      <div class="plot"><svg id="plot-phase" role="img" aria-label="Phase du coefficient de réflexion en fonction de la fréquence"></svg></div>
+      <div class="plots-empty" id="plots-empty">Activez le sweep (panneau de droite) pour tracer |S11|, le VSWR et la phase en fonction de la fréquence.</div>
     </section>
   </main>
 
   <aside class="inspector" aria-label="Inspecteur">
+    <section class="card ed">
+      <h2 id="editor-title">Élément</h2>
+      <div id="editor"></div>
+    </section>
     <section class="card">
       <h2 id="cursor-title">Curseur</h2>
       <dl class="kv" id="cursor-list"></dl>
@@ -295,6 +403,10 @@ td .sub { display: block; color: var(--muted); font-size: 11px; }
         <thead><tr><th>Point</th><th class="num">Z (Ω)</th><th class="num">Q</th></tr></thead>
         <tbody id="tbl-points"></tbody>
       </table>
+    </section>
+    <section class="card ed">
+      <h2>Sweep en fréquence</h2>
+      <div id="sweep-box"></div>
     </section>
     <section class="card">
       <h2>Cercles</h2>
@@ -609,7 +721,7 @@ const SmithCore = (() => {
   const parseEng = (input, unit = '') => {
     if (typeof input === 'number') return input;
     if (input == null) return NaN;
-    let s = String(input).trim().replace(/\s+/g, '').replace(',', '.');
+    let s = String(input).trim().replace(/\s+/g, '').replace(',', '.').replace(/^−/, '-');
     if (s === '') return NaN;
     if (/^[+-]?(inf|infinity|∞)$/i.test(s)) return s[0] === '-' ? -Infinity : Infinity;
     if (unit) {
@@ -938,6 +1050,89 @@ const SmithCore = (() => {
     return { element: el, shunt: isShunt(el), before, after, dz, dy, locus };
   };
 
+  /* --- Editing helpers ----------------------------------------------------------------- */
+
+  /** A new element with values that mean something at the project's f0 and z0:
+   *  reactances of ±z0, a 45° line or stub of impedance z0.
+   *  `variant` is the connection ('series' | 'shunt') or, for a stub, its end. */
+  const defaultElement = (kind, variant, project) => {
+    const { z0, f0 } = project;
+    const w = TWO_PI * f0;
+    switch (kind) {
+      case 'R': return { kind, conn: variant, value: z0 };
+      case 'L': return { kind, conn: variant, value: z0 / w };
+      case 'C': return { kind, conn: variant, value: 1 / (w * z0) };
+      case 'RLC': return { kind, conn: variant, topology: variant === 'shunt' ? 'series' : 'parallel', r: z0, l: z0 / w, c: 1 / (w * z0) };
+      case 'TL': return { kind, zc: z0, deg: 45, fref: f0, er: 1, alpha: 0, alphaLaw: 'sqrt' };
+      case 'STUB': return { kind, term: variant === 'short' ? 'short' : 'open', zc: z0, deg: 45, fref: f0, er: 1, alpha: 0, alphaLaw: 'sqrt' };
+      case 'XFMR': return { kind, n: 2 };
+      default: return null;
+    }
+  };
+
+  /** The one value of an element that dragging its end point on the chart tunes. */
+  const PRIMARY = { R: 'value', L: 'value', C: 'value', TL: 'deg', STUB: 'deg', XFMR: 'n' };
+  const primaryKey = (el) => PRIMARY[el.kind] || null;
+
+  /** Value of the primary parameter of element `index` that brings its end
+   *  point closest to `target` (a gamma). A coarse scan over the whole useful
+   *  range, then a golden-section refinement, so that the answer does not
+   *  depend on the current value; a line or stub is searched within half a
+   *  wavelength of its present length. Returns null for elements without one. */
+  const tuneToward = (project, index, target, f = project.f0) => {
+    const el = project.elements[index];
+    const key = primaryKey(el);
+    if (!key) return null;
+    let st0 = loadState(project.load, f, project.z0);
+    for (let k = 0; k < index; k += 1) st0 = applyElement(st0, project.elements[k], f);
+    const dist = (v) => {
+      const g = stGamma(applyElement(st0, { ...el, off: false, [key]: v }, f), project.z0);
+      return isFiniteCx(g) ? Math.hypot(g.re - target.re, g.im - target.im) : Infinity;
+    };
+    const w = TWO_PI * f;
+    let lo;
+    let hi;
+    let log = true;
+    if (key === 'deg') {
+      // one half-wave window around the present length: a long line keeps its turns
+      const half = 90 * (el.fref > 0 && f > 0 ? el.fref / f : 1);
+      lo = Math.max(0, el.deg - half); hi = lo + 2 * half; log = false;
+    }
+    else if (key === 'n') { lo = 0.02; hi = 50; }
+    else {
+      const ref = el.kind === 'R' ? project.z0 : el.kind === 'L' ? project.z0 / w : 1 / (w * project.z0);
+      lo = ref * 1e-4; hi = ref * 1e4;
+    }
+    const at = (u) => (log ? lo * (hi / lo) ** u : lo + (hi - lo) * u);
+    const N = 360;
+    let best = 0;
+    let dBest = Infinity;
+    for (let i = 0; i <= N; i += 1) {
+      const d = dist(at(i / N));
+      if (d < dBest) { dBest = d; best = i / N; }
+    }
+    const PHI = (Math.sqrt(5) - 1) / 2;
+    let a = Math.max(0, best - 1 / N);
+    let b = Math.min(1, best + 1 / N);
+    let c1 = b - PHI * (b - a);
+    let c2 = a + PHI * (b - a);
+    let d1 = dist(at(c1));
+    let d2 = dist(at(c2));
+    for (let i = 0; i < 48; i += 1) {
+      if (d1 < d2) { b = c2; c2 = c1; d2 = d1; c1 = b - PHI * (b - a); d1 = dist(at(c1)); }
+      else { a = c1; c1 = c2; d1 = d2; c2 = a + PHI * (b - a); d2 = dist(at(c2)); }
+    }
+    return at((a + b) / 2);
+  };
+
+  /* ==========================================================================
+   * § io (pure part)
+   * ======================================================================== */
+
+  /** JSON that survives Infinity and NaN (an open-circuit load is infinite). */
+  const stringify = (value, space) => JSON.stringify(value, (k, v) => (typeof v === 'number' && !Number.isFinite(v) ? { $num: String(v) } : v), space);
+  const parseJson = (text) => JSON.parse(text, (k, v) => (v && typeof v === 'object' && typeof v.$num === 'string' && Object.keys(v).length === 1 ? Number(v.$num) : v));
+
   /* ==========================================================================
    * Public surface
    * ======================================================================== */
@@ -953,7 +1148,8 @@ const SmithCore = (() => {
       lineLengths, rereferenceLine,
     },
     eng: { parse: parseEng, format: formatEng, formatCx },
-    net: { applyElement, branchOf, loadState, loadCovers, evaluate, solve, inputAt, frequencyList, sweep, trajectory, stepInfo },
+    net: { applyElement, branchOf, loadState, loadCovers, evaluate, solve, inputAt, frequencyList, sweep, trajectory, stepInfo, defaultElement, primaryKey, tuneToward },
+    io: { stringify, parse: parseJson },
   };
 })();
 </script>
@@ -1247,7 +1443,16 @@ const SmithChart = (() => {
     return out;
   };
 
-  return { makeView, toPx, toGamma, planePoint, arcTo, circleD, rSeg, xSeg, qArcD, polyD, pointAlong, arrowD, visibleRange, grid, nice };
+  /** Round tick values covering [lo, hi], about `target` of them. */
+  const ticks = (lo, hi, target = 5) => {
+    if (!(hi > lo)) return [lo];
+    const step = nice((hi - lo) / target);
+    const out = [];
+    for (let m = Math.ceil(lo / step - 1e-9); m * step <= hi + step * 1e-9; m += 1) out.push(key(m * step));
+    return out;
+  };
+
+  return { makeView, toPx, toGamma, planePoint, arcTo, circleD, rSeg, xSeg, qArcD, polyD, pointAlong, arrowD, visibleRange, grid, nice, ticks };
 })();
 </script>
 
@@ -1257,7 +1462,7 @@ const SmithChart = (() => {
  * ========================================================================== */
 (() => {
   'use strict';
-  const { cx: K, rf, eng, net } = SmithCore;
+  const { cx: K, rf, eng, net, io } = SmithCore;
   const CR = SmithChart;
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
@@ -1273,30 +1478,56 @@ const SmithChart = (() => {
   const fmtZ = (z) => (K.isFinite(z) ? `${fmtCx(z)} Ω` : '∞');
   const fmtY = (y) => (K.isFinite(y) ? `${fmtCx(K.scale(y, 1e3))} mS` : '∞');
   const fmtDb = (v) => (v == null ? '—' : `${sig(v)} dB`);
+  const fmtJ = (x, unit) => `${x < 0 ? '−' : '+'}j${eng.format(Math.abs(x), unit)}`;
 
   const CONN = { series: 'série', shunt: '//' };
+  const degAt = (el, f0) => (el.fref > 0 ? el.deg * f0 / el.fref : el.deg);
   const describe = (el, f0) => {
-    const deg = () => sig(el.fref > 0 ? el.deg * f0 / el.fref : el.deg);
     switch (el.kind) {
       case 'R': return `R ${CONN[el.conn]} ${eng.format(el.value, 'Ω')}`;
       case 'L': return `L ${CONN[el.conn]} ${eng.format(el.value, 'H')}`;
       case 'C': return `C ${CONN[el.conn]} ${eng.format(el.value, 'F')}`;
       case 'RLC': return `R-L-C ${el.topology === 'parallel' ? 'parallèle' : 'série'}, en ${el.conn === 'shunt' ? 'parallèle' : 'série'}`;
-      case 'TL': return `Ligne ${sig(el.zc)} Ω, ${deg()}°`;
-      case 'STUB': return `Stub ${el.term === 'short' ? 'court-circuité' : 'ouvert'} ${sig(el.zc)} Ω, ${deg()}°`;
+      case 'TL': return `Ligne ${sig(el.zc)} Ω, ${sig(degAt(el, f0))}°`;
+      case 'STUB': return `Stub ${el.term === 'short' ? 'court-circuité' : 'ouvert'} ${sig(el.zc)} Ω, ${sig(degAt(el, f0))}°`;
       case 'XFMR': return `Transformateur n = ${sig(el.n)}`;
       default: return '?';
     }
   };
+  /** Short text under or above a symbol in the schematic. */
+  const shortValue = (el, f0) => {
+    switch (el.kind) {
+      case 'R': return eng.format(el.value, 'Ω');
+      case 'L': return eng.format(el.value, 'H');
+      case 'C': return eng.format(el.value, 'F');
+      case 'RLC': return el.topology === 'parallel' ? 'R // L // C' : 'R + L + C';
+      case 'TL': case 'STUB': return `${sig(el.zc, 3)} Ω · ${sig(degAt(el, f0), 4)}°`;
+      case 'XFMR': return `n = ${sig(el.n)}`;
+      default: return '';
+    }
+  };
+  const kindName = (el) => {
+    switch (el.kind) {
+      case 'R': return `résistance ${el.conn === 'shunt' ? 'parallèle' : 'série'}`;
+      case 'L': return `inductance ${el.conn === 'shunt' ? 'parallèle' : 'série'}`;
+      case 'C': return `capacité ${el.conn === 'shunt' ? 'parallèle' : 'série'}`;
+      case 'RLC': return `R-L-C en ${el.conn === 'shunt' ? 'parallèle' : 'série'}`;
+      case 'TL': return 'ligne série';
+      case 'STUB': return `stub ${el.term === 'short' ? 'court-circuité' : 'ouvert'}`;
+      case 'XFMR': return 'transformateur';
+      default: return '';
+    }
+  };
+  const rlcParts = (o) => {
+    const parts = [];
+    if (o.r != null) parts.push(eng.format(o.r, 'Ω'));
+    if (o.l != null) parts.push(eng.format(o.l, 'H'));
+    if (o.c != null) parts.push(eng.format(o.c, 'F'));
+    return parts.join(o.topology === 'parallel' ? ' // ' : ' + ');
+  };
   const describeLoad = (load) => {
     if (load.kind === 'z') return `Charge ${fmtZ(load.z)}`;
-    if (load.kind === 'rlc') {
-      const parts = [];
-      if (load.r != null) parts.push(eng.format(load.r, 'Ω'));
-      if (load.l != null) parts.push(eng.format(load.l, 'H'));
-      if (load.c != null) parts.push(eng.format(load.c, 'F'));
-      return `Charge ${parts.join(load.topology === 'parallel' ? ' // ' : ' + ')}`;
-    }
+    if (load.kind === 'rlc') return `Charge ${rlcParts(load)}`;
     return `Charge tabulée (${load.points.length} points)`;
   };
   const nodeName = (i) => (i === 0 ? 'DP1' : `TP${i + 1}`);
@@ -1319,8 +1550,8 @@ const SmithChart = (() => {
     ...extra,
   });
   const PRESETS = [
-    { name: 'Slide 17 — réseau en échelle, charge 2 + j10 Ω', make: () => base({ f0: 869e6, load: { kind: 'z', z: { re: 2, im: 10 } }, elements: ladder() }) },
-    { name: 'Slide 16 — même réseau, charge 92 nH + 2 Ω', make: () => base({ f0: 869e6, load: { kind: 'rlc', topology: 'series', r: 2, l: 92e-9, c: null }, elements: ladder() }) },
+    { name: 'Slide 17 — réseau en échelle, charge 2 + j10 Ω', make: () => base({ f0: 869e6, load: { kind: 'z', z: { re: 2, im: 10 } }, elements: ladder(), sweep: { on: false, start: 700e6, stop: 1000e6, points: 201, scale: 'lin' } }) },
+    { name: 'Slide 16 — même réseau, charge 92 nH + 2 Ω', make: () => base({ f0: 869e6, load: { kind: 'rlc', topology: 'series', r: 2, l: 92e-9, c: null }, elements: ladder(), sweep: { on: false, start: 700e6, stop: 1000e6, points: 201, scale: 'lin' } }) },
     { name: 'Slide 6 — placement d\'impédances', make: () => base({ load: { kind: 'z', z: zn(0.6, 0.8) }, markers: [{ label: 'z = 1', z: zn(1, 0) }, { label: 'z = 1,2 − j1,4', z: zn(1.2, -1.4) }] }) },
     { name: 'Slide 7 — C série, Δ = −j1,1', make: () => base({ load: { kind: 'z', z: zn(0.6, 0.8) }, elements: [seriesX(-1.1)] }) },
     { name: 'Slide 8 — L série, Δ = +j1,8', make: () => base({ load: { kind: 'z', z: zn(1.2, -1.4) }, elements: [seriesX(1.8)] }) },
@@ -1329,9 +1560,10 @@ const SmithChart = (() => {
     { name: 'Slide 13 — C parallèle, Δ = +j1,4', make: () => base({ load: { kind: 'z', z: yn(1.2, -0.4) }, elements: [shuntB(1.4)] }) },
     { name: 'Slide 14 — L parallèle, Δ = −j1,4', make: () => base({ load: { kind: 'z', z: yn(1.2, 1.0) }, elements: [shuntB(-1.4)] }) },
     { name: 'Slide 15 — variation de fréquence', make: () => base({ load: { kind: 'rlc', topology: 'series', r: 25, l: 8e-9, c: 3e-12 }, sweep: { on: true, start: 200e6, stop: 3e9, points: 201, scale: 'log' } }) },
+    { name: 'Projet vide — charge 50 Ω', make: () => base({}) },
   ];
 
-  /* --- State -------------------------------------------------------------------------- */
+  /* --- State and history ---------------------------------------------------------------- */
 
   const state = {
     project: PRESETS[0].make(),
@@ -1340,17 +1572,56 @@ const SmithChart = (() => {
     view: null,
     fitted: true,        // the view follows the size of its container
     hover: null,         // { x, y, gamma, node }
-    selected: -1,        // selected node, -1 = none
+    selected: -1,        // selected node: 0 = load, i + 1 = element i, -1 = none
+    sweepIdx: -1,        // highlighted sweep sample
+    flip: false,         // schematic: load on the left
+    plots: true,
+    loadFmt: 'z',        // how a fixed load is typed in
+    slider: { ratio: 2, span: 45, center: null },
+    nodePx: [],
   };
   let model = { nodes: [], paths: [], sweep: null };
+  const history = { undo: [], redo: [], key: null, time: 0 };
 
   const recompute = () => {
     const p = state.project;
     model = {
       nodes: net.solve(p),
       paths: p.elements.map((_, i) => net.trajectory(p, i)),
-      sweep: p.sweep.on ? net.sweep(p, p.sweep) : null,
+      sweep: p.sweep.on && p.sweep.stop > p.sweep.start ? net.sweep(p, p.sweep) : null,
     };
+    if (state.selected > p.elements.length) state.selected = -1;
+    if (!model.sweep || state.sweepIdx >= model.sweep.length) state.sweepIdx = -1;
+  };
+
+  /** Apply a change to the project. Changes carrying the same `key` within a
+   *  short time (wheel, slider, drag) share a single undo step. */
+  const change = (mutate, key = null) => {
+    const now = Date.now();
+    if (!(key && key === history.key && now - history.time < 900)) {
+      history.undo.push(io.stringify(state.project));
+      if (history.undo.length > 200) history.undo.shift();
+    }
+    history.redo.length = 0;
+    history.key = key;
+    history.time = now;
+    mutate(state.project);
+    refresh();
+  };
+  const travel = (from, to) => {
+    if (!from.length) return;
+    to.push(io.stringify(state.project));
+    state.project = io.parse(from.pop());
+    history.key = null;
+    refresh();
+  };
+  const undo = () => travel(history.undo, history.redo);
+  const redo = () => travel(history.redo, history.undo);
+
+  const select = (node) => {
+    state.selected = node;
+    state.slider.center = null;
+    drawData(); drawSchematic(); drawPanels(); drawEditor(); showReadout();
   };
 
   /* --- Chart ---------------------------------------------------------------------------- */
@@ -1442,6 +1713,7 @@ const SmithChart = (() => {
 
     let traj = '';
     model.paths.forEach((path, i) => {
+      if (p.elements[i].off) return;
       const gammas = path.map((s) => s.gamma);
       const sel = state.selected === i + 1 ? ' sel' : '';
       traj += `<path class="traj${sel}" d="${CR.polyD(v, gammas)}"/>`;
@@ -1477,12 +1749,494 @@ const SmithChart = (() => {
   const drawCursor = () => {
     const h = state.hover;
     const v = state.view;
-    if (!h) { $('l-cursor').innerHTML = ''; return; }
-    const q = h.node >= 0 ? state.nodePx[h.node] : { x: h.x, y: h.y };
-    $('l-cursor').innerHTML = `<line class="cross" x1="0" y1="${q.y.toFixed(1)}" x2="${v.w}" y2="${q.y.toFixed(1)}"/><line class="cross" x1="${q.x.toFixed(1)}" y1="0" x2="${q.x.toFixed(1)}" y2="${v.h}"/><circle class="cross-dot" cx="${q.x.toFixed(1)}" cy="${q.y.toFixed(1)}" r="${h.node >= 0 ? 8 : 3}"/>`;
+    let out = '';
+    if (state.sweepIdx >= 0 && model.sweep) {
+      const g = model.sweep[state.sweepIdx].gamma;
+      if (K.isFinite(g)) {
+        const q = CR.toPx(v, g);
+        out += `<circle class="sweep-dot" cx="${q.x.toFixed(1)}" cy="${q.y.toFixed(1)}" r="5"/>`;
+      }
+    }
+    if (h) {
+      const q = h.node >= 0 && state.nodePx[h.node] ? state.nodePx[h.node] : { x: h.x, y: h.y };
+      out += `<line class="cross" x1="0" y1="${q.y.toFixed(1)}" x2="${v.w}" y2="${q.y.toFixed(1)}"/><line class="cross" x1="${q.x.toFixed(1)}" y1="0" x2="${q.x.toFixed(1)}" y2="${v.h}"/><circle class="cross-dot" cx="${q.x.toFixed(1)}" cy="${q.y.toFixed(1)}" r="${h.node >= 0 ? 8 : 3}"/>`;
+    }
+    $('l-cursor').innerHTML = out;
   };
 
-  /* --- Inspector --------------------------------------------------------------------------- */
+  /* --- Schematic ---------------------------------------------------------------------------- */
+
+  const SYM = {
+    R: '<rect x="-18" y="-7" width="36" height="14"/><path d="M-22 0H-18M18 0H22"/>',
+    L: '<path d="M-22 0H-20a5 5 0 0 1 10 0a5 5 0 0 1 10 0a5 5 0 0 1 10 0a5 5 0 0 1 10 0H22"/>',
+    C: '<path d="M-22 0H-4M4 0H22M-4 -12V12M4 -12V12"/>',
+    RLC: '<rect x="-20" y="-9" width="40" height="18" rx="2"/><path d="M-22 0H-20M20 0H22"/>',
+    TL: '<rect x="-22" y="-6" width="44" height="12" rx="6"/>',
+  };
+
+  const drawSchematic = () => {
+    const p = state.project;
+    const n = p.elements.length;
+    const W = 96; const H = 134; const TOP = 48; const BOT = 106; const MID = 77; const PORT = 78; const LOADW = 132;
+    const total = PORT + n * W + LOADW;
+    const flip = state.flip;
+    const xPort = flip ? total - 30 : 30;
+    const xLoad = flip ? LOADW / 2 : total - LOADW / 2;
+    // slot 0 is next to the port when the load is on the right
+    const xCell = (i) => {
+      const slot = flip ? i : n - 1 - i;
+      return (flip ? LOADW : PORT) + slot * W + W / 2;
+    };
+    const had = document.activeElement && document.activeElement.closest && document.activeElement.closest('#schem')
+      ? document.activeElement.dataset.node : null;
+
+    let hits = '';
+    let body = '';
+    const gaps = [];
+    const hit = (node, x0, w, label) => {
+      hits += `<rect class="s-hit${state.selected === node ? ' sel' : ''}" x="${x0}" y="4" width="${w}" height="${H - 8}" rx="8" data-node="${node}" tabindex="0" role="button" aria-pressed="${state.selected === node}" aria-label="${esc(label)}"/>`;
+    };
+
+    p.elements.forEach((el, i) => {
+      const x = xCell(i);
+      const off = el.off ? ' s-off' : '';
+      const value = esc(shortValue(el, p.f0));
+      hit(i + 1, x - W / 2 + 2, W - 4, `${nodeName(i + 1)}, ${describe(el, p.f0)}`);
+      let g = '';
+      if (el.kind === 'STUB') {
+        g += `<path class="s-wire" d="M${x} ${TOP}V${TOP + 8}${el.term === 'short' ? `M${x} ${TOP + 46}V${BOT}` : ''}"/>`;
+        g += `<rect class="s-sym" x="${x - 6}" y="${TOP + 8}" width="12" height="38" rx="6"/><circle class="s-dot" cx="${x}" cy="${TOP}" r="2.6"/>`;
+        g += `<text class="s-val" x="${x}" y="${BOT + 18}" text-anchor="middle">${value}</text><text class="s-name" x="${x}" y="${TOP - 10}" text-anchor="middle">${nodeName(i + 1)}</text>`;
+      } else if (el.kind === 'XFMR') {
+        gaps.push([x - 22, x + 22]);
+        const coil = (dir) => `M${22 * dir} 0H${9 * dir}V13${`a4 4 0 0 ${dir < 0 ? 1 : 0} 0 8`.repeat(4)}V${BOT - TOP}`;
+        g += `<g class="s-sym" transform="translate(${x} ${TOP})"><path d="${coil(-1)}"/><path d="${coil(1)}"/><path d="M-1.5 12V46M1.5 12V46"/></g>`;
+        g += `<text class="s-val" x="${x}" y="${TOP - 16}" text-anchor="middle">${value}</text><text class="s-name" x="${x}" y="${BOT + 18}" text-anchor="middle">${nodeName(i + 1)}</text>`;
+      } else if (el.kind === 'TL' || el.conn !== 'shunt') {
+        gaps.push([x - 22, x + 22]);
+        g += `<g class="s-sym" transform="translate(${x} ${TOP})">${SYM[el.kind]}</g>`;
+        if (el.kind === 'RLC') g += `<text class="s-in" x="${x}" y="${TOP + 3.5}" text-anchor="middle">RLC</text>`;
+        g += `<text class="s-val" x="${x}" y="${TOP - 16}" text-anchor="middle">${value}</text><text class="s-name" x="${x}" y="${TOP + 24}" text-anchor="middle">${nodeName(i + 1)}</text>`;
+      } else {
+        g += `<path class="s-wire" d="M${x} ${TOP}V${MID - 22}M${x} ${MID + 22}V${BOT}"/>`;
+        g += `<g class="s-sym" transform="translate(${x} ${MID}) rotate(90)">${SYM[el.kind]}</g><circle class="s-dot" cx="${x}" cy="${TOP}" r="2.6"/>`;
+        if (el.kind === 'RLC') g += `<text class="s-in" x="${x}" y="${MID + 3.5}" text-anchor="middle" transform="rotate(-90 ${x} ${MID})">RLC</text>`;
+        g += `<text class="s-val" x="${x}" y="${BOT + 18}" text-anchor="middle">${value}</text><text class="s-name" x="${x}" y="${TOP - 10}" text-anchor="middle">${nodeName(i + 1)}</text>`;
+      }
+      body += `<g class="${off.trim()}">${g}</g>`;
+    });
+
+    // load: an impedance box between the rails
+    hit(0, xLoad - LOADW / 2 + 2, LOADW - 4, `DP1, ${describeLoad(p.load)}`);
+    const loadText = p.load.kind === 'z' ? fmtZ(p.load.z) : p.load.kind === 'rlc' ? rlcParts(p.load) : `Z(f), ${p.load.points.length} points`;
+    body += `<path class="s-wire" d="M${xLoad} ${TOP}V${TOP + 12}M${xLoad} ${BOT - 12}V${BOT}"/><rect class="s-sym" x="${xLoad - 8}" y="${TOP + 12}" width="16" height="${BOT - TOP - 24}"/>`;
+    body += `<text class="s-val" x="${xLoad + (flip ? -14 : 14)}" y="${MID + 4}" text-anchor="${flip ? 'end' : 'start'}">Z<tspan font-size="8" dy="3">L</tspan></text>`;
+    body += `<text class="s-val" x="${xLoad}" y="${BOT + 18}" text-anchor="middle">${esc(loadText)}</text><text class="s-name" x="${xLoad}" y="${TOP - 10}" text-anchor="middle">DP1 · charge</text>`;
+
+    // rails, with gaps where series elements sit
+    const x0 = Math.min(xPort, xLoad);
+    const x1 = Math.max(xPort, xLoad);
+    gaps.sort((a, b) => a[0] - b[0]);
+    let rail = '';
+    let pen = x0;
+    for (const [a, b] of gaps) { rail += `M${pen} ${TOP}H${a}`; pen = b; }
+    rail += `M${pen} ${TOP}H${x1}M${x0} ${BOT}H${x1}`;
+    body = `<path class="s-wire" d="${rail}"/>${body}`;
+    body += `<circle class="s-port" cx="${xPort}" cy="${TOP}" r="3.2"/><circle class="s-port" cx="${xPort}" cy="${BOT}" r="3.2"/>`;
+    body += `<text class="s-val" x="${xPort}" y="${MID + 4}" text-anchor="middle">${flip ? '← Z' : 'Z'}<tspan font-size="8" dy="3">in</tspan><tspan dy="-3">${flip ? '' : ' →'}</tspan></text>`;
+    body += `<text class="s-name" x="${xPort}" y="${TOP - 10}" text-anchor="middle">entrée</text>`;
+
+    const el = $('schem');
+    el.setAttribute('width', total);
+    el.setAttribute('height', H);
+    el.setAttribute('viewBox', `0 0 ${total} ${H}`);
+    // the drawing sits above the hit areas but lets the pointer through to them
+    el.innerHTML = `${hits}<g pointer-events="none">${body}</g>`;
+    if (had != null) {
+      const again = el.querySelector(`[data-node="${had}"]`);
+      if (again) again.focus();
+    }
+  };
+
+  /* --- Editor ---------------------------------------------------------------------------- */
+
+  /** Registry of the value fields currently on screen: id -> definition.
+   *  A definition has get(), set(v), a unit, and optionally:
+   *    ok(v)        validity test (default: finite and > 0)
+   *    text(v)      display text (default: engineering notation with the unit)
+   *    step(v, d)   value after one tuning step of direction d = ±1 × multiplier
+   *    scope        prefix of the undo key, so tuning one field is one undo step */
+  const fields = new Map();
+  const infos = new Map();
+  const actions = new Map();
+  const showField = (def) => (def.text ? def.text(def.get()) : eng.format(def.get(), def.unit, 5));
+  const stepMul = (v, d) => v * (1 + 0.01 * d);
+  const stepAdd = (unit) => (v, d) => v + unit * d;
+
+  const fieldRow = (id, label, def, extra = '') => {
+    fields.set(id, def);
+    return `<div class="row"><label for="${id}">${label}</label><input class="vf" id="${id}" data-field="${id}" value="${esc(showField(def))}" autocomplete="off" spellcheck="false">${extra}</div>`;
+  };
+  const segRow = (id, label, options, current, fn) => {
+    actions.set(id, fn);
+    const buttons = options.map(([value, text]) => `<button type="button" data-act="${id}" data-value="${value}" aria-pressed="${value === current}">${text}</button>`).join('');
+    return `<div class="row"><label>${label}</label><div class="seg" role="group" aria-label="${esc(label)}">${buttons}</div></div>`;
+  };
+  const selectRow = (id, label, options, current, fn) => {
+    actions.set(id, fn);
+    const opts = options.map(([value, text]) => `<option value="${value}"${String(value) === String(current) ? ' selected' : ''}>${text}</option>`).join('');
+    return `<div class="row"><label for="${id}">${label}</label><select id="${id}" data-act="${id}">${opts}</select></div>`;
+  };
+  const infoRow = (id, fn) => {
+    infos.set(id, fn);
+    return `<p class="info" data-info="${id}">${fn()}</p>`;
+  };
+  const button = (id, text, fn, disabled = false) => {
+    actions.set(id, fn);
+    return `<button type="button" class="btn sm" data-act="${id}"${disabled ? ' disabled' : ''}>${text}</button>`;
+  };
+
+  /** Slider under the primary value: the knob returns to the middle when it is
+   *  released, so the range always extends on both sides of the current value. */
+  const sliderRow = (def, additive) => {
+    const s = state.slider;
+    actions.set('slider-range', (value) => { if (additive) s.span = Number(value); else s.ratio = Number(value); drawEditor(true); });
+    fields.set('slider', { ...def, additive });
+    const opts = additive
+      ? [[10, '± 10°'], [45, '± 45°'], [180, '± 180°']].map(([v, t]) => `<option value="${v}"${v === s.span ? ' selected' : ''}>${t}</option>`).join('')
+      : [[1.2, '± 20 %'], [2, '÷ 2 … × 2'], [10, '÷ 10 … × 10']].map(([v, t]) => `<option value="${v}"${v === s.ratio ? ' selected' : ''}>${t}</option>`).join('');
+    return `<div class="row"><label for="slider">Réglage</label><input type="range" id="slider" min="-1" max="1" step="0.002" value="0" aria-label="Réglage fin de la valeur"><select class="narrow" data-act="slider-range" aria-label="Plage du réglage">${opts}</select></div>`;
+  };
+
+  const lossRows = (E, kind) => {
+    const mode = E().loss ? E().loss.mode : 'none';
+    let out = selectRow('loss-mode', 'Pertes', [['none', 'Idéal'], ['esr', 'Résistance série'], ['q', 'Q à une fréquence']], mode, (value) => change((p) => {
+      const el = E();
+      if (value === 'none') delete el.loss;
+      else if (value === 'esr') el.loss = { mode: 'esr', esr: 0.5 };
+      else el.loss = { mode: 'q', q: kind === 'L' ? 50 : 200, f: p.f0 };
+    }));
+    if (mode === 'esr') out += fieldRow('loss-esr', 'ESR', { unit: 'Ω', get: () => E().loss.esr, set: (v) => { E().loss.esr = v; }, ok: (v) => v >= 0 && Number.isFinite(v), scope: 'esr' });
+    if (mode === 'q') {
+      out += fieldRow('loss-q', 'Q', { unit: '', get: () => E().loss.q, set: (v) => { E().loss.q = v; }, scope: 'q' });
+      out += fieldRow('loss-f', 'à la fréquence', { unit: 'Hz', get: () => E().loss.f, set: (v) => { E().loss.f = v; }, scope: 'qf' });
+    }
+    return out;
+  };
+
+  const lineRows = (E) => {
+    const f0 = () => state.project.f0;
+    const at0 = () => rf.rereferenceLine(E(), f0());                // the element described at f0
+    const setDeg = (deg) => Object.assign(E(), at0(), { deg });
+    const wave = () => rf.C0 / f0();
+    const degText = (v) => `${sig(v, 5).replace('−', '-')}°`;
+    let out = fieldRow('tl-zc', 'Zc', { unit: 'Ω', get: () => E().zc, set: (v) => { E().zc = v; }, scope: 'zc' });
+    const degDef = { unit: '°', get: () => at0().deg, set: setDeg, ok: (v) => v >= 0 && Number.isFinite(v), text: degText, step: stepAdd(1), scope: 'deg' };
+    out += fieldRow('tl-deg', 'Longueur θ', degDef);
+    out += sliderRow(degDef, true);
+    out += fieldRow('tl-lambda', 'en λ', { unit: 'λ', get: () => at0().deg / 360, set: (v) => setDeg(360 * v), ok: (v) => v >= 0 && Number.isFinite(v), text: (v) => `${sig(v, 5)} λ`, step: stepAdd(0.005), scope: 'deg' });
+    out += fieldRow('tl-elec', 'électrique', { unit: 'm', get: () => at0().deg / 360 * wave(), set: (v) => setDeg(360 * v / wave()), ok: (v) => v >= 0 && Number.isFinite(v), scope: 'deg' });
+    out += fieldRow('tl-phys', 'physique', { unit: 'm', get: () => rf.lineLengths(E()).phys, set: (v) => setDeg(360 * v * Math.sqrt(E().er || 1) / wave()), ok: (v) => v >= 0 && Number.isFinite(v), scope: 'deg' });
+    out += fieldRow('tl-er', 'εr effectif', { unit: '', get: () => E().er || 1, set: (v) => { E().er = v; }, ok: (v) => v >= 1 && Number.isFinite(v), scope: 'er' });
+    out += fieldRow('tl-vf', 'Facteur de vélocité', { unit: '', get: () => 1 / Math.sqrt(E().er || 1), set: (v) => { E().er = 1 / (v * v); }, ok: (v) => v > 0 && v <= 1, scope: 'er' });
+    out += fieldRow('tl-alpha', 'Pertes α', { unit: 'dB/m', get: () => at0().alpha || 0, set: (v) => Object.assign(E(), at0(), { alpha: v }), ok: (v) => v >= 0 && Number.isFinite(v), text: (v) => `${sig(v, 4).replace('−', '-')} dB/m`, step: stepAdd(0.1), scope: 'alpha' });
+    out += selectRow('tl-law', 'Loi des pertes', [['sqrt', 'α · √(f / f₀), conducteur'], ['const', 'α constant']], E().alphaLaw === 'const' ? 'const' : 'sqrt', (value) => change(() => { E().alphaLaw = value; }));
+    return out;
+  };
+
+  const rlcRows = (O, prefix, mutate) => {
+    let out = '';
+    for (const [key, label, unit] of [['r', 'R', 'Ω'], ['l', 'L', 'H'], ['c', 'C', 'F']]) {
+      const present = O()[key] != null;
+      actions.set(`${prefix}-has-${key}`, (value, checked) => mutate(() => {
+        const o = O();
+        if (!checked) o[key] = null;
+        else o[key] = net.defaultElement(key.toUpperCase(), 'series', state.project).value;
+      }));
+      const box = `<input type="checkbox" data-act="${prefix}-has-${key}"${present ? ' checked' : ''} aria-label="${label} présent">`;
+      if (present) out += fieldRow(`${prefix}-${key}`, label, { unit, get: () => O()[key], set: (v) => { O()[key] = v; }, scope: `${prefix}${key}` }, box);
+      else out += `<div class="row"><label>${label}</label><span class="empty" style="flex:1">absent</span>${box}</div>`;
+    }
+    return out;
+  };
+
+  /* Fixed load: the formats in which it can be typed. */
+  const LOAD_FORMATS = {
+    z: { name: 'Z = R + jX', labels: ['R', 'X'], units: ['Ω', 'Ω'], to: (z) => [z.re, z.im], from: (a, b) => K.make(a, b) },
+    y: { name: 'Y = G + jB', labels: ['G', 'B'], units: ['S', 'S'], to: (z) => { const y = rf.invZ(z); return [y.re, y.im]; }, from: (a, b) => rf.invZ(K.make(a, b)) },
+    zn: { name: 'z normalisée', labels: ['r', 'x'], units: ['', ''], to: (z, z0) => [z.re / z0, z.im / z0], from: (a, b, z0) => K.make(a * z0, b * z0) },
+    yn: { name: 'y normalisée', labels: ['g', 'b'], units: ['', ''], to: (z, z0) => { const y = rf.invZ(z); return [y.re * z0, y.im * z0]; }, from: (a, b, z0) => rf.invZ(K.make(a / z0, b / z0)) },
+    gamma: { name: 'Γ module ∠ phase', labels: ['|Γ|', 'Phase'], units: ['', '°'], to: (z, z0) => { const g = rf.zToGamma(z, z0); return [K.abs(g), K.arg(g) * 180 / Math.PI]; }, from: (a, b, z0) => rf.gammaToZ(K.polar(a, b), z0) },
+    s11: { name: 'S11 en dB ∠ phase', labels: ['|S11|', 'Phase'], units: ['dB', '°'], to: (z, z0) => { const g = rf.zToGamma(z, z0); return [20 * Math.log10(K.abs(g)), K.arg(g) * 180 / Math.PI]; }, from: (a, b, z0) => rf.gammaToZ(K.polar(10 ** (a / 20), b), z0) },
+  };
+
+  const loadEditor = () => {
+    const L = () => state.project.load;
+    const z0 = () => state.project.z0;
+    let out = selectRow('load-kind', 'Type', [['z', 'Impédance fixe'], ['rlc', 'Circuit R-L-C'], ['table', 'Table Z(f)']], L().kind, (value) => change((p) => {
+      const z = model.nodes[0].z;
+      if (value === 'z') p.load = { kind: 'z', z: K.isFinite(z) ? { re: z.re, im: z.im } : { re: p.z0, im: 0 } };
+      else if (value === 'rlc') p.load = { kind: 'rlc', topology: 'series', r: K.isFinite(z) && z.re > 0 ? z.re : p.z0, l: null, c: null };
+      else p.load = { kind: 'table', points: [{ f: p.f0, z: K.isFinite(z) ? { re: z.re, im: z.im } : { re: p.z0, im: 0 } }] };
+    }));
+    if (L().kind === 'z') {
+      const fmt = LOAD_FORMATS[state.loadFmt];
+      out += selectRow('load-fmt', 'Saisie', Object.entries(LOAD_FORMATS).map(([k, f]) => [k, f.name]), state.loadFmt, (value) => { state.loadFmt = value; drawEditor(true); });
+      [0, 1].forEach((part) => {
+        const unit = fmt.units[part];
+        out += fieldRow(`load-${part}`, fmt.labels[part], {
+          unit,
+          get: () => fmt.to(L().z, z0())[part],
+          set: (v) => { const pair = fmt.to(L().z, z0()); pair[part] = v; const z = fmt.from(pair[0], pair[1], z0()); L().z = { re: z.re, im: z.im }; },
+          ok: (v) => Number.isFinite(v),
+          text: unit === '°' ? (v) => `${sig(v, 5).replace('−', '-')}°` : unit === 'dB' ? (v) => `${sig(v, 5).replace('−', '-')} dB` : unit === '' ? (v) => sig(v, 5).replace('−', '-') : null,
+          step: unit === '°' ? stepAdd(1) : unit === 'dB' ? stepAdd(0.1) : (v, d) => v + 0.01 * d * Math.max(Math.abs(v), unit === 'Ω' ? z0() * 0.02 : unit === 'S' ? 0.02 / z0() : 0.02),
+          scope: 'load',
+        });
+      });
+      out += '<p class="info">Le point DP1 se glisse aussi directement sur l\'abaque. La charge reste fixe quand la fréquence varie.</p>';
+    } else if (L().kind === 'rlc') {
+      out += segRow('load-topo', 'Montage', [['series', 'Série'], ['parallel', 'Parallèle']], L().topology, (value) => change(() => { L().topology = value; }));
+      out += rlcRows(L, 'load', (fn) => change(fn));
+    } else {
+      const text = L().points.map((pt) => `${eng.format(pt.f, 'Hz', 6)}  ${sig(pt.z.re, 6).replace('−', '-')}  ${sig(pt.z.im, 6).replace('−', '-')}`).join('\n');
+      actions.set('load-table', (value) => {
+        const points = [];
+        for (const line of value.split('\n')) {
+          const cols = line.trim().split(/[\s;]+/).filter(Boolean);
+          if (cols.length < 3) continue;
+          // a frequency may be written "869 MHz": glue the unit back
+          const hasUnit = cols.length >= 4 && /^[a-zA-Zµ]+$/.test(cols[1]);
+          const f = eng.parse(hasUnit ? cols[0] + cols[1] : cols[0], 'Hz');
+          const re = eng.parse(cols[hasUnit ? 2 : 1]);
+          const im = eng.parse(cols[hasUnit ? 3 : 2]);
+          if (f > 0 && Number.isFinite(re) && Number.isFinite(im)) points.push({ f, z: { re, im } });
+        }
+        if (!points.length) return false;
+        points.sort((a, b) => a.f - b.f);
+        change(() => { L().points = points; });
+        return true;
+      });
+      out += `<p class="info">Une ligne par point : fréquence, R, X (en ohms). Interpolation linéaire sur Γ, sans extrapolation.</p><textarea data-act="load-table" spellcheck="false" aria-label="Points de la charge">${esc(text)}</textarea>`;
+    }
+    return out;
+  };
+
+  const elementEditor = (i) => {
+    const E = () => state.project.elements[i];
+    const el = E();
+    const p = state.project;
+    const count = p.elements.length;
+    let out = '';
+    const connRow = () => segRow('conn', 'Montage', [['series', 'Série'], ['shunt', 'Parallèle']], el.conn, (value) => change(() => { E().conn = value; }));
+
+    if (el.kind === 'R' || el.kind === 'L' || el.kind === 'C') {
+      const unit = { R: 'Ω', L: 'H', C: 'F' }[el.kind];
+      const def = { unit, get: () => E().value, set: (v) => { E().value = v; }, scope: 'value' };
+      out += connRow() + fieldRow('value', 'Valeur', def) + sliderRow(def, false);
+      if (el.kind !== 'R') out += lossRows(E, el.kind);
+    } else if (el.kind === 'RLC') {
+      out += connRow();
+      out += segRow('topo', 'Circuit', [['series', 'R-L-C série'], ['parallel', 'R-L-C parallèle']], el.topology, (value) => change(() => { E().topology = value; }));
+      out += rlcRows(E, 'rlc', (fn) => change(fn));
+    } else if (el.kind === 'TL') {
+      out += lineRows(E);
+    } else if (el.kind === 'STUB') {
+      out += segRow('term', 'Extrémité', [['open', 'Ouverte'], ['short', 'Court-circuit']], el.term, (value) => change(() => { E().term = value; }));
+      out += lineRows(E);
+    } else if (el.kind === 'XFMR') {
+      const def = { unit: '', get: () => E().n, set: (v) => { E().n = v; }, text: (v) => sig(v, 5), scope: 'n' };
+      out += fieldRow('xf-n', 'Rapport n', def) + sliderRow(def, false);
+      out += '<p class="info">Transformateur idéal : Z<sub>in</sub> = n² · Z (n = spires côté source / spires côté charge).</p>';
+    }
+
+    out += infoRow('step', () => {
+      const info = net.stepInfo(state.project, i);
+      const bits = [];
+      const h = el.kind === 'TL' || el.kind === 'XFMR' ? null : net.branchOf(E(), state.project.f0);
+      if (h && !K.isZero(h.d) && !K.isZero(h.n)) {
+        const zb = K.div(h.n, h.d);
+        bits.push(info.shunt ? `Admittance de la branche à f₀ : <b>${esc(fmtY(rf.invZ(zb)))}</b>` : `Impédance de la branche à f₀ : <b>${esc(fmtZ(zb))}</b>`);
+      }
+      if (info.locus && info.locus.type === 'r') bits.push(`Cercle r = ${esc(sig(info.locus.value))}, Δx = <b>${esc(fmtJ(info.locus.delta, ''))}</b>`);
+      else if (info.locus && info.locus.type === 'g') bits.push(`Cercle g = ${esc(sig(info.locus.value))}, Δb = <b>${esc(fmtJ(info.locus.delta, ''))}</b>`);
+      else if (info.locus && info.locus.type === 'gamma') bits.push(`Cercle |Γ| = ${esc(sig(info.locus.value))}, rotation de <b>${esc(sig(info.locus.delta))}°</b>`);
+      else if (info.dz) bits.push(`Δz = <b>${esc(fmtCx(info.dz))}</b>`);
+      return bits.join('<br>');
+    });
+
+    out += '<div class="actions">';
+    out += button('move-load', 'Vers la charge', () => change((q) => { const e = q.elements; [e[i - 1], e[i]] = [e[i], e[i - 1]]; state.selected = i; }), i === 0);
+    out += button('move-src', 'Vers la source', () => change((q) => { const e = q.elements; [e[i + 1], e[i]] = [e[i], e[i + 1]]; state.selected = i + 2; }), i === count - 1);
+    out += button('dup', 'Dupliquer', () => change((q) => { q.elements.splice(i + 1, 0, io.parse(io.stringify(E()))); state.selected = i + 2; }));
+    out += button('toggle', el.off ? 'Réactiver' : 'Désactiver', () => change(() => { E().off = !E().off; }));
+    out += button('del', 'Supprimer', () => removeElement(i));
+    out += '</div>';
+    return out;
+  };
+
+  let editorKey = '';
+  /** Rebuild the editor when its structure changes; otherwise only refresh the
+   *  values, so that a field keeps the focus while it is being tuned. */
+  const drawEditor = (force = false) => {
+    const p = state.project;
+    const node = state.selected;
+    fields.clear(); infos.clear(); actions.clear();
+    let title = 'Élément';
+    let html;
+    if (node < 0) {
+      html = '<p class="empty">Sélectionnez la charge ou un élément (schéma, abaque ou tableau des points) pour le modifier. Les boutons « Série » et « Parallèle » ajoutent un élément après la sélection, côté source.</p>';
+    } else if (node === 0) {
+      title = 'DP1 · charge';
+      html = loadEditor();
+    } else {
+      title = `${nodeName(node)} · ${kindName(p.elements[node - 1])}`;
+      html = elementEditor(node - 1);
+    }
+    $('editor-title').textContent = title;
+    const el = node > 0 ? p.elements[node - 1] : null;
+    const key = JSON.stringify([node, el && [el.kind, el.conn, el.topology, el.term, el.alphaLaw, el.off, el.loss && el.loss.mode, el.r == null, el.l == null, el.c == null],
+      node === 0 && [p.load.kind, p.load.topology, state.loadFmt, p.load.r == null, p.load.l == null, p.load.c == null, p.load.kind === 'table' && p.load.points.length],
+      p.elements.length, state.slider.ratio, state.slider.span]);
+    const box = $('editor');
+    if (force || key !== editorKey) {
+      box.innerHTML = html;
+      editorKey = key;
+    } else {
+      for (const [id, def] of fields) {
+        const input = $(id);
+        if (!input || id === 'slider') continue;
+        if (document.activeElement === input && input.dataset.dirty === '1') continue;
+        input.value = showField(def);
+        input.removeAttribute('aria-invalid');
+      }
+      for (const [id, fn] of infos) {
+        const target = box.querySelector(`[data-info="${id}"]`);
+        if (target) target.innerHTML = fn();
+      }
+    }
+    if (!state.sliding) {
+      const sl = $('slider');
+      if (sl) { sl.value = 0; state.slider.center = fields.get('slider').get(); }
+    }
+  };
+
+  const tune = (id, dir) => {
+    const def = fields.get(id);
+    if (!def) return;
+    const next = (def.step || stepMul)(def.get(), dir);
+    if (!(def.ok ? def.ok(next) : next > 0 && Number.isFinite(next))) return;
+    const input = $(id);
+    if (input) input.dataset.dirty = '';
+    change(() => def.set(next), `tune:${state.selected}:${def.scope || id}`);
+  };
+  const tuneFactor = (ev) => (ev.shiftKey ? 10 : ev.altKey ? 0.1 : 1);
+
+  const inspector = document.querySelector('.inspector');
+  inspector.addEventListener('input', (ev) => {
+    const t = ev.target;
+    if (t.classList.contains('vf')) { t.dataset.dirty = '1'; return; }
+    if (t.id === 'slider') {
+      const def = fields.get('slider');
+      const s = state.slider;
+      if (s.center == null) s.center = def.get();
+      const x = Number(t.value);
+      const next = def.additive ? Math.max(0, s.center + x * s.span) : s.center * s.ratio ** x;
+      state.sliding = true;
+      if (next > 0 || def.additive) change(() => def.set(next), `slide:${state.selected}`);
+    }
+  });
+  inspector.addEventListener('change', (ev) => {
+    const t = ev.target;
+    if (t.id === 'slider') { state.sliding = false; history.key = null; drawEditor(); return; }
+    if (t.classList.contains('vf')) {
+      const def = fields.get(t.dataset.field);
+      if (!def) return;
+      const v = eng.parse(t.value, def.unit);
+      t.dataset.dirty = '';
+      if (def.ok ? def.ok(v) : v > 0 && Number.isFinite(v)) { t.removeAttribute('aria-invalid'); change(() => def.set(v)); }
+      else t.setAttribute('aria-invalid', 'true');
+      return;
+    }
+    const act = t.dataset.act && actions.get(t.dataset.act);
+    if (!act) return;
+    if (t.tagName === 'TEXTAREA') { if (act(t.value) === false) t.setAttribute('aria-invalid', 'true'); else t.removeAttribute('aria-invalid'); }
+    else if (t.type === 'checkbox') act(t.value, t.checked);
+    else if (t.tagName === 'SELECT') act(t.value);
+  });
+  inspector.addEventListener('click', (ev) => {
+    const b = ev.target.closest('button[data-act]');
+    if (!b || b.disabled) return;
+    const act = actions.get(b.dataset.act);
+    if (act) act(b.dataset.value);
+  });
+  inspector.addEventListener('wheel', (ev) => {
+    const t = ev.target;
+    if (!t.classList || !t.classList.contains('vf')) return;
+    ev.preventDefault();
+    tune(t.dataset.field, (ev.deltaY < 0 ? 1 : -1) * tuneFactor(ev));
+  }, { passive: false });
+  inspector.addEventListener('keydown', (ev) => {
+    const t = ev.target;
+    if (!t.classList || !t.classList.contains('vf')) return;
+    if (ev.key === 'ArrowUp' || ev.key === 'ArrowDown') {
+      ev.preventDefault();
+      tune(t.dataset.field, (ev.key === 'ArrowUp' ? 1 : -1) * tuneFactor(ev));
+    } else if (ev.key === 'Escape') {
+      const def = fields.get(t.dataset.field);
+      if (def) { t.value = showField(def); t.dataset.dirty = ''; t.removeAttribute('aria-invalid'); }
+    }
+  });
+
+  /* --- Network edits ---------------------------------------------------------------------- */
+
+  const addElement = (kind, variant) => {
+    change((p) => {
+      const at = state.selected >= 0 ? state.selected : p.elements.length;   // after the selected node
+      p.elements.splice(at, 0, net.defaultElement(kind, variant, p));
+      state.selected = at + 1;
+      state.slider.center = null;
+    });
+    // ready to type the value straight away
+    const first = $('value') || $('tl-deg') || $('xf-n') || $('rlc-r');
+    if (first) { first.focus(); first.select(); }
+  };
+  const removeElement = (i) => {
+    change((p) => {
+      p.elements.splice(i, 1);
+      state.selected = Math.min(i, p.elements.length);
+      if (state.selected === 0 && !p.elements.length) state.selected = -1;
+    });
+  };
+
+  $('palette').addEventListener('click', (ev) => {
+    const b = ev.target.closest('button[data-add]');
+    if (!b) return;
+    const [kind, variant] = b.dataset.add.split(':');
+    addElement(kind, variant);
+  });
+  $('btn-flip').addEventListener('click', () => { state.flip = !state.flip; drawSchematic(); });
+
+  const schem = $('schem');
+  schem.addEventListener('click', (ev) => {
+    const hit = ev.target.closest('[data-node]');
+    if (hit) select(Number(hit.dataset.node));
+  });
+  schem.addEventListener('keydown', (ev) => {
+    const hit = ev.target.closest('[data-node]');
+    if (!hit) return;
+    const node = Number(hit.dataset.node);
+    if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); select(node); schem.querySelector(`[data-node="${node}"]`).focus(); }
+    else if ((ev.key === 'Delete' || ev.key === 'Backspace') && node > 0) { ev.preventDefault(); removeElement(node - 1); }
+    else if (ev.key === 'ArrowLeft' || ev.key === 'ArrowRight') {
+      ev.preventDefault();
+      const all = [...schem.querySelectorAll('[data-node]')].sort((a, b) => Number(a.getAttribute('x')) - Number(b.getAttribute('x')));
+      const next = all[all.indexOf(hit) + (ev.key === 'ArrowRight' ? 1 : -1)];
+      if (next) next.focus();
+    }
+  });
+
+  /* --- Inspector panels ---------------------------------------------------------------------- */
 
   const equivalent = (eq, joiner) => {
     if (!eq) return '—';
@@ -1495,9 +2249,12 @@ const SmithChart = (() => {
     const p = state.project;
     let m;
     let title;
-    if (state.hover && state.hover.node < 0) {
+    if (state.hover && state.hover.node < 0 && state.sweepIdx < 0) {
       m = rf.metrics(rf.stFromGamma(state.hover.gamma, p.z0), p.z0, p.f0);
       title = 'Curseur';
+    } else if (state.sweepIdx >= 0 && model.sweep && !(state.hover && state.hover.node >= 0)) {
+      m = model.sweep[state.sweepIdx];
+      title = `Sweep · ${eng.format(m.f, 'Hz')}`;
     } else {
       const i = state.hover ? state.hover.node : (state.selected >= 0 ? state.selected : model.nodes.length - 1);
       m = model.nodes[i];
@@ -1521,6 +2278,49 @@ const SmithChart = (() => {
     $('cursor-flag').innerHTML = m.active ? '<span class="flag">▲ Actif / instable : |Γ| &gt; 1</span>' : '';
   };
 
+  const sweepFields = new Map();
+  const drawSweepBox = () => {
+    const s = state.project.sweep;
+    const box = $('sweep-box');
+    const defs = [
+      ['sw-start', 'Début', 'Hz', () => s.start, (v) => { state.project.sweep.start = v; }],
+      ['sw-stop', 'Fin', 'Hz', () => s.stop, (v) => { state.project.sweep.stop = v; }],
+      ['sw-points', 'Points', '', () => s.points, (v) => { state.project.sweep.points = Math.round(Math.min(2001, Math.max(2, v))); }],
+    ];
+    sweepFields.clear();
+    defs.forEach(([id, , unit, get, set]) => sweepFields.set(id, { unit, get, set }));
+    if (!box.firstChild) {
+      box.innerHTML = `<div class="row"><label for="sw-on">Tracer</label><input type="checkbox" id="sw-on"><span class="empty" style="flex:1">trace à l'entrée du réseau</span></div>`
+        + defs.map(([id, label]) => `<div class="row"><label for="${id}">${label}</label><input class="vf" id="${id}" autocomplete="off" spellcheck="false"></div>`).join('')
+        + '<div class="row"><label for="sw-scale">Échelle</label><select id="sw-scale"><option value="lin">Linéaire</option><option value="log">Logarithmique</option></select></div>'
+        + '<div class="actions"><button type="button" class="btn sm" id="sw-around">f₀ ± 20 %</button><button type="button" class="btn sm" id="sw-octave">f₀ / 2 … 2 · f₀</button></div>';
+    }
+    $('sw-on').checked = s.on;
+    $('sw-scale').value = s.scale === 'log' ? 'log' : 'lin';
+    for (const [id, def] of sweepFields) {
+      const input = $(id);
+      if (document.activeElement === input && input.dataset.dirty === '1') continue;
+      input.value = def.unit ? eng.format(def.get(), def.unit, 5) : String(def.get());
+      input.removeAttribute('aria-invalid');
+    }
+  };
+  $('sweep-box').addEventListener('input', (ev) => { if (ev.target.classList.contains('vf')) ev.target.dataset.dirty = '1'; });
+  $('sweep-box').addEventListener('change', (ev) => {
+    const t = ev.target;
+    if (t.id === 'sw-on') { change((p) => { p.sweep.on = t.checked; }); return; }
+    if (t.id === 'sw-scale') { change((p) => { p.sweep.scale = t.value; }); return; }
+    const def = sweepFields.get(t.id);
+    if (!def) return;
+    const v = eng.parse(t.value, def.unit);
+    t.dataset.dirty = '';
+    if (v > 0 && Number.isFinite(v)) { t.removeAttribute('aria-invalid'); change(() => def.set(v)); } else t.setAttribute('aria-invalid', 'true');
+  });
+  $('sweep-box').addEventListener('click', (ev) => {
+    const around = (lo, hi) => change((p) => { p.sweep.on = true; p.sweep.start = p.f0 * lo; p.sweep.stop = p.f0 * hi; });
+    if (ev.target.id === 'sw-around') around(0.8, 1.2);
+    if (ev.target.id === 'sw-octave') around(0.5, 2);
+  });
+
   const drawPanels = () => {
     const p = state.project;
     $('points-freq').textContent = `à ${eng.format(p.f0, 'Hz')}`;
@@ -1529,30 +2329,129 @@ const SmithChart = (() => {
       return `<tr data-node="${i}" aria-selected="${state.selected === i}"><td>${nodeName(i)}<span class="sub">${esc(sub)}</span></td><td class="num">${esc(K.isFinite(m.z) ? fmtCx(m.z) : '∞')}</td><td class="num">${esc(sig(m.q, 3))}</td></tr>`;
     }).join('');
 
-    // Source on the left, load on the right; the network is built right to left.
-    const chain = ['<span class="node end">Entrée Z<sub>in</sub></span>'];
-    for (let i = p.elements.length - 1; i >= 0; i -= 1) {
-      chain.push('<span class="wire">—</span>', `<span class="node">${esc(describe(p.elements[i], p.f0))}</span>`);
-    }
-    chain.push('<span class="wire">—</span>', `<span class="node end">${esc(describeLoad(p.load))}</span>`);
-    $('chain').innerHTML = chain.join('');
-
     const chips = (list, id) => {
       $(id).innerHTML = list.map((val, i) => `<span class="chip">${esc(sig(val))}<button type="button" data-i="${i}" aria-label="Retirer ${esc(sig(val))}">×</button></span>`).join('');
     };
     chips(p.circles.vswr, 'chips-vswr');
     chips(p.circles.q, 'chips-q');
 
-    $('in-z0').value = eng.format(p.z0, 'Ω');
-    $('in-f0').value = eng.format(p.f0, 'Hz');
+    for (const [id, unit, val] of [['in-z0', 'Ω', p.z0], ['in-f0', 'Hz', p.f0]]) {
+      const input = $(id);
+      if (document.activeElement === input && input.dataset.dirty === '1') continue;
+      input.value = eng.format(val, unit, 6);
+      input.removeAttribute('aria-invalid');
+    }
     for (const b of $('seg-mode').children) b.setAttribute('aria-pressed', String(b.dataset.mode === state.mode));
     for (const b of $('seg-units').children) b.setAttribute('aria-pressed', String(b.dataset.units === state.units));
+    $('btn-undo').disabled = !history.undo.length;
+    $('btn-redo').disabled = !history.redo.length;
+    $('btn-plots').setAttribute('aria-pressed', String(state.plots));
+    drawSweepBox();
   };
 
-  const drawAll = () => { drawGrid(); drawData(); drawCursor(); };
-  const refresh = () => { recompute(); drawAll(); drawPanels(); showReadout(); };
+  /* --- Frequency plots ---------------------------------------------------------------------- */
 
-  /* --- Interaction ------------------------------------------------------------------------- */
+  const PLOTS = [
+    { id: 'plot-s11', title: '|S11| (dB)', value: (m) => (m.mag === 0 ? -80 : Math.max(-80, -m.rl)), text: (v) => `${sig(v)} dB` },
+    { id: 'plot-vswr', title: 'VSWR', value: (m) => (m.vswr == null ? NaN : m.vswr), text: (v) => sig(v) },
+    { id: 'plot-phase', title: 'Phase de Γ (°)', value: (m) => (m.ang == null ? NaN : m.ang), text: (v) => `${sig(v)}°` },
+  ];
+  let plotGeo = null;
+
+  const drawPlots = () => {
+    const box = $('plots');
+    box.hidden = !state.plots;
+    if (!state.plots) return;
+    const sw = model.sweep;
+    $('plots-empty').hidden = Boolean(sw);
+    for (const pl of PLOTS) $(pl.id).parentElement.hidden = !sw;
+    if (!sw) { plotGeo = null; return; }
+    const spec = state.project.sweep;
+    const log = spec.scale === 'log' && spec.start > 0;
+    const W = $(PLOTS[0].id).clientWidth || 300;
+    const H = 150;
+    const mg = { l: 40, r: 12, t: 24, b: 22 };
+    const fx = (f) => mg.l + (log ? Math.log(f / spec.start) / Math.log(spec.stop / spec.start) : (f - spec.start) / (spec.stop - spec.start)) * (W - mg.l - mg.r);
+    let xt;
+    if (log && spec.stop / spec.start >= 20) {
+      xt = [];
+      for (let e = Math.ceil(Math.log10(spec.start) - 1e-9); 10 ** e <= spec.stop * (1 + 1e-9); e += 1) xt.push(10 ** e);
+    } else xt = CR.ticks(spec.start, spec.stop, 4);
+    plotGeo = { W, H, mg, fx, ys: [] };
+
+    PLOTS.forEach((pl, n) => {
+      const vals = sw.map(pl.value);
+      const finite = vals.filter((v) => Number.isFinite(v));
+      let lo; let hi; let yt;
+      if (n === 0) { hi = Math.max(0, Math.ceil(Math.max(0, ...finite) / 10) * 10); lo = Math.min(-10, Math.floor(Math.min(0, ...finite) / 10) * 10); yt = CR.ticks(lo, hi, 4); }
+      else if (n === 1) { lo = 1; hi = Math.min(10, Math.max(2, Math.ceil(Math.max(1, ...finite)))); yt = CR.ticks(lo, hi, 4); }
+      else { lo = -180; hi = 180; yt = [-180, -90, 0, 90, 180]; }
+      const fy = (v) => mg.t + (hi - v) / (hi - lo) * (H - mg.t - mg.b);
+      plotGeo.ys.push({ fy, vals, lo, hi });
+      let d = '';
+      let pen = false;
+      vals.forEach((v, i) => {
+        if (!Number.isFinite(v) || (n === 2 && i > 0 && Math.abs(v - vals[i - 1]) > 180)) pen = false;
+        if (!Number.isFinite(v)) return;
+        d += `${pen ? 'L' : 'M'}${fx(sw[i].f).toFixed(1)} ${fy(Math.min(hi * 3, v)).toFixed(1)}`;
+        pen = true;
+      });
+      let s = `<defs><clipPath id="clip-${pl.id}"><rect x="${mg.l}" y="${mg.t}" width="${W - mg.l - mg.r}" height="${H - mg.t - mg.b}"/></clipPath></defs>`;
+      for (const v of yt) s += `<line class="p-grid" x1="${mg.l}" x2="${W - mg.r}" y1="${fy(v).toFixed(1)}" y2="${fy(v).toFixed(1)}"/><text class="p-tick" x="${mg.l - 5}" y="${(fy(v) + 3).toFixed(1)}" text-anchor="end">${esc(sig(v, 3))}</text>`;
+      for (const f of xt) if (f >= spec.start && f <= spec.stop) s += `<text class="p-tick" x="${fx(f).toFixed(1)}" y="${H - 7}" text-anchor="middle">${esc(eng.format(f, 'Hz', 3))}</text>`;
+      s += `<line class="p-axis" x1="${mg.l}" x2="${W - mg.r}" y1="${H - mg.b}" y2="${H - mg.b}"/>`;
+      const f0 = state.project.f0;
+      if (f0 >= spec.start && f0 <= spec.stop) s += `<line class="p-f0" x1="${fx(f0).toFixed(1)}" x2="${fx(f0).toFixed(1)}" y1="${mg.t}" y2="${H - mg.b}"/><text class="p-tick" x="${(fx(f0) + 4).toFixed(1)}" y="${mg.t + 9}">f₀</text>`;
+      s += `<path class="p-line" clip-path="url(#clip-${pl.id})" d="${d}"/><text class="p-title" x="${mg.l}" y="14">${esc(pl.title)}</text><g id="cur-${pl.id}"></g>`;
+      const el = $(pl.id);
+      el.setAttribute('viewBox', `0 0 ${W} ${H}`);
+      el.innerHTML = s;
+    });
+    drawPlotCursor();
+  };
+
+  const drawPlotCursor = () => {
+    if (!plotGeo || !model.sweep) return;
+    const { W, H, mg, fx, ys } = plotGeo;
+    PLOTS.forEach((pl, n) => {
+      const g = $(`cur-${pl.id}`);
+      if (!g) return;
+      const i = state.sweepIdx;
+      if (i < 0) { g.innerHTML = ''; return; }
+      const m = model.sweep[i];
+      const x = fx(m.f);
+      const v = ys[n].vals[i];
+      const yv = Number.isFinite(v) ? Math.max(mg.t, Math.min(H - mg.b, ys[n].fy(v))) : null;
+      g.innerHTML = `<line class="p-cross" x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${mg.t}" y2="${H - mg.b}"/>${yv == null ? '' : `<circle class="p-dot" cx="${x.toFixed(1)}" cy="${yv.toFixed(1)}" r="4"/>`}<text class="p-read" x="${W - mg.r}" y="14" text-anchor="end">${esc(Number.isFinite(v) ? pl.text(v) : '—')} · ${esc(eng.format(m.f, 'Hz'))}</text>`;
+    });
+  };
+
+  const setSweepIdx = (i) => {
+    if (i === state.sweepIdx) return;
+    state.sweepIdx = i;
+    drawCursor(); drawPlotCursor(); showReadout();
+  };
+  for (const pl of PLOTS) {
+    const el = $(pl.id);
+    el.addEventListener('pointermove', (ev) => {
+      if (!plotGeo || !model.sweep) return;
+      const r = el.getBoundingClientRect();
+      const x = (ev.clientX - r.left) * (plotGeo.W / r.width);
+      let best = 0;
+      let dBest = Infinity;
+      model.sweep.forEach((m, i) => { const d = Math.abs(plotGeo.fx(m.f) - x); if (d < dBest) { dBest = d; best = i; } });
+      setSweepIdx(best);
+    });
+    el.addEventListener('pointerleave', () => setSweepIdx(-1));
+  }
+  $('btn-plots').addEventListener('click', () => { state.plots = !state.plots; drawPanels(); drawPlots(); });
+
+  /* --- Refresh ---------------------------------------------------------------------- */
+
+  const drawAll = () => { drawGrid(); drawData(); drawCursor(); };
+  const refresh = () => { recompute(); drawAll(); drawSchematic(); drawPanels(); drawEditor(); drawPlots(); showReadout(); };
+
+  /* --- Chart interaction ------------------------------------------------------------------- */
 
   const localXY = (ev) => {
     const r = svg.getBoundingClientRect();
@@ -1561,49 +2460,88 @@ const SmithChart = (() => {
   const nearestNode = (x, y) => {
     let best = -1;
     let dBest = 9;
-    (state.nodePx || []).forEach((q, i) => {
+    state.nodePx.forEach((q, i) => {
       if (!q) return;
       const d = Math.hypot(q.x - x, q.y - y);
       if (d <= dBest) { dBest = d; best = i; }
     });
     return best;
   };
+  const nearestSweep = (x, y) => {
+    if (!model.sweep) return -1;
+    let best = -1;
+    let dBest = 9;
+    model.sweep.forEach((m, i) => {
+      if (!K.isFinite(m.gamma)) return;
+      const q = CR.toPx(state.view, m.gamma);
+      const d = Math.hypot(q.x - x, q.y - y);
+      if (d <= dBest) { dBest = d; best = i; }
+    });
+    return best;
+  };
+  /** What a press on node `node` drags: its element's value, the load, or nothing. */
+  const dragKind = (node) => {
+    const p = state.project;
+    if (node === 0) return p.load.kind === 'z' ? 'load' : null;
+    if (node > 0 && !p.elements[node - 1].off && net.primaryKey(p.elements[node - 1])) return 'tune';
+    return null;
+  };
 
   let drag = null;
   svg.addEventListener('pointerdown', (ev) => {
     if (ev.button !== 0) return;
     const { x, y } = localXY(ev);
-    drag = { x, y, ox: state.view.ox, oy: state.view.oy, moved: false, id: ev.pointerId };
-    svg.setPointerCapture(ev.pointerId);
+    const node = nearestNode(x, y);
+    drag = { x, y, ox: state.view.ox, oy: state.view.oy, moved: false, id: ev.pointerId, node, kind: node >= 0 ? dragKind(node) : null };
+    try { svg.setPointerCapture(ev.pointerId); } catch (err) { /* no capture: the drag still works inside the chart */ }
+    svg.focus({ preventScroll: true });
   });
   svg.addEventListener('pointermove', (ev) => {
     const { x, y } = localXY(ev);
     if (drag) {
       if (!drag.moved && Math.hypot(x - drag.x, y - drag.y) < 4) return;
+      if (!drag.moved && drag.kind && state.selected !== drag.node) { state.selected = drag.node; state.slider.center = null; }
       drag.moved = true;
-      state.view = { ...state.view, ox: drag.ox + x - drag.x, oy: drag.oy + y - drag.y };
-      state.fitted = false;
-      state.hover = null;
-      drawAll();
+      const g = CR.toGamma(state.view, x, y);
+      if (drag.kind === 'tune') {
+        const i = drag.node - 1;
+        const value = net.tuneToward(state.project, i, g);
+        state.hover = { x, y, gamma: g, node: drag.node };
+        if (value != null) change((p) => { p.elements[i][net.primaryKey(p.elements[i])] = value; }, `drag:${i}`);
+      } else if (drag.kind === 'load') {
+        const z = rf.gammaToZ(g, state.project.z0);
+        state.hover = { x, y, gamma: g, node: 0 };
+        if (K.isFinite(z)) change((p) => { p.load.z = { re: z.re, im: z.im }; }, 'drag:load');
+      } else {
+        state.view = { ...state.view, ox: drag.ox + x - drag.x, oy: drag.oy + y - drag.y };
+        state.fitted = false;
+        state.hover = null;
+        drawAll();
+      }
       return;
     }
-    state.hover = { x, y, gamma: CR.toGamma(state.view, x, y), node: nearestNode(x, y) };
-    drawCursor();
-    showReadout();
+    const node = nearestNode(x, y);
+    state.hover = { x, y, gamma: CR.toGamma(state.view, x, y), node };
+    state.sweepIdx = node < 0 ? nearestSweep(x, y) : -1;
+    drawCursor(); drawPlotCursor(); showReadout();
   });
   svg.addEventListener('pointerup', (ev) => {
     if (!drag) return;
     const { x, y } = localXY(ev);
     if (!drag.moved) {
       const node = nearestNode(x, y);
-      state.selected = node === state.selected ? -1 : node;
-      drawData(); drawPanels(); showReadout();
-    }
-    svg.releasePointerCapture(drag.id);
+      select(node === state.selected ? -1 : node);
+    } else history.key = null;
+    try { svg.releasePointerCapture(drag.id); } catch (err) { /* was not captured */ }
     drag = null;
   });
   svg.addEventListener('pointercancel', () => { drag = null; });
-  svg.addEventListener('pointerleave', () => { if (!drag) { state.hover = null; drawCursor(); showReadout(); } });
+  svg.addEventListener('pointerleave', () => {
+    if (drag) return;
+    state.hover = null;
+    state.sweepIdx = -1;
+    drawCursor(); drawPlotCursor(); showReadout();
+  });
   svg.addEventListener('wheel', (ev) => {
     ev.preventDefault();
     const { x, y } = localXY(ev);
@@ -1621,7 +2559,6 @@ const SmithChart = (() => {
       case 'ArrowRight': pan(-40, 0); break;
       case 'ArrowUp': pan(0, 40); break;
       case 'ArrowDown': pan(0, -40); break;
-      case 'Escape': state.selected = -1; drawData(); drawPanels(); showReadout(); break;
       default: return;
     }
     ev.preventDefault();
@@ -1637,7 +2574,10 @@ const SmithChart = (() => {
     if (state.fitted || !state.view) fitView();
     else state.view = { ...state.view, w, h, ox: state.view.ox + (w - state.view.w) / 2, oy: state.view.oy + (h - state.view.h) / 2 };
     drawAll();
+    drawPlots();
   }).observe(svg);
+
+  /* --- Top bar ---------------------------------------------------------------------- */
 
   $('seg-mode').addEventListener('click', (ev) => {
     const b = ev.target.closest('button');
@@ -1652,16 +2592,21 @@ const SmithChart = (() => {
     drawGrid(); drawPanels();
   });
 
-  /** Text field holding one positive quantity, committed on Enter or blur. */
+  /** Top-bar field holding one positive quantity, committed on Enter or blur,
+   *  tuned with the wheel or the arrow keys. */
   const bindQuantity = (id, unit, get, set) => {
     const input = $(id);
-    const commit = () => {
+    const step = (dir) => { input.dataset.dirty = ''; change(() => set(get() * (1 + 0.01 * dir)), `tune:${id}`); };
+    input.addEventListener('input', () => { input.dataset.dirty = '1'; });
+    input.addEventListener('change', () => {
       const v = eng.parse(input.value, unit);
-      if (v > 0 && Number.isFinite(v)) { input.removeAttribute('aria-invalid'); set(v); refresh(); } else { input.setAttribute('aria-invalid', 'true'); }
-    };
-    input.addEventListener('change', commit);
+      input.dataset.dirty = '';
+      if (v > 0 && Number.isFinite(v)) { input.removeAttribute('aria-invalid'); change(() => set(v)); } else input.setAttribute('aria-invalid', 'true');
+    });
+    input.addEventListener('wheel', (ev) => { ev.preventDefault(); step((ev.deltaY < 0 ? 1 : -1) * tuneFactor(ev)); }, { passive: false });
     input.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Escape') { input.removeAttribute('aria-invalid'); input.value = eng.format(get(), unit); input.blur(); }
+      if (ev.key === 'ArrowUp' || ev.key === 'ArrowDown') { ev.preventDefault(); step((ev.key === 'ArrowUp' ? 1 : -1) * tuneFactor(ev)); }
+      else if (ev.key === 'Escape') { input.dataset.dirty = ''; input.removeAttribute('aria-invalid'); input.value = eng.format(get(), unit, 6); }
     });
   };
   bindQuantity('in-z0', 'Ω', () => state.project.z0, (v) => { state.project.z0 = v; });
@@ -1672,14 +2617,11 @@ const SmithChart = (() => {
     input.addEventListener('keydown', (ev) => {
       if (ev.key !== 'Enter') return;
       const v = eng.parse(input.value);
-      const arr = list();
-      if (valid(v) && !arr.includes(v)) { arr.push(v); input.value = ''; input.removeAttribute('aria-invalid'); refresh(); } else { input.setAttribute('aria-invalid', 'true'); }
+      if (valid(v) && !list().includes(v)) { input.value = ''; input.removeAttribute('aria-invalid'); change(() => list().push(v)); } else input.setAttribute('aria-invalid', 'true');
     });
     $(chipsId).addEventListener('click', (ev) => {
       const b = ev.target.closest('button');
-      if (!b) return;
-      list().splice(Number(b.dataset.i), 1);
-      refresh();
+      if (b) change(() => list().splice(Number(b.dataset.i), 1));
     });
   };
   bindRing('in-vswr', 'chips-vswr', () => state.project.circles.vswr, (v) => v > 1 && Number.isFinite(v));
@@ -1689,16 +2631,27 @@ const SmithChart = (() => {
     const row = ev.target.closest('tr');
     if (!row) return;
     const i = Number(row.dataset.node);
-    state.selected = state.selected === i ? -1 : i;
-    drawData(); drawPanels(); showReadout();
+    select(state.selected === i ? -1 : i);
   });
 
-  const select = $('sel-preset');
-  select.innerHTML = PRESETS.map((p, i) => `<option value="${i}">${esc(p.name)}</option>`).join('');
-  select.addEventListener('change', () => {
-    state.project = PRESETS[Number(select.value)].make();
+  const presetSelect = $('sel-preset');
+  presetSelect.innerHTML = PRESETS.map((p, i) => `<option value="${i}">${esc(p.name)}</option>`).join('');
+  presetSelect.addEventListener('change', () => {
     state.selected = -1;
-    refresh();
+    change(() => { state.project = PRESETS[Number(presetSelect.value)].make(); });
+  });
+
+  $('btn-undo').addEventListener('click', undo);
+  $('btn-redo').addEventListener('click', redo);
+  document.addEventListener('keydown', (ev) => {
+    const t = ev.target;
+    const typing = t instanceof HTMLElement && (t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || (t.tagName === 'INPUT' && t.type !== 'range' && t.type !== 'checkbox'));
+    const dirty = typing && (t.tagName === 'TEXTAREA' || t.dataset.dirty === '1');
+    const mod = ev.ctrlKey || ev.metaKey;
+    if (mod && !dirty && (ev.key === 'z' || ev.key === 'Z') && !ev.shiftKey) { ev.preventDefault(); undo(); }
+    else if (mod && !dirty && (ev.key === 'y' || ev.key === 'Y' || ((ev.key === 'z' || ev.key === 'Z') && ev.shiftKey))) { ev.preventDefault(); redo(); }
+    else if (!typing && !t.closest('#schem') && (ev.key === 'Delete' || ev.key === 'Backspace') && state.selected > 0) { ev.preventDefault(); removeElement(state.selected - 1); }
+    else if (!typing && ev.key === 'Escape' && state.selected >= 0) select(-1);
   });
 
   const root = document.documentElement;
@@ -1711,7 +2664,7 @@ const SmithChart = (() => {
 
   fitView();
   refresh();
-  window.SmithApp = { state, refresh, fitView, zoomAt, drawAll, PRESETS, get model() { return model; } };
+  window.SmithApp = { state, history, refresh, change, select, undo, redo, fitView, zoomAt, drawAll, addElement, PRESETS, get model() { return model; } };
 })();
 </script>
 </body>
