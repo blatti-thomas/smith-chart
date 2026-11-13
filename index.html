@@ -114,6 +114,7 @@ h1, h2 { margin: 0; font-weight: 600; }
   font-variant-numeric: tabular-nums;
 }
 .field input { width: 92px; }
+.field select { max-width: 230px; }
 input[aria-invalid="true"] { border-color: var(--crit); }
 .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
 .seg button {
@@ -308,6 +309,41 @@ td .sub { display: block; color: var(--muted); font-size: 11px; }
   font: 12px ui-monospace, Consolas, monospace;
 }
 .sub-head { margin: 10px 0 6px; color: var(--ink-2); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; }
+/* ------------------------------------------------- collapsible cards, panels */
+details.card > summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  list-style: none;
+  cursor: pointer;
+  color: var(--ink-2);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+details.card > summary::-webkit-details-marker { display: none; }
+details.card > summary::before { content: "▸"; width: 10px; color: var(--muted); }
+details.card[open] > summary::before { content: "▾"; }
+details.card[open] > summary { margin-bottom: 8px; }
+details.card > summary small { color: var(--muted); font-weight: 400; letter-spacing: 0; text-transform: none; }
+.sol { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; padding: 6px; border: 1px solid var(--border); border-radius: 8px; }
+.sol:hover, .sol:focus-visible { background: var(--wash); }
+.sol-main { flex: 1; min-width: 0; }
+.sol-title { font-variant-numeric: tabular-nums; }
+.sol-meta { color: var(--ink-2); font-size: 11.5px; }
+.kv dd b { font-weight: 600; }
+.file-group { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-bottom: 4px; }
+#status { min-height: 1.4em; }
+#status.bad { color: var(--crit); }
+.course-z, .course-y, .course-n { fill: none; stroke-width: 1.8; }
+.course-z { stroke: var(--z); }
+.course-y { stroke: var(--y); }
+.course-n { stroke: var(--ink-2); stroke-dasharray: 2 4; }
+.course-label { fill: var(--ink); font-size: 11.5px; font-weight: 600; paint-order: stroke; stroke: var(--surface); stroke-width: 3.5px; stroke-linejoin: round; }
+.course-sym { stroke: var(--ink-2); stroke-width: 1; stroke-dasharray: 4 3; }
+.traj.preview { stroke: var(--ink-2); stroke-dasharray: 6 4; }
 @media (max-width: 860px) {
   .plots { grid-template-columns: minmax(0, 1fr); }
 }
@@ -330,6 +366,7 @@ td .sub { display: block; color: var(--muted); font-size: 11px; }
     </div>
     <label class="field">Exemple <select id="sel-preset" aria-label="Exemples du cours"></select></label>
     <span class="spacer"></span>
+    <button type="button" class="btn" id="btn-course" aria-pressed="false" title="Affiche le cercle r ou g suivi par chaque élément, son Δx ou Δb, et la symétrie impédance / admittance">Mode cours</button>
     <button type="button" class="btn" id="btn-undo" title="Annuler (Ctrl+Z)">Annuler</button>
     <button type="button" class="btn" id="btn-redo" title="Rétablir (Ctrl+Y)">Rétablir</button>
     <button type="button" class="btn" id="btn-plots" aria-pressed="true" title="Afficher ou masquer les graphes en fréquence">Graphes</button>
@@ -367,8 +404,10 @@ td .sub { display: block; color: var(--muted); font-size: 11px; }
         <g id="l-rim"></g>
         <g id="l-labels"></g>
         <g id="l-rings"></g>
+        <g id="l-course"></g>
         <g id="l-sweep"></g>
         <g id="l-traj"></g>
+        <g id="l-preview"></g>
         <g id="l-points"></g>
         <g id="l-cursor"></g>
       </svg>
@@ -388,31 +427,73 @@ td .sub { display: block; color: var(--muted); font-size: 11px; }
   </main>
 
   <aside class="inspector" aria-label="Inspecteur">
-    <section class="card ed">
-      <h2 id="editor-title">Élément</h2>
+    <details class="card ed" open>
+      <summary><span id="editor-title">Élément</span></summary>
       <div id="editor"></div>
-    </section>
-    <section class="card">
-      <h2 id="cursor-title">Curseur</h2>
+    </details>
+    <details class="card" open>
+      <summary><span id="cursor-title">Curseur</span></summary>
       <dl class="kv" id="cursor-list"></dl>
       <div id="cursor-flag"></div>
-    </section>
-    <section class="card">
-      <h2>Points <small id="points-freq"></small></h2>
+    </details>
+    <details class="card" open>
+      <summary>Points <small id="points-freq"></small></summary>
       <table>
         <thead><tr><th>Point</th><th class="num">Z (Ω)</th><th class="num">Q</th></tr></thead>
         <tbody id="tbl-points"></tbody>
       </table>
-    </section>
-    <section class="card ed">
-      <h2>Sweep en fréquence</h2>
+    </details>
+    <details class="card ed" id="card-match">
+      <summary>Adaptation automatique</summary>
+      <div id="match-form"></div>
+      <div id="match-results"></div>
+    </details>
+    <details class="card ed" id="card-eseries">
+      <summary>Valeurs normalisées</summary>
+      <div id="eseries-box"></div>
+    </details>
+    <details class="card ed">
+      <summary>Sweep en fréquence</summary>
       <div id="sweep-box"></div>
-    </section>
-    <section class="card">
-      <h2>Cercles</h2>
+    </details>
+    <details class="card">
+      <summary>Cercles</summary>
       <div class="row"><label for="in-vswr">VSWR</label><input class="mini-input" id="in-vswr" placeholder="2" autocomplete="off"><div class="chips" id="chips-vswr"></div></div>
       <div class="row"><label for="in-q">Q</label><input class="mini-input" id="in-q" placeholder="1" autocomplete="off"><div class="chips" id="chips-q"></div></div>
-    </section>
+    </details>
+    <details class="card ed" id="card-files">
+      <summary>Fichiers et exports</summary>
+      <div id="files-box">
+        <div class="sub-head">Projet</div>
+        <div class="file-group">
+          <button type="button" class="btn sm" data-file="f-open">Ouvrir…</button>
+          <button type="button" class="btn sm" data-file="f-save">Enregistrer</button>
+          <button type="button" class="btn sm" data-file="f-link">Copier le lien</button>
+        </div>
+        <div class="sub-head">Charge mesurée</div>
+        <div class="file-group">
+          <button type="button" class="btn sm" data-file="f-import">Importer .s1p, .s2p ou CSV…</button>
+          <select id="sel-port" class="narrow" aria-label="Paramètre utilisé pour un fichier à deux ports">
+            <option value="1">S11 du .s2p</option>
+            <option value="2">S22 du .s2p</option>
+          </select>
+        </div>
+        <div class="sub-head">Exporter</div>
+        <div class="file-group">
+          <button type="button" class="btn sm" data-file="f-svg">Abaque SVG</button>
+          <button type="button" class="btn sm" data-file="f-png">Abaque PNG</button>
+          <button type="button" class="btn sm" data-file="f-copy">Copier l'image</button>
+          <button type="button" class="btn sm" data-file="f-schem">Schéma SVG</button>
+          <button type="button" class="btn sm" data-file="f-points">Points CSV</button>
+          <button type="button" class="btn sm" data-file="f-sweep">Sweep CSV</button>
+          <button type="button" class="btn sm" data-file="f-cir">Netlist LTspice</button>
+          <button type="button" class="btn sm" data-file="f-ckt">Netlist Smith</button>
+        </div>
+        <p id="status" class="info" role="status" aria-live="polite"></p>
+        <input type="file" id="file-project" accept=".json,application/json" hidden>
+        <input type="file" id="file-data" accept=".s1p,.s2p,.csv,.txt" hidden>
+      </div>
+    </details>
   </aside>
 </div>
 
@@ -2184,7 +2265,7 @@ const SmithChart = (() => {
  * ========================================================================== */
 (() => {
   'use strict';
-  const { cx: K, rf, eng, net, io } = SmithCore;
+  const { cx: K, rf, eng, net, io, match, eseries } = SmithCore;
   const CR = SmithChart;
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
@@ -2302,7 +2383,7 @@ const SmithChart = (() => {
     slider: { ratio: 2, span: 45, center: null },
     nodePx: [],
   };
-  let model = { nodes: [], paths: [], sweep: null };
+  let model = { nodes: [], paths: [], steps: [], sweep: null };
   const history = { undo: [], redo: [], key: null, time: 0 };
 
   const recompute = () => {
@@ -2310,6 +2391,7 @@ const SmithChart = (() => {
     model = {
       nodes: net.solve(p),
       paths: p.elements.map((_, i) => net.trajectory(p, i)),
+      steps: p.elements.map((_, i) => net.stepInfo(p, i)),
       sweep: p.sweep.on && p.sweep.stop > p.sweep.start ? net.sweep(p, p.sweep) : null,
     };
     if (state.selected > p.elements.length) state.selected = -1;
@@ -2462,10 +2544,12 @@ const SmithChart = (() => {
       pts += i === 0
         ? `<rect class="${cls}" x="${(q.x - 4.5).toFixed(1)}" y="${(q.y - 4.5).toFixed(1)}" width="9" height="9"/>`
         : `<circle class="${cls}" cx="${q.x.toFixed(1)}" cy="${q.y.toFixed(1)}" r="4.5"/>`;
-      pts += placeLabel(boxes, q, nodeName(i), '');
+      pts += placeLabel(boxes, q, state.course ? courseLabel(i) : nodeName(i), '');
     });
     $('l-points').innerHTML = pts;
     state.nodePx = nodePx;
+    drawCourse();
+    drawPreview();
   };
 
   const drawCursor = () => {
@@ -2588,9 +2672,12 @@ const SmithChart = (() => {
    *    text(v)      display text (default: engineering notation with the unit)
    *    step(v, d)   value after one tuning step of direction d = ±1 × multiplier
    *    scope        prefix of the undo key, so tuning one field is one undo step */
-  const fields = new Map();
-  const infos = new Map();
-  const actions = new Map();
+  const editorReg = { fields: new Map(), infos: new Map(), actions: new Map() };
+  const sideReg = { fields: new Map(), infos: new Map(), actions: new Map() };
+  let { fields, infos, actions } = editorReg;       // the registry the builders below write into
+  const useReg = (r) => { ({ fields, infos, actions } = r); };
+  const getField = (id) => editorReg.fields.get(id) || sideReg.fields.get(id);
+  const getAction = (id) => editorReg.actions.get(id) || sideReg.actions.get(id);
   const showField = (def) => (def.text ? def.text(def.get()) : eng.format(def.get(), def.unit, 5));
   const stepMul = (v, d) => v * (1 + 0.01 * d);
   const stepAdd = (unit) => (v, d) => v + unit * d;
@@ -2756,6 +2843,7 @@ const SmithChart = (() => {
       const unit = { R: 'Ω', L: 'H', C: 'F' }[el.kind];
       const def = { unit, get: () => E().value, set: (v) => { E().value = v; }, scope: 'value' };
       out += connRow() + fieldRow('value', 'Valeur', def) + sliderRow(def, false);
+      out += `<div class="row"><label>Normaliser</label><div class="actions" style="margin:0">${['E12', 'E24', 'E96'].map((name) => button(`snap-${name}`, name, () => change(() => { E().value = eseries.snap(E().value, name); }))).join('')}</div></div>`;
       if (el.kind !== 'R') out += lossRows(E, el.kind);
     } else if (el.kind === 'RLC') {
       out += connRow();
@@ -2780,8 +2868,8 @@ const SmithChart = (() => {
         const zb = K.div(h.n, h.d);
         bits.push(info.shunt ? `Admittance de la branche à f₀ : <b>${esc(fmtY(rf.invZ(zb)))}</b>` : `Impédance de la branche à f₀ : <b>${esc(fmtZ(zb))}</b>`);
       }
-      if (info.locus && info.locus.type === 'r') bits.push(`Cercle r = ${esc(sig(info.locus.value))}, Δx = <b>${esc(fmtJ(info.locus.delta, ''))}</b>`);
-      else if (info.locus && info.locus.type === 'g') bits.push(`Cercle g = ${esc(sig(info.locus.value))}, Δb = <b>${esc(fmtJ(info.locus.delta, ''))}</b>`);
+      if (info.locus && info.locus.type === 'r') bits.push(`Cercle r = ${esc(sig(info.locus.value))}, Δx = <b>${esc(fmtJn(info.locus.delta))}</b>`);
+      else if (info.locus && info.locus.type === 'g') bits.push(`Cercle g = ${esc(sig(info.locus.value))}, Δb = <b>${esc(fmtJn(info.locus.delta))}</b>`);
       else if (info.locus && info.locus.type === 'gamma') bits.push(`Cercle |Γ| = ${esc(sig(info.locus.value))}, rotation de <b>${esc(sig(info.locus.delta))}°</b>`);
       else if (info.dz) bits.push(`Δz = <b>${esc(fmtCx(info.dz))}</b>`);
       return bits.join('<br>');
@@ -2803,6 +2891,7 @@ const SmithChart = (() => {
   const drawEditor = (force = false) => {
     const p = state.project;
     const node = state.selected;
+    useReg(editorReg);
     fields.clear(); infos.clear(); actions.clear();
     let title = 'Élément';
     let html;
@@ -2839,18 +2928,20 @@ const SmithChart = (() => {
     }
     if (!state.sliding) {
       const sl = $('slider');
-      if (sl) { sl.value = 0; state.slider.center = fields.get('slider').get(); }
+      if (sl) { sl.value = 0; state.slider.center = editorReg.fields.get('slider').get(); }
     }
   };
 
+  /** Store a field's new value: in the project (undoable), or in a panel's own settings. */
+  const commit = (def, v, key = null) => { if (def.local) { def.set(v); drawSide(); } else change(() => def.set(v), key); };
   const tune = (id, dir) => {
-    const def = fields.get(id);
+    const def = getField(id);
     if (!def) return;
     const next = (def.step || stepMul)(def.get(), dir);
     if (!(def.ok ? def.ok(next) : next > 0 && Number.isFinite(next))) return;
     const input = $(id);
     if (input) input.dataset.dirty = '';
-    change(() => def.set(next), `tune:${state.selected}:${def.scope || id}`);
+    commit(def, next, `tune:${state.selected}:${def.scope || id}`);
   };
   const tuneFactor = (ev) => (ev.shiftKey ? 10 : ev.altKey ? 0.1 : 1);
 
@@ -2859,7 +2950,7 @@ const SmithChart = (() => {
     const t = ev.target;
     if (t.classList.contains('vf')) { t.dataset.dirty = '1'; return; }
     if (t.id === 'slider') {
-      const def = fields.get('slider');
+      const def = editorReg.fields.get('slider');
       const s = state.slider;
       if (s.center == null) s.center = def.get();
       const x = Number(t.value);
@@ -2872,15 +2963,15 @@ const SmithChart = (() => {
     const t = ev.target;
     if (t.id === 'slider') { state.sliding = false; history.key = null; drawEditor(); return; }
     if (t.classList.contains('vf')) {
-      const def = fields.get(t.dataset.field);
+      const def = getField(t.dataset.field);
       if (!def) return;
       const v = eng.parse(t.value, def.unit);
       t.dataset.dirty = '';
-      if (def.ok ? def.ok(v) : v > 0 && Number.isFinite(v)) { t.removeAttribute('aria-invalid'); change(() => def.set(v)); }
+      if (def.ok ? def.ok(v) : v > 0 && Number.isFinite(v)) { t.removeAttribute('aria-invalid'); commit(def, v); }
       else t.setAttribute('aria-invalid', 'true');
       return;
     }
-    const act = t.dataset.act && actions.get(t.dataset.act);
+    const act = t.dataset.act && getAction(t.dataset.act);
     if (!act) return;
     if (t.tagName === 'TEXTAREA') { if (act(t.value) === false) t.setAttribute('aria-invalid', 'true'); else t.removeAttribute('aria-invalid'); }
     else if (t.type === 'checkbox') act(t.value, t.checked);
@@ -2889,7 +2980,7 @@ const SmithChart = (() => {
   inspector.addEventListener('click', (ev) => {
     const b = ev.target.closest('button[data-act]');
     if (!b || b.disabled) return;
-    const act = actions.get(b.dataset.act);
+    const act = getAction(b.dataset.act);
     if (act) act(b.dataset.value);
   });
   inspector.addEventListener('wheel', (ev) => {
@@ -2905,7 +2996,7 @@ const SmithChart = (() => {
       ev.preventDefault();
       tune(t.dataset.field, (ev.key === 'ArrowUp' ? 1 : -1) * tuneFactor(ev));
     } else if (ev.key === 'Escape') {
-      const def = fields.get(t.dataset.field);
+      const def = getField(t.dataset.field);
       if (def) { t.value = showField(def); t.dataset.dirty = ''; t.removeAttribute('aria-invalid'); }
     }
   });
@@ -3168,10 +3259,351 @@ const SmithChart = (() => {
   }
   $('btn-plots').addEventListener('click', () => { state.plots = !state.plots; drawPanels(); drawPlots(); });
 
+  /* --- Side panels: matching and preferred values ------------------------------------------ */
+
+  const FAMILIES = [['L', 'Réseau en L'], ['pi', 'Réseau en π, Q imposé'], ['T', 'Réseau en T, Q imposé'], ['stub', 'Ligne + stub'], ['stub2', 'Double stub'], ['quarter', 'Quart d\'onde'], ['line', 'Ligne + réactance']];
+  const CHARACTER = { lowpass: 'passe-bas', highpass: 'passe-haut', mixed: 'mixte', lines: 'lignes' };
+  state.match = { family: 'L', rt: null, xt: 0, q: 5, zcLine: null, zcStub: null, spacing: 45, rlMin: 10, sort: 'bw', results: [], reason: '', preview: -1, previewPaths: null, formKey: '' };
+  state.eseries = 'E24';
+
+  const computeMatch = () => {
+    const ms = state.match;
+    const p = state.project;
+    const zl = model.nodes[model.nodes.length - 1].z;
+    const zt = K.make(ms.rt == null ? p.z0 : ms.rt, ms.xt);
+    const res = match.synthesize(ms.family, { zl, zt, f: p.f0, q: ms.q, zcLine: ms.zcLine || p.z0, zcStub: ms.zcStub || p.z0, spacing: ms.spacing });
+    ms.reason = res.reason || '';
+    ms.results = res.solutions.map((s) => ({ ...s, score: match.assess(p, s.elements, { zt, rlMin: ms.rlMin }) }));
+    ms.results.sort(ms.sort === 'q' ? (a, b) => a.score.qMax - b.score.qMax : (a, b) => b.score.fbw - a.score.fbw);
+    ms.preview = -1;
+    ms.previewPaths = null;
+  };
+
+  const drawMatch = (force) => {
+    const ms = state.match;
+    const p = state.project;
+    if (!$('card-match').open) { $('match-form').innerHTML = ''; $('match-results').innerHTML = ''; ms.results = []; ms.formKey = ''; ms.preview = -1; return; }
+    computeMatch();
+    const local = (get, set, extra = {}) => ({ local: true, get, set, ...extra });
+    const plain = { text: (v) => sig(v, 5).replace('−', '-') };
+    let form = selectRow('m-family', 'Réseau', FAMILIES, ms.family, (v) => { ms.family = v; drawSide(true); });
+    form += fieldRow('m-rt', 'Cible R', local(() => (ms.rt == null ? p.z0 : ms.rt), (v) => { ms.rt = v; }, { unit: 'Ω' }));
+    form += fieldRow('m-xt', 'Cible X', local(() => ms.xt, (v) => { ms.xt = v; }, { unit: 'Ω', ok: (v) => Number.isFinite(v), step: (v, d) => v + d * 0.01 * Math.max(Math.abs(v), p.z0 * 0.1) }));
+    if (ms.family === 'pi' || ms.family === 'T') form += fieldRow('m-q', 'Q imposé', local(() => ms.q, (v) => { ms.q = v; }, { unit: '', ...plain }));
+    if (['stub', 'stub2', 'quarter', 'line'].includes(ms.family)) form += fieldRow('m-zcl', 'Zc de la ligne', local(() => ms.zcLine || p.z0, (v) => { ms.zcLine = v; }, { unit: 'Ω' }));
+    if (ms.family === 'stub' || ms.family === 'stub2') form += fieldRow('m-zcs', 'Zc des stubs', local(() => ms.zcStub || p.z0, (v) => { ms.zcStub = v; }, { unit: 'Ω' }));
+    if (ms.family === 'stub2') form += fieldRow('m-sp', 'Écartement', local(() => ms.spacing, (v) => { ms.spacing = v; }, { unit: '°', text: (v) => `${sig(v, 5)}°`, step: stepAdd(1) }));
+    form += fieldRow('m-rl', 'Bande à RL ≥', local(() => ms.rlMin, (v) => { ms.rlMin = v; }, { unit: 'dB', text: (v) => `${sig(v)} dB`, step: stepAdd(1) }));
+    form += selectRow('m-sort', 'Classer par', [['bw', 'bande passante'], ['q', 'Q le plus faible']], ms.sort, (v) => { ms.sort = v; drawSide(true); });
+    const formBox = $('match-form');
+    if (force || ms.formKey !== ms.family || !formBox.firstChild) {
+      formBox.innerHTML = form;
+      ms.formKey = ms.family;
+    } else {
+      for (const [id, def] of fields) {
+        const input = $(id);
+        if (!input || !id.startsWith('m-') || (document.activeElement === input && input.dataset.dirty === '1')) continue;
+        input.value = showField(def);
+        input.removeAttribute('aria-invalid');
+      }
+    }
+
+    const zinNow = model.nodes[model.nodes.length - 1].z;
+    let out = `<p class="info">Depuis l'entrée actuelle (${nodeName(model.nodes.length - 1)}) : <b>${esc(fmtZ(zinNow))}</b>. Le réseau trouvé s'ajoute côté source.</p>`;
+    if (!ms.results.length) out += `<p class="info">${esc(ms.reason || 'Aucune solution.')}</p>`;
+    ms.results.forEach((r, i) => {
+      const sc = r.score;
+      const open = sc.openLow || sc.openHigh;
+      const band = sc.bw > 0 ? `${open ? '> ' : ''}${eng.format(sc.bw, 'Hz', 3)} (${sig(sc.fbw * 100, 3)} %)` : '—';
+      const chain = r.elements.map((e) => describe(e, p.f0)).join(' → ');
+      out += `<div class="sol" data-sol="${i}" tabindex="0"><div class="sol-main"><div class="sol-title">${esc(chain)}</div><div class="sol-meta">${CHARACTER[sc.character]} · Q ${esc(sig(sc.qMax, 3))} · bande ${esc(band)}</div></div>${button(`m-apply-${i}`, 'Appliquer', () => applySolution(i))}</div>`;
+    });
+    $('match-results').innerHTML = out;
+  };
+
+  const applySolution = (i) => {
+    const els = io.parse(io.stringify(state.match.results[i].elements));
+    change((p) => { p.elements.push(...els); state.selected = -1; });
+  };
+  const setPreview = (i) => {
+    const ms = state.match;
+    if (ms.preview === i) return;
+    ms.preview = i;
+    ms.previewPaths = null;
+    if (i >= 0 && ms.results[i]) {
+      const p = state.project;
+      const trial = { ...p, elements: [...p.elements, ...ms.results[i].elements] };
+      ms.previewPaths = ms.results[i].elements.map((_, k) => net.trajectory(trial, p.elements.length + k).map((s) => s.gamma));
+    }
+    drawPreview();
+  };
+  const drawPreview = () => {
+    const ms = state.match;
+    const layer = $('l-preview');
+    if (!ms || ms.preview < 0 || !ms.previewPaths) { layer.innerHTML = ''; return; }
+    let out = '';
+    for (const gammas of ms.previewPaths) out += `<path class="traj preview" d="${CR.polyD(state.view, gammas)}"/>`;
+    const lastPath = ms.previewPaths[ms.previewPaths.length - 1];
+    const end = lastPath && lastPath[lastPath.length - 1];
+    if (end && K.isFinite(end)) { const q = CR.toPx(state.view, end); out += `<circle class="pt-mark" cx="${q.x.toFixed(1)}" cy="${q.y.toFixed(1)}" r="4.5"/>`; }
+    layer.innerHTML = out;
+  };
+  const matchBox = $('match-results');
+  const solOf = (ev) => { const s = ev.target.closest && ev.target.closest('.sol'); return s ? Number(s.dataset.sol) : -1; };
+  matchBox.addEventListener('pointerover', (ev) => setPreview(solOf(ev)));
+  matchBox.addEventListener('pointerleave', () => setPreview(-1));
+  matchBox.addEventListener('focusin', (ev) => setPreview(solOf(ev)));
+  matchBox.addEventListener('focusout', () => setPreview(-1));
+  matchBox.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && ev.target.classList.contains('sol')) applySolution(Number(ev.target.dataset.sol)); });
+
+  const drawEseries = () => {
+    const box = $('eseries-box');
+    if (!$('card-eseries').open) { box.innerHTML = ''; return; }
+    const p = state.project;
+    const { elements, changes } = eseries.snapElements(p.elements, state.eseries);
+    let out = selectRow('e-series', 'Série', [['E12', 'E12 (10 %)'], ['E24', 'E24 (5 %)'], ['E96', 'E96 (1 %)']], state.eseries, (v) => { state.eseries = v; drawSide(true); });
+    if (!changes.length) out += '<p class="info">Tous les R, L et C du réseau sont déjà dans cette série.</p>';
+    else {
+      const before = model.nodes[model.nodes.length - 1];
+      const after = net.inputAt({ ...p, elements });
+      const unitOf = (ch) => { const k = p.elements[ch.index].kind; return ch.key === 'r' || k === 'R' ? 'Ω' : ch.key === 'l' || k === 'L' ? 'H' : 'F'; };
+      out += '<dl class="kv">';
+      for (const ch of changes) out += `<dt>${nodeName(ch.index + 1)}</dt><dd>${esc(eng.format(ch.from, unitOf(ch)))} → <b>${esc(eng.format(ch.to, unitOf(ch)))}</b></dd>`;
+      out += `<dt>|Γ| à f₀</dt><dd>${esc(sig(before.mag))} → <b>${esc(sig(after.mag))}</b></dd>`;
+      out += `<dt>Return loss</dt><dd>${esc(fmtDb(before.rl))} → <b>${esc(fmtDb(after.rl))}</b></dd>`;
+      out += `<dt>VSWR</dt><dd>${esc(before.vswr == null ? '—' : sig(before.vswr))} → <b>${esc(after.vswr == null ? '—' : sig(after.vswr))}</b></dd></dl>`;
+      out += `<div class="actions">${button('e-apply', 'Appliquer l\'arrondi', () => change((q) => { q.elements = eseries.snapElements(q.elements, state.eseries).elements; }))}</div>`;
+    }
+    box.innerHTML = out;
+  };
+
+  const drawSide = (force = false) => {
+    useReg(sideReg);
+    fields.clear(); infos.clear(); actions.clear();
+    drawMatch(force);
+    drawEseries();
+    useReg(editorReg);
+  };
+  $('card-match').addEventListener('toggle', () => drawSide(true));
+  $('card-eseries').addEventListener('toggle', () => drawSide(true));
+
+  /* --- Course mode ------------------------------------------------------------------------ */
+
+  const fmtJn = (x) => `${x < 0 ? '−' : '+'}j${sig(Math.abs(x))}`;
+  const courseLabel = (i) => {
+    const m = model.nodes[i];
+    const asY = i > 0 ? model.steps[i - 1].shunt : (model.steps[0] && model.steps[0].shunt);
+    return `${nodeName(i)} : ${asY ? `y = ${fmtCx(m.yn, 3)}` : `z = ${fmtCx(m.zn, 3)}`}`;
+  };
+  const drawCourse = () => {
+    const layer = $('l-course');
+    if (!state.course) { layer.innerHTML = ''; return; }
+    const v = state.view;
+    const p = state.project;
+    let out = '';
+    const only = state.selected > 0 ? state.selected - 1 : -1;
+    model.steps.forEach((info, i) => {
+      if (p.elements[i].off || (only >= 0 && i !== only) || !info.locus) return;
+      const { type, value, delta } = info.locus;
+      let circle;
+      let cls;
+      let text;
+      if (type === 'r') { circle = rf.rCircle(value); cls = 'course-z'; text = `Δx = ${fmtJn(delta)}`; }
+      else if (type === 'g') { circle = rf.gCircle(value); cls = 'course-y'; text = `Δb = ${fmtJn(delta)}`; }
+      else if (type === 'gamma') { circle = { cx: 0, cy: 0, rad: value }; cls = 'course-n'; text = `rotation de ${sig(delta)}°`; }
+      else return;
+      out += `<path class="${cls}" d="${CR.circleD(v, circle)}"/>`;
+      const at = CR.pointAlong(v, model.paths[i].map((s) => s.gamma), 0.5);
+      if (at) out += `<text class="course-label" x="${(at.x - at.dy * 16).toFixed(1)}" y="${(at.y + at.dx * 16 + 4).toFixed(1)}" text-anchor="middle">${esc(text)}</text>`;
+    });
+    // an impedance and its admittance are symmetric about the centre (slides 10 and 12)
+    const node = state.selected;
+    if (node >= 0 && model.nodes[node] && K.isFinite(model.nodes[node].gamma) && model.nodes[node].mag > 1e-6) {
+      const a = CR.toPx(v, model.nodes[node].gamma);
+      const b = CR.toPx(v, K.neg(model.nodes[node].gamma));
+      out += `<line class="course-sym" x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}"/><circle class="pt-mark" cx="${b.x.toFixed(1)}" cy="${b.y.toFixed(1)}" r="4"/>`;
+      out += `<text class="course-label" x="${(b.x + 8).toFixed(1)}" y="${(b.y + 14).toFixed(1)}">symétrique : y = ${esc(fmtCx(model.nodes[node].yn, 3))}</text>`;
+    }
+    layer.innerHTML = out;
+  };
+  $('btn-course').addEventListener('click', () => { state.course = !state.course; $('btn-course').setAttribute('aria-pressed', String(state.course)); drawData(); });
+
+  /* --- Files, exports, link (section "io") -------------------------------------------------- */
+
+  const say = (text, bad = false) => {
+    const el = $('status');
+    el.textContent = text;
+    el.classList.toggle('bad', bad);
+  };
+  const download = (name, data, mime) => {
+    const blob = data instanceof Blob ? data : new Blob([data], { type: mime });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    say(`Fichier « ${name} » enregistré.`);
+  };
+  const stamp = () => {
+    const p = state.project;
+    return `smith-${eng.format(p.f0, 'Hz', 4).replace(/\s/g, '')}`;
+  };
+
+  const STYLE_PROPS = ['fill', 'fill-opacity', 'stroke', 'stroke-width', 'stroke-opacity', 'stroke-dasharray', 'stroke-linecap', 'stroke-linejoin', 'opacity', 'font-family', 'font-size', 'font-weight', 'paint-order', 'text-anchor', 'dominant-baseline'];
+  /** A self-contained copy of an on-screen SVG: computed styles written on every
+   *  element, interactive parts removed, a background added. */
+  const standaloneSvg = (source, drop, background) => {
+    const clone = source.cloneNode(true);
+    const live = source.querySelectorAll('*');
+    const copy = clone.querySelectorAll('*');
+    const remove = [];
+    live.forEach((el, i) => {
+      if (drop && el.matches(drop)) { remove.push(copy[i]); return; }
+      const cs = getComputedStyle(el);
+      let style = '';
+      for (const prop of STYLE_PROPS) { const val = cs.getPropertyValue(prop); if (val) style += `${prop}:${val};`; }
+      copy[i].setAttribute('style', style);
+      copy[i].removeAttribute('class');
+    });
+    remove.forEach((el) => el.remove());
+    const box = source.getBoundingClientRect();
+    const w = Math.round(box.width);
+    const h = Math.round(box.height);
+    for (const attr of ['tabindex', 'role', 'aria-label', 'class', 'id']) clone.removeAttribute(attr);
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    clone.setAttribute('width', w);
+    clone.setAttribute('height', h);
+    if (!clone.getAttribute('viewBox')) clone.setAttribute('viewBox', `0 0 ${w} ${h}`);
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('width', '100%'); rect.setAttribute('height', '100%');
+    rect.setAttribute('fill', getComputedStyle(document.documentElement).getPropertyValue(background).trim() || '#ffffff');
+    clone.insertBefore(rect, clone.firstChild);
+    return { text: `<?xml version="1.0" encoding="UTF-8"?>\n${new XMLSerializer().serializeToString(clone)}`, w, h };
+  };
+  const chartSvg = () => standaloneSvg(svg, '#l-cursor *, #l-preview *', '--surface');
+  const svgToPng = ({ text, w, h }, scale = 2) => new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(new Blob([text], { type: 'image/svg+xml' }));
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = w * scale;
+      canvas.height = h * scale;
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('conversion impossible'))), 'image/png');
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('conversion impossible')); };
+    img.src = url;
+  });
+
+  const csvCell = (v) => (v == null || Number.isNaN(v) ? '' : Number.isFinite(v) ? String(Number(v.toPrecision(9))) : (v < 0 ? '-inf' : 'inf'));
+  const csvRow = (m) => [m.z.re, m.z.im, m.y.re, m.y.im, m.mag, m.ang, m.vswr, m.rl, m.q].map(csvCell).join(';');
+  const pointsCsv = () => {
+    const p = state.project;
+    const rows = model.nodes.map((m, i) => `${nodeName(i)};${i === 0 ? describeLoad(p.load) : describe(p.elements[i - 1], p.f0)};${csvCell(p.f0)};${csvRow(m)}`);
+    return `point;element;f_Hz;R_ohm;X_ohm;G_S;B_S;gamma_module;gamma_phase_deg;VSWR;return_loss_dB;Q\n${rows.join('\n')}\n`;
+  };
+  const sweepCsv = () => `f_Hz;R_ohm;X_ohm;G_S;B_S;gamma_module;gamma_phase_deg;VSWR;return_loss_dB;Q\n${model.sweep.map((m) => `${csvCell(m.f)};${csvRow(m)}`).join('\n')}\n`;
+
+  const loadProject = (project, message) => {
+    state.selected = -1;
+    change(() => { state.project = project; });
+    say(message);
+  };
+  const readFile = (input, handler) => {
+    const file = input.files && input.files[0];
+    input.value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => { try { handler(String(reader.result), file.name); } catch (err) { say(err.message, true); } };
+    reader.onerror = () => say('Lecture du fichier impossible.', true);
+    reader.readAsText(file);
+  };
+  $('file-project').addEventListener('change', (ev) => readFile(ev.target, (text, name) => loadProject(io.importProject(text), `Projet « ${name} » ouvert.`)));
+  $('file-data').addEventListener('change', (ev) => readFile(ev.target, (text, name) => {
+    let points;
+    let note;
+    if (/\.s\dp$/i.test(name) || /^\s*[#!]/m.test(text)) {
+      const ts = io.parseTouchstone(text);
+      const port = Number($('sel-port').value);
+      points = io.touchstoneToTable(ts, { port });
+      state.device = ts.ports === 2 ? ts : null;
+      note = ts.ports === 2 ? `S${port}${port} du fichier, autre port fermé sur ${sig(ts.z0)} Ω` : 'fichier à un port';
+    } else {
+      const table = io.parseImpedanceTable(text);
+      points = table.points;
+      note = `fréquences lues en ${table.unit === 1 ? 'Hz' : table.unit === 1e3 ? 'kHz' : table.unit === 1e6 ? 'MHz' : 'GHz'}`;
+    }
+    state.selected = 0;
+    change((p) => {
+      p.load = { kind: 'table', points };
+      const lo = points[0].f;
+      const hi = points[points.length - 1].f;
+      if (p.f0 < lo || p.f0 > hi) p.f0 = points[Math.floor(points.length / 2)].f;
+      if (hi > lo) p.sweep = { ...p.sweep, on: true, start: lo, stop: hi };
+    });
+    say(`« ${name} » : ${points.length} points importés comme charge (${note}).`);
+  }));
+
+  const copyText = async (text) => {
+    try { await navigator.clipboard.writeText(text); return true; } catch (err) { /* fall through */ }
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    let done = false;
+    try { done = document.execCommand('copy'); } catch (err) { done = false; }
+    ta.remove();
+    return done;
+  };
+  const LINK_LIMIT = 6000;
+  const linkOf = () => { const frag = io.encodeLink(state.project); return frag.length <= LINK_LIMIT ? frag : null; };
+  let linkTimer = 0;
+  /** Keep the address bar shareable: the project lives in the URL fragment. */
+  const scheduleLink = () => {
+    clearTimeout(linkTimer);
+    linkTimer = setTimeout(() => {
+      const frag = linkOf();
+      try { window.history.replaceState(null, '', frag ? `#${frag}` : location.pathname + location.search); } catch (err) { /* some hosts forbid it */ }
+    }, 400);
+  };
+
+  const FILE_ACTIONS = {
+    'f-open': () => $('file-project').click(),
+    'f-save': () => download(`${stamp()}.json`, io.exportProject(state.project), 'application/json'),
+    'f-link': async () => {
+      const frag = linkOf();
+      if (!frag) { say('Projet trop volumineux pour tenir dans un lien : enregistrez plutôt le fichier.', true); return; }
+      const url = `${location.href.split('#')[0]}#${frag}`;
+      say((await copyText(url)) ? 'Lien copié dans le presse-papiers.' : 'Copie impossible : le lien est dans la barre d\'adresse.', false);
+    },
+    'f-import': () => $('file-data').click(),
+    'f-svg': () => download(`${stamp()}-abaque.svg`, chartSvg().text, 'image/svg+xml'),
+    'f-png': async () => { try { download(`${stamp()}-abaque.png`, await svgToPng(chartSvg())); } catch (err) { say('Export PNG impossible dans ce navigateur.', true); } },
+    'f-copy': async () => {
+      try {
+        const blob = await svgToPng(chartSvg());
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        say('Image de l\'abaque copiée dans le presse-papiers.');
+      } catch (err) { say('Copie d\'image refusée par le navigateur : utilisez l\'export PNG.', true); }
+    },
+    'f-schem': () => download(`${stamp()}-schema.svg`, standaloneSvg($('schem'), '.s-hit', '--panel').text, 'image/svg+xml'),
+    'f-points': () => download(`${stamp()}-points.csv`, pointsCsv(), 'text/csv'),
+    'f-sweep': () => { if (model.sweep) download(`${stamp()}-sweep.csv`, sweepCsv(), 'text/csv'); else say('Activez d\'abord le sweep en fréquence.', true); },
+    'f-cir': () => download(`${stamp()}.cir`, io.toCir(state.project), 'text/plain'),
+    'f-ckt': () => download(`${stamp()}.ckt`, io.toCkt(state.project), 'text/plain'),
+  };
+  $('files-box').addEventListener('click', (ev) => {
+    const b = ev.target.closest('button[data-file]');
+    if (b && FILE_ACTIONS[b.dataset.file]) FILE_ACTIONS[b.dataset.file]();
+  });
+
   /* --- Refresh ---------------------------------------------------------------------- */
 
   const drawAll = () => { drawGrid(); drawData(); drawCursor(); };
-  const refresh = () => { recompute(); drawAll(); drawSchematic(); drawPanels(); drawEditor(); drawPlots(); showReadout(); };
+  const refresh = () => { recompute(); drawAll(); drawSchematic(); drawPanels(); drawEditor(); drawSide(); drawPlots(); showReadout(); scheduleLink(); };
 
   /* --- Chart interaction ------------------------------------------------------------------- */
 
@@ -3384,9 +3816,18 @@ const SmithChart = (() => {
     try { localStorage.setItem('smith.theme', root.dataset.theme); } catch (err) { /* storage unavailable */ }
   });
 
+  // a project carried by the link takes precedence over the default example
+  if (/^#p1\./.test(location.hash)) {
+    try { state.project = io.decodeLink(location.hash); } catch (err) { setTimeout(() => say(err.message, true), 0); }
+  }
+  window.addEventListener('hashchange', () => {
+    if (!/^#p1\./.test(location.hash) || location.hash.slice(1) === linkOf()) return;
+    try { loadProject(io.decodeLink(location.hash), 'Projet chargé depuis le lien.'); } catch (err) { say(err.message, true); }
+  });
+
   fitView();
   refresh();
-  window.SmithApp = { state, history, refresh, change, select, undo, redo, fitView, zoomAt, drawAll, addElement, PRESETS, get model() { return model; } };
+  window.SmithApp = { state, history, refresh, change, select, undo, redo, fitView, zoomAt, drawAll, drawSide, addElement, PRESETS, chartSvg, svgToPng, pointsCsv, linkOf, get model() { return model; } };
 })();
 </script>
 </body>
