@@ -4,11 +4,305 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Abaque de Smith</title>
+<style>
+/* ---------------------------------------------------------------- tokens */
+:root {
+  color-scheme: light;
+  --page: #f3f3f0;
+  --surface: #fcfcfb;
+  --panel: #ffffff;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #898781;
+  --hair: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11, 11, 11, 0.12);
+  --wash: rgba(11, 11, 11, 0.05);
+  --wash-2: rgba(11, 11, 11, 0.10);
+  --z: #e34948;          /* impedance plane */
+  --z-text: #b3261e;
+  --y: #2a78d6;          /* admittance plane */
+  --y-text: #1c5cab;
+  --sweep: #1baf7a;      /* frequency sweep */
+  --crit: #d03b3b;       /* status: active / invalid */
+  --focus: #2a78d6;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --panel: #201f1e;
+    --ink: #f0efec;
+    --ink-2: #c3c2b7;
+    --muted: #898781;
+    --hair: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255, 255, 255, 0.13);
+    --wash: rgba(255, 255, 255, 0.06);
+    --wash-2: rgba(255, 255, 255, 0.12);
+    --z: #e66767;
+    --z-text: #f29a9a;
+    --y: #3987e5;
+    --y-text: #86b6ef;
+    --sweep: #199e70;
+    --crit: #e66767;
+    --focus: #6da7ec;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d;
+  --surface: #1a1a19;
+  --panel: #201f1e;
+  --ink: #f0efec;
+  --ink-2: #c3c2b7;
+  --muted: #898781;
+  --hair: #2c2c2a;
+  --axis: #383835;
+  --border: rgba(255, 255, 255, 0.13);
+  --wash: rgba(255, 255, 255, 0.06);
+  --wash-2: rgba(255, 255, 255, 0.12);
+  --z: #e66767;
+  --z-text: #f29a9a;
+  --y: #3987e5;
+  --y-text: #86b6ef;
+  --sweep: #199e70;
+  --crit: #e66767;
+  --focus: #6da7ec;
+}
+
+/* ------------------------------------------------------------------ base */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--page);
+  color: var(--ink);
+  font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+h1, h2 { margin: 0; font-weight: 600; }
+
+.app {
+  display: grid;
+  grid-template: auto minmax(0, 1fr) / minmax(0, 1fr) 340px;
+  grid-template-areas: "top top" "work side";
+  height: 100%;
+}
+
+/* ---------------------------------------------------------------- topbar */
+.topbar {
+  grid-area: top;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 8px 14px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+.topbar h1 { font-size: 14px; margin-right: 4px; }
+.field { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); }
+.field input, .field select, .mini-input {
+  height: 28px;
+  padding: 0 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.field input { width: 92px; }
+input[aria-invalid="true"] { border-color: var(--crit); }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.seg button {
+  height: 26px;
+  padding: 0 10px;
+  background: transparent;
+  border: 0;
+  border-right: 1px solid var(--border);
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.seg button:last-child { border-right: 0; }
+.seg button:hover { background: var(--wash); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--panel); }
+.spacer { flex: 1; }
+.convention {
+  padding: 3px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--ink-2);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.btn {
+  height: 28px;
+  padding: 0 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.btn:hover { background: var(--wash); }
+
+/* ------------------------------------------------------------- work area */
+.work {
+  grid-area: work;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+}
+.strip { padding: 10px 14px 0; }
+.chain { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; }
+.chain .node {
+  padding: 4px 9px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.chain .node.end { background: transparent; color: var(--ink-2); }
+.chain .wire { color: var(--muted); }
+.chart-box { position: relative; min-height: 0; margin: 10px 14px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+#chart { display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; user-select: none; }
+#chart:focus-visible { outline-offset: -3px; }
+.zoom { position: absolute; top: 10px; right: 10px; display: flex; gap: 4px; }
+.hint { position: absolute; left: 10px; bottom: 8px; padding: 1px 6px; border-radius: 4px; background: var(--surface); color: var(--muted); font-size: 11px; pointer-events: none; }
+
+/* ----------------------------------------------------------- chart marks */
+.gz { fill: none; stroke: var(--z); }
+.gy { fill: none; stroke: var(--y); }
+.maj { stroke-width: 1.1; stroke-opacity: 0.9; }
+.med { stroke-width: 0.9; stroke-opacity: 0.62; }
+.min { stroke-width: 0.7; stroke-opacity: 0.42; }
+.gl { font-size: 10px; font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
+.gl-z { fill: var(--z-text); }
+.gl-y { fill: var(--y-text); }
+.rim { fill: none; stroke: var(--ink); stroke-width: 1.3; }
+.axis { stroke: var(--axis); stroke-width: 1; }
+.ring { fill: none; stroke: var(--ink-2); stroke-width: 1.2; stroke-dasharray: 5 4; }
+.ring-label { fill: var(--ink-2); font-size: 10.5px; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; }
+.sweep { fill: none; stroke: var(--sweep); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.sweep-head { fill: var(--sweep); }
+.traj { fill: none; stroke: var(--ink); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.traj.sel { stroke-width: 3.2; }
+.traj-head { fill: var(--ink); }
+.pt { fill: var(--ink); stroke: var(--surface); stroke-width: 2; }
+.pt.active { fill: var(--crit); }
+.pt.sel { stroke: var(--ink); fill: var(--surface); stroke-width: 2.5; }
+.pt-mark { fill: var(--surface); stroke: var(--ink-2); stroke-width: 1.5; }
+.pt-label { fill: var(--ink); font-size: 11px; font-weight: 600; paint-order: stroke; stroke: var(--surface); stroke-width: 3.5px; stroke-linejoin: round; }
+.pt-label.dim { fill: var(--ink-2); font-weight: 400; }
+.cross { stroke: var(--muted); stroke-width: 0.8; stroke-dasharray: 3 3; }
+.cross-dot { fill: none; stroke: var(--ink); stroke-width: 1.2; }
+
+/* ------------------------------------------------------------- inspector */
+.inspector {
+  grid-area: side;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 10px 12px 14px;
+  background: var(--panel);
+  border-left: 1px solid var(--border);
+}
+.card { padding: 10px 2px 12px; border-bottom: 1px solid var(--hair); }
+.card:last-child { border-bottom: 0; }
+.card h2 { font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-2); margin-bottom: 8px; }
+.card h2 small { text-transform: none; letter-spacing: 0; font-weight: 400; color: var(--muted); margin-left: 6px; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 0; font-variant-numeric: tabular-nums; }
+.kv dt { color: var(--ink-2); }
+.kv dd { margin: 0; text-align: right; white-space: nowrap; }
+.flag { display: inline-block; margin-top: 8px; padding: 2px 8px; border: 1px solid var(--crit); border-radius: 999px; color: var(--crit); font-size: 12px; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th { text-align: left; font-weight: 500; color: var(--ink-2); font-size: 11px; padding: 2px 4px; }
+td { padding: 4px; border-top: 1px solid var(--hair); white-space: nowrap; }
+td.num, th.num { text-align: right; }
+tbody tr { cursor: pointer; }
+tbody tr:hover { background: var(--wash); }
+tbody tr[aria-selected="true"] { background: var(--wash-2); }
+td .sub { display: block; color: var(--muted); font-size: 11px; }
+.row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.row label { width: 46px; color: var(--ink-2); }
+.mini-input { width: 70px; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 4px 1px 8px; border: 1px solid var(--border); border-radius: 999px; font-size: 12px; }
+.chip button { width: 18px; height: 18px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--ink-2); cursor: pointer; line-height: 1; }
+.chip button:hover { background: var(--wash-2); }
+
+@media (max-width: 860px) {
+  .app { grid-template: auto minmax(360px, 1fr) auto / minmax(0, 1fr); grid-template-areas: "top" "work" "side"; height: auto; min-height: 100%; }
+  .inspector { border-left: 0; border-top: 1px solid var(--border); overflow: visible; }
+  .chart-box { height: min(100vw, 70vh); }
+}
+</style>
 </head>
 <body>
-<main id="app">
-  <p>Abaque de Smith — moteur numérique seul (phase 1). L'interface arrive en phase 2.</p>
-</main>
+<div class="app">
+  <header class="topbar">
+    <h1>Abaque de Smith</h1>
+    <label class="field"><span>Z<sub>0</sub></span> <input id="in-z0" autocomplete="off" spellcheck="false" aria-label="Impédance de référence Z0"></label>
+    <label class="field"><span>f<sub>0</sub></span> <input id="in-f0" autocomplete="off" spellcheck="false" aria-label="Fréquence de conception"></label>
+    <div class="seg" id="seg-mode" role="group" aria-label="Plans affichés">
+      <button type="button" data-mode="z">Z</button>
+      <button type="button" data-mode="y">Y</button>
+      <button type="button" data-mode="zy">Z + Y</button>
+    </div>
+    <div class="seg" id="seg-units" role="group" aria-label="Graduations de l'abaque">
+      <button type="button" data-units="norm" title="Graduations normalisées">z, y</button>
+      <button type="button" data-units="abs" title="Graduations en ohms et en siemens">Ω, mS</button>
+    </div>
+    <label class="field">Exemple <select id="sel-preset" aria-label="Exemples du cours"></select></label>
+    <span class="spacer"></span>
+    <span class="convention" title="Le premier élément touche la charge ; l'impédance d'entrée est vue après le dernier élément.">Construction : charge → source</span>
+    <button type="button" class="btn" id="btn-theme" aria-label="Basculer entre thème clair et thème sombre">Thème</button>
+  </header>
+
+  <main class="work">
+    <section class="strip" aria-label="Réseau"><div class="chain" id="chain"></div></section>
+    <section class="chart-box">
+      <svg id="chart" tabindex="0" role="application" aria-label="Abaque de Smith. Molette pour zoomer, glisser pour déplacer, touches plus, moins, zéro et flèches.">
+        <g id="l-grid-z"></g>
+        <g id="l-grid-y"></g>
+        <g id="l-rim"></g>
+        <g id="l-labels"></g>
+        <g id="l-rings"></g>
+        <g id="l-sweep"></g>
+        <g id="l-traj"></g>
+        <g id="l-points"></g>
+        <g id="l-cursor"></g>
+      </svg>
+      <div class="zoom" role="group" aria-label="Zoom">
+        <button type="button" class="btn" id="btn-zin" aria-label="Zoom avant">+</button>
+        <button type="button" class="btn" id="btn-zout" aria-label="Zoom arrière">−</button>
+        <button type="button" class="btn" id="btn-zfit">Ajuster</button>
+      </div>
+      <div class="hint">Molette : zoom · glisser : déplacer · double-clic : ajuster</div>
+    </section>
+  </main>
+
+  <aside class="inspector" aria-label="Inspecteur">
+    <section class="card">
+      <h2 id="cursor-title">Curseur</h2>
+      <dl class="kv" id="cursor-list"></dl>
+      <div id="cursor-flag"></div>
+    </section>
+    <section class="card">
+      <h2>Points <small id="points-freq"></small></h2>
+      <table>
+        <thead><tr><th>Point</th><th class="num">Z (Ω)</th><th class="num">Q</th></tr></thead>
+        <tbody id="tbl-points"></tbody>
+      </table>
+    </section>
+    <section class="card">
+      <h2>Cercles</h2>
+      <div class="row"><label for="in-vswr">VSWR</label><input class="mini-input" id="in-vswr" placeholder="2" autocomplete="off"><div class="chips" id="chips-vswr"></div></div>
+      <div class="row"><label for="in-q">Q</label><input class="mini-input" id="in-q" placeholder="1" autocomplete="off"><div class="chips" id="chips-q"></div></div>
+    </section>
+  </aside>
+</div>
 
 <script id="smith-core">
 /* ============================================================================
@@ -661,6 +955,763 @@ const SmithCore = (() => {
     eng: { parse: parseEng, format: formatEng, formatCx },
     net: { applyElement, branchOf, loadState, loadCovers, evaluate, solve, inputAt, frequencyList, sweep, trajectory, stepInfo },
   };
+})();
+</script>
+
+<script id="smith-chart">
+/* ============================================================================
+ * smith-chart — chart geometry (section "chart-render").
+ *
+ * Pure: a view and numbers in, SVG path data and label positions out. No page
+ * access, so tests.mjs runs this block right after smith-core.
+ *
+ * view = { w, h, ox, oy, k }: pixel size, pixel position of gamma = 0, and
+ * pixels per unit of gamma. Screen y points DOWN, Im(gamma) points UP.
+ * `sign` selects the plane: +1 impedance, -1 admittance (the same grid rotated
+ * by 180°, gamma -> -gamma).
+ * ========================================================================== */
+const SmithChart = (() => {
+  'use strict';
+  const { cx: K, rf, eng } = SmithCore;
+
+  const num = (v) => String(Math.round(v * 100) / 100);
+  const makeView = (w, h, k, ox = w / 2, oy = h / 2) => ({ w, h, k, ox, oy });
+  const toPx = (view, g) => ({ x: view.ox + g.re * view.k, y: view.oy - g.im * view.k });
+  const toGamma = (view, x, y) => K.make((x - view.ox) / view.k, (view.oy - y) / view.k);
+
+  /** Gamma of the point r + jx of a plane; an infinite coordinate is the pole. */
+  const planePoint = (r, x, sign) => {
+    const g = Number.isFinite(r) && Number.isFinite(x) ? rf.zToGamma(K.make(r, x), 1) : K.make(1, 0);
+    return sign < 0 ? K.neg(g) : g;
+  };
+
+  /** SVG arc command from p0 to p1 along the circle of centre c that passes
+   *  through pm on the way (all in pixels). */
+  const arcTo = (p0, pm, p1, radPx, c) => {
+    if (!(radPx < 2e6)) return `L${num(p1.x)} ${num(p1.y)}`;
+    const cross = (pm.x - p0.x) * (p1.y - p0.y) - (pm.y - p0.y) * (p1.x - p0.x);
+    const side = (q) => (p1.x - p0.x) * (q.y - p0.y) - (p1.y - p0.y) * (q.x - p0.x);
+    const sweep = cross > 0 ? 1 : 0;                 // clockwise on screen
+    const large = side(c) * side(pm) > 0 ? 1 : 0;    // pm on the centre's side of the chord
+    return `A${num(radPx)} ${num(radPx)} 0 ${large} ${sweep} ${num(p1.x)} ${num(p1.y)}`;
+  };
+
+  const circleD = (view, c) => {
+    const p = toPx(view, K.make(c.cx, c.cy));
+    const r = c.rad * view.k;
+    return `M${num(p.x - r)} ${num(p.y)}a${num(r)} ${num(r)} 0 1 0 ${num(2 * r)} 0a${num(r)} ${num(r)} 0 1 0 ${num(-2 * r)} 0`;
+  };
+
+  /** Part of the circle r = const between reactances xa < xb. */
+  const rSeg = (view, r, xa, xb, sign) => {
+    const c = rf.rCircle(r);
+    if (xa === -Infinity && xb === Infinity) return circleD(view, { cx: sign * c.cx, cy: 0, rad: c.rad });
+    const xm = Math.tan((Math.atan(xa) + Math.atan(xb)) / 2);
+    const p0 = toPx(view, planePoint(r, xa, sign));
+    const pm = toPx(view, planePoint(r, xm, sign));
+    const p1 = toPx(view, planePoint(r, xb, sign));
+    return `M${num(p0.x)} ${num(p0.y)}${arcTo(p0, pm, p1, c.rad * view.k, toPx(view, K.make(sign * c.cx, 0)))}`;
+  };
+
+  /** Part of the arc x = const between resistances ra < rb (rb may be Infinity). */
+  const xSeg = (view, x, ra, rb, sign) => {
+    const p0 = toPx(view, planePoint(ra, x, sign));
+    const p1 = toPx(view, planePoint(rb, x, sign));
+    if (x === 0) return `M${num(p0.x)} ${num(p0.y)}L${num(p1.x)} ${num(p1.y)}`;
+    const c = rf.xArc(x);
+    const rm = Math.tan((Math.atan(ra) + Math.atan(rb)) / 2);
+    const pm = toPx(view, planePoint(rm, x, sign));
+    return `M${num(p0.x)} ${num(p0.y)}${arcTo(p0, pm, p1, c.rad * view.k, toPx(view, K.make(sign * c.cx, sign * c.cy)))}`;
+  };
+
+  /** Constant-Q arc from gamma = -1 to +1 (upper = inductive half). */
+  const qArcD = (view, q, upper) => {
+    const c = rf.qArc(q, upper);
+    const p0 = toPx(view, K.make(-1, 0));
+    const pm = toPx(view, K.make(0, upper ? c.rad - 1 / q : 1 / q - c.rad));
+    const p1 = toPx(view, K.make(1, 0));
+    return `M${num(p0.x)} ${num(p0.y)}${arcTo(p0, pm, p1, c.rad * view.k, toPx(view, K.make(c.cx, c.cy)))}`;
+  };
+
+  /** Polyline through gamma points; non-finite or far-away points break it. */
+  const polyD = (view, gammas) => {
+    let d = '';
+    let pen = false;
+    for (const g of gammas) {
+      if (!K.isFinite(g) || Math.abs(g.re) > 40 || Math.abs(g.im) > 40) { pen = false; continue; }
+      const p = toPx(view, g);
+      d += `${pen ? 'L' : 'M'}${num(p.x)} ${num(p.y)}`;
+      pen = true;
+    }
+    return d;
+  };
+
+  /** Pixel point and direction at a fraction of the length of a gamma polyline. */
+  const pointAlong = (view, gammas, fraction) => {
+    const pts = gammas.filter((g) => K.isFinite(g)).map((g) => toPx(view, g));
+    let total = 0;
+    for (let i = 1; i < pts.length; i += 1) total += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+    if (!(total > 0)) return null;
+    let run = 0;
+    for (let i = 1; i < pts.length; i += 1) {
+      const step = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+      if (step > 0 && run + step >= total * fraction) {
+        const u = (total * fraction - run) / step;
+        return {
+          x: pts[i - 1].x + (pts[i].x - pts[i - 1].x) * u,
+          y: pts[i - 1].y + (pts[i].y - pts[i - 1].y) * u,
+          dx: (pts[i].x - pts[i - 1].x) / step,
+          dy: (pts[i].y - pts[i - 1].y) / step,
+          length: total,
+        };
+      }
+      run += step;
+    }
+    return null;
+  };
+
+  /** Arrow head (closed triangle) at a pointAlong() result. */
+  const arrowD = (at, size = 9) => {
+    const bx = at.x - at.dx * size;
+    const by = at.y - at.dy * size;
+    const hx = -at.dy * size * 0.45;
+    const hy = at.dx * size * 0.45;
+    return `M${num(at.x)} ${num(at.y)}L${num(bx + hx)} ${num(by + hy)}L${num(bx - hx)} ${num(by - hy)}Z`;
+  };
+
+  /* --- Adaptive grid ---------------------------------------------------------- */
+
+  const BANDS = [0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500];
+  const key = (v) => Number(v.toPrecision(10));
+  /** Smallest 1-2-5 number that is >= v. */
+  const nice = (v) => {
+    const e = 10 ** Math.floor(Math.log10(v));
+    const m = v / e;
+    return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * e;
+  };
+
+  /** Range of r, x and |z| visible in the viewport, on the given plane.
+   *  r and x are harmonic, so their extremes over the visible part of the disc
+   *  are reached on its boundary: viewport edges and unit circle are sampled. */
+  const visibleRange = (view, sign) => {
+    const pad = 6;
+    const inView = (p) => p.x >= -pad && p.x <= view.w + pad && p.y >= -pad && p.y <= view.h + pad;
+    let rMin = Infinity; let rMax = -Infinity; let xMin = Infinity; let xMax = -Infinity; let modMin = Infinity;
+    let inside = 0; let outside = 0;
+    const take = (g) => {
+      const z = rf.gammaToZ(sign < 0 ? K.neg(g) : g, 1);
+      if (!K.isFinite(z)) return;
+      inside += 1;
+      const r = Math.max(0, z.re);
+      rMin = Math.min(rMin, r); rMax = Math.max(rMax, r);
+      xMin = Math.min(xMin, z.im); xMax = Math.max(xMax, z.im);
+      modMin = Math.min(modMin, Math.hypot(r, z.im));
+    };
+    const N = 48;
+    for (let i = 0; i <= N; i += 1) {
+      const u = i / N;
+      for (const [x, y] of [[u * view.w, 0], [u * view.w, view.h], [0, u * view.h], [view.w, u * view.h]]) {
+        const g = toGamma(view, x, y);
+        if (g.re * g.re + g.im * g.im <= 1) take(g); else outside += 1;
+      }
+    }
+    for (let a = 0.37; a < 360; a += 1.5) {
+      const g = K.polar(1, a);
+      if (inView(toPx(view, g))) take(g);
+    }
+    if (!inside) return null;
+    if (outside) rMin = 0;                                                       // the rim crosses the viewport
+    const pole = inView(toPx(view, K.make(sign, 0)));
+    if (pole) { rMax = Infinity; xMin = -Infinity; xMax = Infinity; }
+    if (inView(toPx(view, K.make(-sign, 0)))) { modMin = 0; rMin = 0; }
+    return { rMin, rMax, xMin, xMax, modMin, pole };
+  };
+
+  /** Grid of one plane for the current view.
+   *  Density follows the zoom: in each band of values the step is the smallest
+   *  1-2-5 number that keeps neighbouring lines at least `minPx` apart, and, as
+   *  on a paper chart, a line only extends as far as the band it belongs to.
+   *  Returns path data per weight (maj / med / min) and the labels to draw.
+   *  opts: { minPx, units: 'norm' | 'abs', z0, placed: [] shared label boxes } */
+  const grid = (view, sign, opts = {}) => {
+    const minPx = opts.minPx ?? 8;
+    const out = { d: { maj: '', med: '', min: '' }, labels: [], count: 0 };
+    const vis = visibleRange(view, sign);
+    if (!vis) return out;
+    const { k } = view;
+
+    // Major lines: kept while they stay apart on the real axis.
+    const pos = (v) => ((v - 1) / (v + 1)) * k;
+    const majors = new Set([1]);
+    let last = 1;
+    for (const v of BANDS) if (v > 1 && pos(v) - pos(last) >= minPx * 1.6) { majors.add(v); last = v; }
+    last = 1;
+    for (const v of [0.5, 0.2]) if (pos(last) - pos(v) >= minPx * 1.6) { majors.add(v); last = v; }
+
+    const rLines = new Map();
+    const xLines = new Map();
+    const put = (map, v, extent) => {
+      const id = key(v);
+      const cur = map.get(id);
+      if (!cur || extent > cur.extent) map.set(id, { v: id, extent });
+    };
+    const multiples = (lo, hi, s, limit, fn) => {
+      const a = Math.max(1, Math.ceil(lo / s - 1e-9));
+      const b = Math.floor(Math.min(hi, limit) / s + 1e-9);
+      if (b - a > 800) return;
+      for (let m = a; m <= b; m += 1) fn(m * s);
+    };
+    // |d gamma / dz| = 2 / |1 + z|²: lines are closest together at the largest
+    // r and |x| of a band that are actually in view.
+    const rTop = vis.rMax;
+    const xTop = Math.max(Math.abs(vis.xMin), Math.abs(vis.xMax));
+    for (const hi of BANDS) {
+      if (hi * Math.SQRT2 < vis.modMin) continue;          // the whole band lies outside the view
+      const s = nice(minPx * ((1 + Math.min(hi, rTop)) ** 2 + Math.min(hi, xTop) ** 2) / (2 * k));
+      if (s * 2 > hi * 1.0001) continue;
+      multiples(vis.rMin - s, vis.rMax + s, s, hi, (v) => put(rLines, v, hi));
+      multiples(vis.xMin - s, vis.xMax + s, s, hi, (v) => put(xLines, v, hi));
+      multiples(-vis.xMax - s, -vis.xMin + s, s, hi, (v) => put(xLines, -v, hi));
+    }
+    for (const v of majors) { put(rLines, v, Infinity); put(xLines, v, Infinity); put(xLines, -v, Infinity); }
+
+    const finiteSpan = (a, b) => (Number.isFinite(a) && Number.isFinite(b) ? b - a : 0);
+    const padR = 0.1 * finiteSpan(vis.rMin, vis.rMax) + 1e-9;
+    const padX = 0.1 * finiteSpan(vis.xMin, vis.xMax) + 1e-9;
+    const ownBand = (v) => BANDS.find((b) => v <= b * (1 + 1e-9)) ?? Infinity;
+    const weight = (v, extent) => (majors.has(Math.abs(v)) ? 'maj' : extent > ownBand(Math.abs(v)) ? 'med' : 'min');
+    const text = (v) => {
+      let s;
+      if (opts.units === 'abs') s = eng.format(sign > 0 ? v * opts.z0 : v / opts.z0, '', 3).replace(' ', '');
+      else s = String(v);
+      return s.replace('-', '−');
+    };
+    const candidates = [];
+
+    // Where labels sit: on the real axis and on the rim when they are in view,
+    // otherwise a little inside the visible part of the grid.
+    let xLabel = 0;
+    if (!(vis.xMin <= 0 && vis.xMax >= 0)) {
+      xLabel = vis.xMin > 0 ? vis.xMin + 0.15 * (vis.xMax - vis.xMin) : vis.xMax - 0.15 * (vis.xMax - vis.xMin);
+    }
+    let rLabel = 0;
+    if (vis.rMin > 1e-9) rLabel = vis.rMin + 0.15 * ((Number.isFinite(vis.rMax) ? vis.rMax : 2 * vis.rMin + 1) - vis.rMin);
+
+    for (const { v, extent } of rLines.values()) {
+      if (v < vis.rMin - padR || v > vis.rMax + padR) continue;
+      const xa = Math.max(-extent, vis.xMin - padX);
+      const xb = Math.min(extent, vis.xMax + padX);
+      if (!(xa < xb)) continue;
+      const w = weight(v, extent);
+      out.d[w] += rSeg(view, v, xa, xb, sign);
+      out.count += 1;
+      if (w !== 'min' && Math.abs(xLabel) <= extent) {
+        const p = toPx(view, planePoint(v, xLabel, sign));
+        candidates.push({ rank: extent, x: p.x + 3, y: p.y + (sign > 0 ? -7 : 8), text: text(v), anchor: 'start' });
+      }
+    }
+    for (const { v, extent } of xLines.values()) {
+      if (v < vis.xMin - padX || v > vis.xMax + padX) continue;
+      const ra = Math.max(0, vis.rMin - padR);
+      const rb = Math.min(extent, vis.rMax + padR);
+      if (!(ra < rb)) continue;
+      const w = weight(v, extent);
+      out.d[w] += xSeg(view, v, ra, rb, sign);
+      out.count += 1;
+      if (w !== 'min' && rLabel <= extent) {
+        const g = planePoint(rLabel, v, sign);
+        const p = toPx(view, g);
+        if (rLabel === 0) {
+          // on the rim: impedance labels outside the disc, admittance labels inside
+          const off = sign > 0 ? 12 : -13;
+          candidates.push({ rank: extent, x: p.x + g.re * off, y: p.y - g.im * off, text: text(v), anchor: 'middle' });
+        } else {
+          candidates.push({ rank: extent, x: p.x + 4, y: p.y - 6, text: text(v), anchor: 'start' });
+        }
+      }
+    }
+
+    // Keep labels that fit in the view and do not overlap one already placed;
+    // lines that reach further (the rounder values) are served first.
+    const placed = opts.placed || [];
+    candidates.sort((a, b) => (a.rank === b.rank ? 0 : a.rank > b.rank ? -1 : 1));
+    for (const c of candidates) {
+      const wPx = c.text.length * 5.8 + 4;
+      const box = { x0: c.anchor === 'middle' ? c.x - wPx / 2 : c.x - 1, y0: c.y - 7, x1: 0, y1: c.y + 7 };
+      box.x1 = box.x0 + wPx;
+      if (box.x0 < 2 || box.x1 > view.w - 2 || box.y0 < 2 || box.y1 > view.h - 2) continue;
+      if (placed.some((b) => box.x0 < b.x1 && box.x1 > b.x0 && box.y0 < b.y1 && box.y1 > b.y0)) continue;
+      placed.push(box);
+      out.labels.push({ x: c.x, y: c.y, text: c.text, anchor: c.anchor, box });
+    }
+    return out;
+  };
+
+  return { makeView, toPx, toGamma, planePoint, arcTo, circleD, rSeg, xSeg, qArcD, polyD, pointAlong, arrowD, visibleRange, grid, nice };
+})();
+</script>
+
+<script id="smith-app">
+/* ============================================================================
+ * smith-app — page logic (sections "ui" and "io").
+ * ========================================================================== */
+(() => {
+  'use strict';
+  const { cx: K, rf, eng, net } = SmithCore;
+  const CR = SmithChart;
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+
+  /* --- Formatting ---------------------------------------------------------------- */
+
+  const sig = (v, n = 4) => {
+    if (v == null || Number.isNaN(v)) return '—';
+    if (!Number.isFinite(v)) return v < 0 ? '−∞' : '∞';
+    return String(Number(v.toPrecision(n))).replace('-', '−');
+  };
+  const fmtCx = (z, n = 4) => eng.formatCx(z, n).replace(/-/g, '−');
+  const fmtZ = (z) => (K.isFinite(z) ? `${fmtCx(z)} Ω` : '∞');
+  const fmtY = (y) => (K.isFinite(y) ? `${fmtCx(K.scale(y, 1e3))} mS` : '∞');
+  const fmtDb = (v) => (v == null ? '—' : `${sig(v)} dB`);
+
+  const CONN = { series: 'série', shunt: '//' };
+  const describe = (el, f0) => {
+    const deg = () => sig(el.fref > 0 ? el.deg * f0 / el.fref : el.deg);
+    switch (el.kind) {
+      case 'R': return `R ${CONN[el.conn]} ${eng.format(el.value, 'Ω')}`;
+      case 'L': return `L ${CONN[el.conn]} ${eng.format(el.value, 'H')}`;
+      case 'C': return `C ${CONN[el.conn]} ${eng.format(el.value, 'F')}`;
+      case 'RLC': return `R-L-C ${el.topology === 'parallel' ? 'parallèle' : 'série'}, en ${el.conn === 'shunt' ? 'parallèle' : 'série'}`;
+      case 'TL': return `Ligne ${sig(el.zc)} Ω, ${deg()}°`;
+      case 'STUB': return `Stub ${el.term === 'short' ? 'court-circuité' : 'ouvert'} ${sig(el.zc)} Ω, ${deg()}°`;
+      case 'XFMR': return `Transformateur n = ${sig(el.n)}`;
+      default: return '?';
+    }
+  };
+  const describeLoad = (load) => {
+    if (load.kind === 'z') return `Charge ${fmtZ(load.z)}`;
+    if (load.kind === 'rlc') {
+      const parts = [];
+      if (load.r != null) parts.push(eng.format(load.r, 'Ω'));
+      if (load.l != null) parts.push(eng.format(load.l, 'H'));
+      if (load.c != null) parts.push(eng.format(load.c, 'F'));
+      return `Charge ${parts.join(load.topology === 'parallel' ? ' // ' : ' + ')}`;
+    }
+    return `Charge tabulée (${load.points.length} points)`;
+  };
+  const nodeName = (i) => (i === 0 ? 'DP1' : `TP${i + 1}`);
+
+  /* --- Course examples -------------------------------------------------------------- */
+
+  const F1 = 1e9;
+  const zn = (re, im) => ({ re: 50 * re, im: 50 * im });
+  const yn = (re, im) => K.scale(rf.invZ(K.make(re, im)), 50);
+  const seriesX = (x) => ({ ...rf.componentForReactance(50 * x, F1), conn: 'series' });
+  const shuntB = (b) => ({ ...rf.componentForSusceptance(b / 50, F1), conn: 'shunt' });
+  const ladder = () => [
+    { kind: 'C', conn: 'shunt', value: 22e-12 }, { kind: 'L', conn: 'series', value: 15e-9 },
+    { kind: 'C', conn: 'shunt', value: 3.9e-12 }, { kind: 'C', conn: 'series', value: 6.8e-12 },
+  ];
+  const base = (extra) => ({
+    z0: 50, f0: F1, load: { kind: 'z', z: zn(1, 0) }, elements: [],
+    markers: [], circles: { vswr: [], q: [] },
+    sweep: { on: false, start: 500e6, stop: 1500e6, points: 201, scale: 'lin' },
+    ...extra,
+  });
+  const PRESETS = [
+    { name: 'Slide 17 — réseau en échelle, charge 2 + j10 Ω', make: () => base({ f0: 869e6, load: { kind: 'z', z: { re: 2, im: 10 } }, elements: ladder() }) },
+    { name: 'Slide 16 — même réseau, charge 92 nH + 2 Ω', make: () => base({ f0: 869e6, load: { kind: 'rlc', topology: 'series', r: 2, l: 92e-9, c: null }, elements: ladder() }) },
+    { name: 'Slide 6 — placement d\'impédances', make: () => base({ load: { kind: 'z', z: zn(0.6, 0.8) }, markers: [{ label: 'z = 1', z: zn(1, 0) }, { label: 'z = 1,2 − j1,4', z: zn(1.2, -1.4) }] }) },
+    { name: 'Slide 7 — C série, Δ = −j1,1', make: () => base({ load: { kind: 'z', z: zn(0.6, 0.8) }, elements: [seriesX(-1.1)] }) },
+    { name: 'Slide 8 — L série, Δ = +j1,8', make: () => base({ load: { kind: 'z', z: zn(1.2, -1.4) }, elements: [seriesX(1.8)] }) },
+    { name: 'Slide 9 — R-L-C série, Q = 1', make: () => base({ f0: rf.rlcResonance({ r: 30, l: 5.5e-9, c: 6.11e-12 }).f0, load: { kind: 'rlc', topology: 'series', r: 30, l: 5.5e-9, c: 6.11e-12 }, circles: { vswr: [], q: [1] }, sweep: { on: true, start: 300e6, stop: 2500e6, points: 201, scale: 'log' } }) },
+    { name: 'Slide 10 — impédance et admittance', make: () => base({ load: { kind: 'z', z: zn(0.6, 1.4) }, markers: [{ label: 'y = 0,26 − j0,6', z: K.scale(rf.invZ(K.make(0.6, 1.4)), 50) }] }) },
+    { name: 'Slide 13 — C parallèle, Δ = +j1,4', make: () => base({ load: { kind: 'z', z: yn(1.2, -0.4) }, elements: [shuntB(1.4)] }) },
+    { name: 'Slide 14 — L parallèle, Δ = −j1,4', make: () => base({ load: { kind: 'z', z: yn(1.2, 1.0) }, elements: [shuntB(-1.4)] }) },
+    { name: 'Slide 15 — variation de fréquence', make: () => base({ load: { kind: 'rlc', topology: 'series', r: 25, l: 8e-9, c: 3e-12 }, sweep: { on: true, start: 200e6, stop: 3e9, points: 201, scale: 'log' } }) },
+  ];
+
+  /* --- State -------------------------------------------------------------------------- */
+
+  const state = {
+    project: PRESETS[0].make(),
+    mode: 'zy',          // 'z' | 'y' | 'zy'
+    units: 'norm',       // grid labels: 'norm' | 'abs'
+    view: null,
+    fitted: true,        // the view follows the size of its container
+    hover: null,         // { x, y, gamma, node }
+    selected: -1,        // selected node, -1 = none
+  };
+  let model = { nodes: [], paths: [], sweep: null };
+
+  const recompute = () => {
+    const p = state.project;
+    model = {
+      nodes: net.solve(p),
+      paths: p.elements.map((_, i) => net.trajectory(p, i)),
+      sweep: p.sweep.on ? net.sweep(p, p.sweep) : null,
+    };
+  };
+
+  /* --- Chart ---------------------------------------------------------------------------- */
+
+  const svg = $('chart');
+  const MARGIN = 38;
+
+  const fitView = () => {
+    const w = svg.clientWidth || 600;
+    const h = svg.clientHeight || 600;
+    state.view = CR.makeView(w, h, Math.max(40, (Math.min(w, h) - 2 * MARGIN) / 2));
+    state.fitted = true;
+  };
+  const fitScale = () => Math.max(40, (Math.min(state.view.w, state.view.h) - 2 * MARGIN) / 2);
+
+  const zoomAt = (x, y, factor) => {
+    const v = state.view;
+    const k = Math.min(fitScale() * 600, Math.max(fitScale() * 0.3, v.k * factor));
+    const g = CR.toGamma(v, x, y);
+    state.view = { ...v, k, ox: x - g.re * k, oy: y + g.im * k };
+    state.fitted = false;
+    drawAll();
+  };
+
+  const drawGrid = () => {
+    const v = state.view;
+    const placed = [];
+    const opts = { units: state.units, z0: state.project.z0, placed };
+    const plane = (sign, cls) => {
+      const g = CR.grid(v, sign, opts);
+      const paths = ['min', 'med', 'maj'].map((w) => (g.d[w] ? `<path class="${cls} ${w}" d="${g.d[w]}"/>` : '')).join('');
+      const labels = g.labels.map((l) => `<text class="gl gl-${sign > 0 ? 'z' : 'y'}" x="${l.x.toFixed(1)}" y="${l.y.toFixed(1)}" text-anchor="${l.anchor}" dominant-baseline="central">${esc(l.text)}</text>`).join('');
+      return { paths, labels };
+    };
+    const z = state.mode !== 'y' ? plane(1, 'gz') : { paths: '', labels: '' };
+    const y = state.mode !== 'z' ? plane(-1, 'gy') : { paths: '', labels: '' };
+    $('l-grid-z').innerHTML = z.paths;
+    $('l-grid-y').innerHTML = y.paths;
+    $('l-labels').innerHTML = z.labels + y.labels;
+    const a = CR.toPx(v, K.make(-1, 0));
+    const b = CR.toPx(v, K.make(1, 0));
+    $('l-rim').innerHTML = `<line class="axis" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"/><path class="rim" d="${CR.circleD(v, { cx: 0, cy: 0, rad: 1 })}"/>`;
+  };
+
+  /** Label next to a point, in the first corner that is free. */
+  const placeLabel = (boxes, p, text, cls) => {
+    const w = text.length * 6.6 + 4;
+    const corners = [[8, -9, 'start'], [8, 13, 'start'], [-8, -9, 'end'], [-8, 13, 'end']];
+    let pick = corners[0];
+    let box = null;
+    for (const c of corners) {
+      const x0 = c[2] === 'start' ? p.x + c[0] : p.x + c[0] - w;
+      const b = { x0, x1: x0 + w, y0: p.y + c[1] - 8, y1: p.y + c[1] + 6 };
+      if (!boxes.some((o) => b.x0 < o.x1 && b.x1 > o.x0 && b.y0 < o.y1 && b.y1 > o.y0)) { pick = c; box = b; break; }
+    }
+    if (box) boxes.push(box);
+    return `<text class="pt-label ${cls}" x="${(p.x + pick[0]).toFixed(1)}" y="${(p.y + pick[1]).toFixed(1)}" text-anchor="${pick[2]}">${esc(text)}</text>`;
+  };
+
+  const drawData = () => {
+    const v = state.view;
+    const p = state.project;
+
+    let rings = '';
+    for (const s of p.circles.vswr) {
+      const c = rf.vswrCircle(s);
+      const top = CR.toPx(v, K.make(0, c.rad));
+      rings += `<path class="ring" d="${CR.circleD(v, c)}"/><text class="ring-label" x="${top.x.toFixed(1)}" y="${(top.y - 5).toFixed(1)}" text-anchor="middle">VSWR ${esc(sig(s))}</text>`;
+    }
+    for (const q of p.circles.q) {
+      for (const upper of [true, false]) {
+        const c = rf.qArc(q, upper);
+        const apex = CR.toPx(v, K.make(0, upper ? c.rad - 1 / q : 1 / q - c.rad));
+        rings += `<path class="ring" d="${CR.qArcD(v, q, upper)}"/><text class="ring-label" x="${apex.x.toFixed(1)}" y="${(apex.y + (upper ? -5 : 13)).toFixed(1)}" text-anchor="middle">Q ${esc(sig(q))}</text>`;
+      }
+    }
+    $('l-rings').innerHTML = rings;
+
+    let sweep = '';
+    if (model.sweep) {
+      const gammas = model.sweep.map((m) => m.gamma);
+      sweep = `<path class="sweep" d="${CR.polyD(v, gammas)}"/>`;
+      const at = CR.pointAlong(v, gammas, 0.8);
+      if (at && at.length > 30) {
+        sweep += `<path class="sweep-head" d="${CR.arrowD(at, 11)}"/><text class="ring-label" x="${(at.x + 10).toFixed(1)}" y="${(at.y - 8).toFixed(1)}">f croissant</text>`;
+      }
+    }
+    $('l-sweep').innerHTML = sweep;
+
+    let traj = '';
+    model.paths.forEach((path, i) => {
+      const gammas = path.map((s) => s.gamma);
+      const sel = state.selected === i + 1 ? ' sel' : '';
+      traj += `<path class="traj${sel}" d="${CR.polyD(v, gammas)}"/>`;
+      const at = CR.pointAlong(v, gammas, 0.55);
+      if (at && at.length > 26) traj += `<path class="traj-head" d="${CR.arrowD(at)}"/>`;
+    });
+    $('l-traj').innerHTML = traj;
+
+    let pts = '';
+    const boxes = [];
+    const reserve = (q) => boxes.push({ x0: q.x - 6, x1: q.x + 6, y0: q.y - 6, y1: q.y + 6 });
+    const nodePx = model.nodes.map((m) => (K.isFinite(m.gamma) ? CR.toPx(v, m.gamma) : null));
+    nodePx.forEach((q) => q && reserve(q));
+    const markerPx = p.markers.map((mk) => CR.toPx(v, rf.zToGamma(mk.z, p.z0)));
+    markerPx.forEach(reserve);
+    p.markers.forEach((mk, i) => {
+      const q = markerPx[i];
+      pts += `<circle class="pt-mark" cx="${q.x.toFixed(1)}" cy="${q.y.toFixed(1)}" r="4"/>${placeLabel(boxes, q, mk.label, 'dim')}`;
+    });
+    model.nodes.forEach((m, i) => {
+      const q = nodePx[i];
+      if (!q) return;
+      const cls = `pt${m.active ? ' active' : ''}${state.selected === i ? ' sel' : ''}`;
+      pts += i === 0
+        ? `<rect class="${cls}" x="${(q.x - 4.5).toFixed(1)}" y="${(q.y - 4.5).toFixed(1)}" width="9" height="9"/>`
+        : `<circle class="${cls}" cx="${q.x.toFixed(1)}" cy="${q.y.toFixed(1)}" r="4.5"/>`;
+      pts += placeLabel(boxes, q, nodeName(i), '');
+    });
+    $('l-points').innerHTML = pts;
+    state.nodePx = nodePx;
+  };
+
+  const drawCursor = () => {
+    const h = state.hover;
+    const v = state.view;
+    if (!h) { $('l-cursor').innerHTML = ''; return; }
+    const q = h.node >= 0 ? state.nodePx[h.node] : { x: h.x, y: h.y };
+    $('l-cursor').innerHTML = `<line class="cross" x1="0" y1="${q.y.toFixed(1)}" x2="${v.w}" y2="${q.y.toFixed(1)}"/><line class="cross" x1="${q.x.toFixed(1)}" y1="0" x2="${q.x.toFixed(1)}" y2="${v.h}"/><circle class="cross-dot" cx="${q.x.toFixed(1)}" cy="${q.y.toFixed(1)}" r="${h.node >= 0 ? 8 : 3}"/>`;
+  };
+
+  /* --- Inspector --------------------------------------------------------------------------- */
+
+  const equivalent = (eq, joiner) => {
+    if (!eq) return '—';
+    const r = eng.format(eq.r, 'Ω');
+    if (!eq.reactive) return r;
+    return `${r} ${joiner} ${eng.format(eq.reactive.value, eq.reactive.kind === 'L' ? 'H' : 'F')}`;
+  };
+
+  const showReadout = () => {
+    const p = state.project;
+    let m;
+    let title;
+    if (state.hover && state.hover.node < 0) {
+      m = rf.metrics(rf.stFromGamma(state.hover.gamma, p.z0), p.z0, p.f0);
+      title = 'Curseur';
+    } else {
+      const i = state.hover ? state.hover.node : (state.selected >= 0 ? state.selected : model.nodes.length - 1);
+      m = model.nodes[i];
+      title = i === 0 ? `${nodeName(i)} · charge` : `${nodeName(i)} · ${i === model.nodes.length - 1 ? 'entrée' : describe(p.elements[i - 1], p.f0)}`;
+    }
+    $('cursor-title').textContent = title;
+    const rows = [
+      ['Z', fmtZ(m.z)],
+      ['Y', fmtY(m.y)],
+      ['Γ', `${sig(m.mag)} ∠ ${m.ang == null ? '—' : `${m.ang.toFixed(2).replace('-', '−')}°`}`],
+      ['VSWR', m.vswr == null ? '—' : sig(m.vswr)],
+      ['Return loss', fmtDb(m.rl)],
+      ['Mismatch loss', fmtDb(m.ml)],
+      ['Q', sig(m.q)],
+      ['z normalisée', fmtCx(m.zn)],
+      ['y normalisée', fmtCx(m.yn)],
+      ['Équivalent série', equivalent(m.series, '+')],
+      ['Équivalent parallèle', equivalent(m.parallel, '//')],
+    ];
+    $('cursor-list').innerHTML = rows.map(([k, val]) => `<dt>${esc(k)}</dt><dd>${esc(val)}</dd>`).join('');
+    $('cursor-flag').innerHTML = m.active ? '<span class="flag">▲ Actif / instable : |Γ| &gt; 1</span>' : '';
+  };
+
+  const drawPanels = () => {
+    const p = state.project;
+    $('points-freq').textContent = `à ${eng.format(p.f0, 'Hz')}`;
+    $('tbl-points').innerHTML = model.nodes.map((m, i) => {
+      const sub = i === 0 ? describeLoad(p.load) : describe(p.elements[i - 1], p.f0);
+      return `<tr data-node="${i}" aria-selected="${state.selected === i}"><td>${nodeName(i)}<span class="sub">${esc(sub)}</span></td><td class="num">${esc(K.isFinite(m.z) ? fmtCx(m.z) : '∞')}</td><td class="num">${esc(sig(m.q, 3))}</td></tr>`;
+    }).join('');
+
+    // Source on the left, load on the right; the network is built right to left.
+    const chain = ['<span class="node end">Entrée Z<sub>in</sub></span>'];
+    for (let i = p.elements.length - 1; i >= 0; i -= 1) {
+      chain.push('<span class="wire">—</span>', `<span class="node">${esc(describe(p.elements[i], p.f0))}</span>`);
+    }
+    chain.push('<span class="wire">—</span>', `<span class="node end">${esc(describeLoad(p.load))}</span>`);
+    $('chain').innerHTML = chain.join('');
+
+    const chips = (list, id) => {
+      $(id).innerHTML = list.map((val, i) => `<span class="chip">${esc(sig(val))}<button type="button" data-i="${i}" aria-label="Retirer ${esc(sig(val))}">×</button></span>`).join('');
+    };
+    chips(p.circles.vswr, 'chips-vswr');
+    chips(p.circles.q, 'chips-q');
+
+    $('in-z0').value = eng.format(p.z0, 'Ω');
+    $('in-f0').value = eng.format(p.f0, 'Hz');
+    for (const b of $('seg-mode').children) b.setAttribute('aria-pressed', String(b.dataset.mode === state.mode));
+    for (const b of $('seg-units').children) b.setAttribute('aria-pressed', String(b.dataset.units === state.units));
+  };
+
+  const drawAll = () => { drawGrid(); drawData(); drawCursor(); };
+  const refresh = () => { recompute(); drawAll(); drawPanels(); showReadout(); };
+
+  /* --- Interaction ------------------------------------------------------------------------- */
+
+  const localXY = (ev) => {
+    const r = svg.getBoundingClientRect();
+    return { x: ev.clientX - r.left, y: ev.clientY - r.top };
+  };
+  const nearestNode = (x, y) => {
+    let best = -1;
+    let dBest = 9;
+    (state.nodePx || []).forEach((q, i) => {
+      if (!q) return;
+      const d = Math.hypot(q.x - x, q.y - y);
+      if (d <= dBest) { dBest = d; best = i; }
+    });
+    return best;
+  };
+
+  let drag = null;
+  svg.addEventListener('pointerdown', (ev) => {
+    if (ev.button !== 0) return;
+    const { x, y } = localXY(ev);
+    drag = { x, y, ox: state.view.ox, oy: state.view.oy, moved: false, id: ev.pointerId };
+    svg.setPointerCapture(ev.pointerId);
+  });
+  svg.addEventListener('pointermove', (ev) => {
+    const { x, y } = localXY(ev);
+    if (drag) {
+      if (!drag.moved && Math.hypot(x - drag.x, y - drag.y) < 4) return;
+      drag.moved = true;
+      state.view = { ...state.view, ox: drag.ox + x - drag.x, oy: drag.oy + y - drag.y };
+      state.fitted = false;
+      state.hover = null;
+      drawAll();
+      return;
+    }
+    state.hover = { x, y, gamma: CR.toGamma(state.view, x, y), node: nearestNode(x, y) };
+    drawCursor();
+    showReadout();
+  });
+  svg.addEventListener('pointerup', (ev) => {
+    if (!drag) return;
+    const { x, y } = localXY(ev);
+    if (!drag.moved) {
+      const node = nearestNode(x, y);
+      state.selected = node === state.selected ? -1 : node;
+      drawData(); drawPanels(); showReadout();
+    }
+    svg.releasePointerCapture(drag.id);
+    drag = null;
+  });
+  svg.addEventListener('pointercancel', () => { drag = null; });
+  svg.addEventListener('pointerleave', () => { if (!drag) { state.hover = null; drawCursor(); showReadout(); } });
+  svg.addEventListener('wheel', (ev) => {
+    ev.preventDefault();
+    const { x, y } = localXY(ev);
+    zoomAt(x, y, Math.exp(-ev.deltaY * (ev.deltaMode === 1 ? 0.05 : 0.0016)));
+  }, { passive: false });
+  svg.addEventListener('dblclick', () => { fitView(); drawAll(); });
+  svg.addEventListener('keydown', (ev) => {
+    const v = state.view;
+    const pan = (dx, dy) => { state.view = { ...v, ox: v.ox + dx, oy: v.oy + dy }; state.fitted = false; drawAll(); };
+    switch (ev.key) {
+      case '+': case '=': zoomAt(v.w / 2, v.h / 2, 1.3); break;
+      case '-': case '_': zoomAt(v.w / 2, v.h / 2, 1 / 1.3); break;
+      case '0': fitView(); drawAll(); break;
+      case 'ArrowLeft': pan(40, 0); break;
+      case 'ArrowRight': pan(-40, 0); break;
+      case 'ArrowUp': pan(0, 40); break;
+      case 'ArrowDown': pan(0, -40); break;
+      case 'Escape': state.selected = -1; drawData(); drawPanels(); showReadout(); break;
+      default: return;
+    }
+    ev.preventDefault();
+  });
+  $('btn-zin').addEventListener('click', () => zoomAt(state.view.w / 2, state.view.h / 2, 1.4));
+  $('btn-zout').addEventListener('click', () => zoomAt(state.view.w / 2, state.view.h / 2, 1 / 1.4));
+  $('btn-zfit').addEventListener('click', () => { fitView(); drawAll(); });
+
+  new ResizeObserver(() => {
+    const w = svg.clientWidth;
+    const h = svg.clientHeight;
+    if (!w || !h) return;
+    if (state.fitted || !state.view) fitView();
+    else state.view = { ...state.view, w, h, ox: state.view.ox + (w - state.view.w) / 2, oy: state.view.oy + (h - state.view.h) / 2 };
+    drawAll();
+  }).observe(svg);
+
+  $('seg-mode').addEventListener('click', (ev) => {
+    const b = ev.target.closest('button');
+    if (!b) return;
+    state.mode = b.dataset.mode;
+    drawGrid(); drawPanels();
+  });
+  $('seg-units').addEventListener('click', (ev) => {
+    const b = ev.target.closest('button');
+    if (!b) return;
+    state.units = b.dataset.units;
+    drawGrid(); drawPanels();
+  });
+
+  /** Text field holding one positive quantity, committed on Enter or blur. */
+  const bindQuantity = (id, unit, get, set) => {
+    const input = $(id);
+    const commit = () => {
+      const v = eng.parse(input.value, unit);
+      if (v > 0 && Number.isFinite(v)) { input.removeAttribute('aria-invalid'); set(v); refresh(); } else { input.setAttribute('aria-invalid', 'true'); }
+    };
+    input.addEventListener('change', commit);
+    input.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape') { input.removeAttribute('aria-invalid'); input.value = eng.format(get(), unit); input.blur(); }
+    });
+  };
+  bindQuantity('in-z0', 'Ω', () => state.project.z0, (v) => { state.project.z0 = v; });
+  bindQuantity('in-f0', 'Hz', () => state.project.f0, (v) => { state.project.f0 = v; });
+
+  const bindRing = (inputId, chipsId, list, valid) => {
+    const input = $(inputId);
+    input.addEventListener('keydown', (ev) => {
+      if (ev.key !== 'Enter') return;
+      const v = eng.parse(input.value);
+      const arr = list();
+      if (valid(v) && !arr.includes(v)) { arr.push(v); input.value = ''; input.removeAttribute('aria-invalid'); refresh(); } else { input.setAttribute('aria-invalid', 'true'); }
+    });
+    $(chipsId).addEventListener('click', (ev) => {
+      const b = ev.target.closest('button');
+      if (!b) return;
+      list().splice(Number(b.dataset.i), 1);
+      refresh();
+    });
+  };
+  bindRing('in-vswr', 'chips-vswr', () => state.project.circles.vswr, (v) => v > 1 && Number.isFinite(v));
+  bindRing('in-q', 'chips-q', () => state.project.circles.q, (v) => v > 0 && Number.isFinite(v));
+
+  $('tbl-points').addEventListener('click', (ev) => {
+    const row = ev.target.closest('tr');
+    if (!row) return;
+    const i = Number(row.dataset.node);
+    state.selected = state.selected === i ? -1 : i;
+    drawData(); drawPanels(); showReadout();
+  });
+
+  const select = $('sel-preset');
+  select.innerHTML = PRESETS.map((p, i) => `<option value="${i}">${esc(p.name)}</option>`).join('');
+  select.addEventListener('change', () => {
+    state.project = PRESETS[Number(select.value)].make();
+    state.selected = -1;
+    refresh();
+  });
+
+  const root = document.documentElement;
+  try { const saved = localStorage.getItem('smith.theme'); if (saved === 'light' || saved === 'dark') root.dataset.theme = saved; } catch (err) { /* storage unavailable */ }
+  $('btn-theme').addEventListener('click', () => {
+    const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    root.dataset.theme = dark ? 'light' : 'dark';
+    try { localStorage.setItem('smith.theme', root.dataset.theme); } catch (err) { /* storage unavailable */ }
+  });
+
+  fitView();
+  refresh();
+  window.SmithApp = { state, refresh, fitView, zoomAt, drawAll, PRESETS, get model() { return model; } };
 })();
 </script>
 </body>

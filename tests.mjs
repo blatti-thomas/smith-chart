@@ -22,13 +22,19 @@ import vm from 'node:vm';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const html = readFileSync(join(here, 'index.html'), 'utf8');
-const block = /<script id="smith-core">([\s\S]*?)<\/script>/.exec(html);
-if (!block) {
-  console.error('Bloc <script id="smith-core"> introuvable dans index.html');
-  process.exit(2);
-}
-const coreSource = block[1];
-const Core = vm.runInNewContext(`${coreSource}\n;SmithCore;`, {}, { filename: 'index.html#smith-core' });
+const grab = (id) => {
+  const found = new RegExp(`<script id="${id}">([\\s\\S]*?)<\\/script>`).exec(html);
+  if (!found) {
+    console.error(`Bloc <script id="${id}"> introuvable dans index.html`);
+    process.exit(2);
+  }
+  return found[1];
+};
+const coreSource = grab('smith-core');
+const chartSource = grab('smith-chart');     // pure geometry, depends on smith-core only
+const { SmithCore: Core, SmithChart: Chart } = vm.runInNewContext(
+  `${coreSource}\n${chartSource}\n;({ SmithCore, SmithChart });`, {}, { filename: 'index.html' },
+);
 const { cx: K, rf, eng, net } = Core;
 
 /* ------------------------------------------------------------------ harness */
@@ -151,12 +157,15 @@ const logBetween = (rnd, lo, hi) => lo * (hi / lo) ** rnd();
 /* ========================================================================== */
 group('0. Extraction du moteur');
 
-test('le bloc smith-core s\'exécute dans un contexte nu (sans page ni console)', () => {
+test('smith-core et smith-chart s\'exécutent dans un contexte nu (sans page ni console)', () => {
   ok(Core && typeof Core.VERSION === 'string', 'SmithCore non exposé');
+  ok(Chart && typeof Chart.grid === 'function', 'SmithChart non exposé');
 });
-test('le moteur ne référence aucun objet de la page', () => {
-  const hit = /\b(document|window|navigator|localStorage|console|fetch|alert)\b/.exec(coreSource);
-  ok(!hit, `identifiant interdit dans smith-core : ${hit && hit[0]}`);
+test('ni le moteur ni la géométrie ne référencent un objet de la page', () => {
+  for (const [name, source] of [['smith-core', coreSource], ['smith-chart', chartSource]]) {
+    const hit = /\b(document|window|navigator|localStorage|console|fetch|alert)\b/.exec(source);
+    ok(!hit, `identifiant interdit dans ${name} : ${hit && hit[0]}`);
+  }
 });
 
 /* ========================================================================== */
@@ -795,6 +804,164 @@ test('aller-retour affichage → saisie', () => {
     const value = logBetween(rnd, 1e-14, 1e11);
     close(eng.parse(eng.format(value, 'F', 9), 'F'), value, 1e-8);
   }
+});
+
+/* ========================================================================== */
+group('10. Géométrie SVG de l\'abaque (smith-chart)');
+
+const ARC = /^M(-?[\d.]+) (-?[\d.]+)A(-?[\d.]+) (-?[\d.]+) 0 ([01]) ([01]) (-?[\d.]+) (-?[\d.]+)$/;
+/** Centre and swept angle of an SVG arc, from its endpoint form (SVG 1.1, F.6.5). */
+const svgArc = (d) => {
+  const m = ARC.exec(d);
+  ok(m, `chemin inattendu : ${d}`);
+  const [x1, y1, r, , large, sweep, x2, y2] = m.slice(1).map(Number);
+  const hx = (x1 - x2) / 2;
+  const hy = (y1 - y2) / 2;
+  const coef = (large !== sweep ? 1 : -1) * Math.sqrt(Math.max(0, (r * r - hx * hx - hy * hy) / (hx * hx + hy * hy)));
+  const cxp = coef * hy;
+  const cyp = -coef * hx;
+  const centre = { x: cxp + (x1 + x2) / 2, y: cyp + (y1 + y2) / 2 };
+  const t1 = Math.atan2(hy - cyp, hx - cxp);
+  let dt = Math.atan2(-hy - cyp, -hx - cxp) - t1;
+  if (sweep && dt < 0) dt += 2 * Math.PI;
+  if (!sweep && dt > 0) dt -= 2 * Math.PI;
+  return { centre, r, t1, dt, chord: 2 * Math.hypot(hx, hy) };
+};
+/** True when pixel point p lies on the arc (within tol pixels). */
+const onArc = (arc, p, tol = 0.6) => {
+  if (Math.abs(Math.hypot(p.x - arc.centre.x, p.y - arc.centre.y) - arc.r) > tol) return false;
+  let t = Math.atan2(p.y - arc.centre.y, p.x - arc.centre.x) - arc.t1;
+  if (arc.dt >= 0) { while (t < -1e-6) t += 2 * Math.PI; return t <= arc.dt + 1e-6; }
+  while (t > 1e-6) t -= 2 * Math.PI;
+  return t >= arc.dt - 1e-6;
+};
+const view600 = Chart.makeView(600, 600, 262);
+
+test('repère écran ↔ plan Γ', () => {
+  const v = Chart.makeView(800, 500, 200, 410, 240);
+  const p = Chart.toPx(v, c(0.25, 0.5));
+  close(p.x, 460, EXACT); close(p.y, 140, EXACT);            // Im(Γ) vers le haut = y écran vers le bas
+  close(Chart.toGamma(v, p.x, p.y), c(0.25, 0.5), EXACT);
+});
+test('arcs r = cste : le chemin SVG passe par les bons points, sur les deux plans', () => {
+  const rnd = prng(2024);
+  let checked = 0;
+  for (let n = 0; n < 400; n += 1) {
+    const sign = n % 2 ? 1 : -1;
+    const r = logBetween(rnd, 0.03, 8);
+    const xa = between(rnd, -8, 6);
+    const xb = xa + logBetween(rnd, 0.05, 12);
+    const arc = svgArc(Chart.rSeg(view600, r, xa, xb, sign));
+    if (arc.chord < 12) continue;
+    checked += 1;
+    for (const u of [0.1, 0.35, 0.5, 0.8]) {
+      const x = Math.tan(Math.atan(xa) + (Math.atan(xb) - Math.atan(xa)) * u);
+      ok(onArc(arc, Chart.toPx(view600, Chart.planePoint(r, x, sign))), `r = ${r}, x de ${xa} à ${xb}, plan ${sign} : point hors de l'arc`);
+    }
+    // et pas au-delà : un point de la même courbe hors de l'intervalle n'est pas sur l'arc
+    const beyond = Chart.toPx(view600, Chart.planePoint(r, Math.tan(Math.atan(xb) + (Math.PI / 2 - Math.atan(xb)) * 0.5), sign));
+    const end = Chart.toPx(view600, Chart.planePoint(r, xb, sign));
+    if (Math.hypot(beyond.x - end.x, beyond.y - end.y) > 3) ok(!onArc(arc, beyond, 0.3), 'l\'arc dépasse son extrémité');
+  }
+  ok(checked > 200, `trop peu de cas vérifiés (${checked})`);
+});
+test('arcs x = cste : le chemin SVG passe par les bons points, sur les deux plans', () => {
+  const rnd = prng(31337);
+  let checked = 0;
+  for (let n = 0; n < 400; n += 1) {
+    const sign = n % 2 ? 1 : -1;
+    const x = (rnd() < 0.5 ? -1 : 1) * logBetween(rnd, 0.05, 8);
+    const ra = between(rnd, 0, 3);
+    const rb = rnd() < 0.2 ? Infinity : ra + logBetween(rnd, 0.05, 20);
+    const arc = svgArc(Chart.xSeg(view600, x, ra, rb, sign));
+    if (arc.chord < 12) continue;
+    checked += 1;
+    for (const u of [0.1, 0.5, 0.9]) {
+      const r = Math.tan(Math.atan(ra) + (Math.atan(rb) - Math.atan(ra)) * u);
+      ok(onArc(arc, Chart.toPx(view600, Chart.planePoint(r, x, sign))), `x = ${x}, r de ${ra} à ${rb}, plan ${sign} : point hors de l'arc`);
+    }
+  }
+  ok(checked > 200, `trop peu de cas vérifiés (${checked})`);
+});
+test('axe réel, cercle complet et lieux Q', () => {
+  same(Chart.xSeg(view600, 0, 0, Infinity, 1), 'M38 300L562 300');
+  const full = /^M(-?[\d.]+) (-?[\d.]+)a/.exec(Chart.rSeg(view600, 1, -Infinity, Infinity, 1));
+  close(Number(full[1]), 300, EXACT); close(Number(full[2]), 300, EXACT);    // cercle r = 1 : part du centre
+  for (const q of [0.5, 1, 4]) {
+    for (const upper of [true, false]) {
+      const arc = svgArc(Chart.qArcD(view600, q, upper));
+      const circle = rf.qArc(q, upper);
+      const centre = Chart.toPx(view600, c(circle.cx, circle.cy));
+      ok(Math.hypot(arc.centre.x - centre.x, arc.centre.y - centre.y) < 0.6, `centre du lieu Q = ${q}`);
+      for (const x of [0.3, 1, 5]) {
+        const g = rf.zToGamma(c(x / q, upper ? x : -x), 1);     // |x| / r = Q
+        ok(onArc(arc, Chart.toPx(view600, g)), `point Q = ${q} hors du lieu`);
+      }
+    }
+  }
+});
+test('plage visible : vue d\'ensemble et vue zoomée autour de z = 1', () => {
+  const whole = Chart.visibleRange(view600, 1);
+  same(whole.rMin, 0); same(whole.rMax, Infinity); same(whole.pole, true); same(whole.modMin, 0);
+  const near = Chart.visibleRange(Chart.makeView(600, 600, 3000), 1);       // demi-largeur 0,1 en Γ
+  // extrêmes atteints sur le bord du cadre : coins Γ = ±0,1 ± j0,1 et milieu du bord droit Γ = 0,1
+  close(near.rMin, 0.98 / 1.22, EXACT); close(near.rMax, 1.1 / 0.9, EXACT);
+  close(near.xMax, 0.2 / 0.82, EXACT); close(near.xMin, -0.2 / 0.82, EXACT);
+  same(near.pole, false);
+  same(Chart.visibleRange(Chart.makeView(600, 600, 3000, -9000, 300), 1), null);   // disque hors de la vue
+});
+test('grille adaptative : nombre de lignes borné à tous les zooms, étiquettes sans chevauchement', () => {
+  const rnd = prng(8);
+  const views = [view600, Chart.makeView(300, 300, 112), Chart.makeView(1400, 900, 410), Chart.makeView(600, 600, 80)];
+  for (let n = 0; n < 60; n += 1) {
+    const k = 262 * logBetween(rnd, 1.5, 600);
+    const a = between(rnd, 0, 2 * Math.PI);
+    const rho = n % 6 === 0 ? 1 : n % 6 === 1 ? 0.999 : Math.sqrt(rnd());       // insiste sur le bord et les pôles
+    const g = n % 12 === 0 ? c(1, 0) : n % 12 === 7 ? c(-1, 0) : c(rho * Math.cos(a), rho * Math.sin(a));
+    views.push(Chart.makeView(600, 600, k, 300 - g.re * k, 300 + g.im * k));
+  }
+  views.forEach((v, n) => {
+    const placed = [];
+    for (const sign of [1, -1]) {
+      for (const units of ['norm', 'abs']) {
+        const g = Chart.grid(v, sign, { units, z0: 50, placed: units === 'norm' ? placed : [] });
+        const all = g.d.maj + g.d.med + g.d.min;
+        ok(!/NaN|Infinity|undefined/.test(all), `vue ${n} : chemin invalide`);
+        ok(g.count <= 400, `vue ${n} : ${g.count} lignes`);
+        ok(g.count >= 6, `vue ${n} (k = ${v.k.toFixed(0)}) : seulement ${g.count} lignes`);
+        for (const l of g.labels) {
+          ok(l.box.x0 >= 0 && l.box.x1 <= v.w && l.box.y0 >= 0 && l.box.y1 <= v.h, `vue ${n} : étiquette « ${l.text} » hors cadre`);
+          ok(!/NaN|undefined/.test(l.text), `vue ${n} : étiquette « ${l.text} »`);
+        }
+      }
+    }
+    for (let i = 0; i < placed.length; i += 1) {
+      for (let j = i + 1; j < placed.length; j += 1) {
+        const a = placed[i];
+        const b = placed[j];
+        ok(!(a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0), `vue ${n} : deux étiquettes se chevauchent`);
+      }
+    }
+  });
+});
+test('vue d\'ensemble : graduations classiques, mêmes lignes sur les plans Z et Y', () => {
+  const z = Chart.grid(view600, 1, { units: 'norm', z0: 50 });
+  const y = Chart.grid(view600, -1, { units: 'norm', z0: 50 });
+  same(z.count, y.count);
+  const texts = new Set(z.labels.map((l) => l.text));
+  for (const t of ['0.2', '0.5', '1', '2', '5', '−1', '−2', '−0.5']) ok(texts.has(t), `graduation ${t} absente`);
+  // graduations en ohms et en siemens, comme Smith V3.10 : 50 Ω et 20 mS au centre
+  const zAbs = new Set(Chart.grid(view600, 1, { units: 'abs', z0: 50 }).labels.map((l) => l.text));
+  const yAbs = new Set(Chart.grid(view600, -1, { units: 'abs', z0: 50 }).labels.map((l) => l.text));
+  for (const t of ['50', '25', '100', '250']) ok(zAbs.has(t), `graduation ${t} Ω absente`);
+  for (const t of ['20m', '10m', '40m', '4m']) ok(yAbs.has(t), `graduation ${t}S absente`);
+});
+test('polylignes et flèches', () => {
+  same(Chart.polyD(view600, [c(0, 0), c(0.5, 0), c(NaN, 0), c(0.5, 0.5), c(1, 0.5)]), 'M300 300L431 300M431 169L562 169');
+  const at = Chart.pointAlong(view600, [c(0, 0), c(1, 0)], 0.25);
+  close(at.x, 365.5, EXACT); close(at.y, 300, EXACT); close(at.dx, 1, EXACT); close(at.length, 262, EXACT);
+  same(Chart.pointAlong(view600, [c(0.2, 0.2)], 0.5), null);
+  ok(/^M[\d. -]+L[\d. -]+L[\d. -]+Z$/.test(Chart.arrowD(at)), 'flèche mal formée');
 });
 
 /* ========================================================================== */
