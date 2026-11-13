@@ -306,3 +306,22 @@ Un commit par phase (conventional commits, en anglais).
 | Q3 | Langue de l'interface | Français |
 | Q4 | Orientation du schéma : source à gauche et charge à droite (slide 16), ou charge à gauche (Smith V3.10) ? | Slide 16 par défaut, bascule vers le style V3.10 |
 | Q5 | Cible de parité V4.1 plutôt que V3.10 | Oui (sur-ensemble) |
+
+## 11. État de réalisation (ajouté en fin de projet)
+
+Réponses aux questions du § 10 : Q1 à Q5 validées telles que recommandées. Le lot amplificateur est livré.
+
+Écarts par rapport à ce document :
+
+| Sujet | Prévu | Réalisé |
+|---|---|---|
+| Couleurs | Z et Y distinctes | Trois teintes seulement (Z rouge, Y bleu, sweep vert), validées pour le daltonisme ; trajectoires, cercles et sélection à l'encre, distingués par le trait et une étiquette |
+| Blocs de code | `smith-core` et `smith-app` | Un troisième bloc sans accès à la page, `smith-chart` (géométrie SVG), testé lui aussi sous Node |
+| Familles d'adaptation | L, π, T, stubs, λ/4, ligne + réactance | Les mêmes, plus la ligne série unique d'impédance calculée |
+| Glisser une ligne longue | non précisé | La recherche reste à moins d'une demi-onde de la longueur actuelle, pour qu'une ligne de plusieurs λ garde ses tours |
+| Raccourcis | Ctrl+N/O/S, Ctrl+1/2/3 | Ctrl+S et Ctrl+O ; le zoom se fait par `+`, `−`, `0` (Ctrl+N et Ctrl+1/2/3 sont réservés par les navigateurs) |
+| Presse-papiers | abaque et schéma | abaque seulement ; le schéma s'exporte en SVG |
+| Impression | feuille de style | présente, non vérifiée sur papier |
+| Tableau des points | colonnes au choix | colonnes fixes (Z, Q) ; l'export CSV contient toutes les grandeurs |
+
+Les limitations sont listées dans `README.md`.

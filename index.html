@@ -349,6 +349,12 @@ details.card > summary small { color: var(--muted); font-weight: 400; letter-spa
 .amp-gain { stroke: var(--ink-2); stroke-dasharray: 6 3; }
 .amp-nf { stroke: var(--ink-2); stroke-dasharray: 1.5 3; }
 .check { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+@media print {
+  .topbar, .palette, .zoom, .hint, .inspector, .plots-empty { display: none; }
+  .app { display: block; height: auto; }
+  body { background: #fff; }
+  .chart-box { height: 170mm; }
+}
 @media (max-width: 860px) {
   .plots { grid-template-columns: minmax(0, 1fr); }
 }
@@ -2443,8 +2449,8 @@ const SmithChart = (() => {
     return String(Number(v.toPrecision(n))).replace('-', '−');
   };
   const fmtCx = (z, n = 4) => eng.formatCx(z, n).replace(/-/g, '−');
-  const fmtZ = (z) => (K.isFinite(z) ? `${fmtCx(z)} Ω` : '∞');
-  const fmtY = (y) => (K.isFinite(y) ? `${fmtCx(K.scale(y, 1e3))} mS` : '∞');
+  const fmtZ = (z) => (K.isFinite(z) ? `${fmtCx(z, 5)} Ω` : '∞');
+  const fmtY = (y) => (K.isFinite(y) ? `${fmtCx(K.scale(y, 1e3), 5)} mS` : '∞');
   const fmtDb = (v) => (v == null ? '—' : `${sig(v)} dB`);
   const fmtJ = (x, unit) => `${x < 0 ? '−' : '+'}j${eng.format(Math.abs(x), unit)}`;
 
@@ -4112,6 +4118,8 @@ const SmithChart = (() => {
     const mod = ev.ctrlKey || ev.metaKey;
     if (mod && !dirty && (ev.key === 'z' || ev.key === 'Z') && !ev.shiftKey) { ev.preventDefault(); undo(); }
     else if (mod && !dirty && (ev.key === 'y' || ev.key === 'Y' || ((ev.key === 'z' || ev.key === 'Z') && ev.shiftKey))) { ev.preventDefault(); redo(); }
+    else if (mod && (ev.key === 's' || ev.key === 'S')) { ev.preventDefault(); FILE_ACTIONS['f-save'](); }
+    else if (mod && (ev.key === 'o' || ev.key === 'O')) { ev.preventDefault(); FILE_ACTIONS['f-open'](); }
     else if (!typing && !t.closest('#schem') && (ev.key === 'Delete' || ev.key === 'Backspace') && state.selected > 0) { ev.preventDefault(); removeElement(state.selected - 1); }
     else if (!typing && ev.key === 'Escape' && state.selected >= 0) select(-1);
   });
