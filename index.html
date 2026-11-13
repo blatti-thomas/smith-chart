@@ -344,6 +344,11 @@ details.card > summary small { color: var(--muted); font-weight: 400; letter-spa
 .course-label { fill: var(--ink); font-size: 11.5px; font-weight: 600; paint-order: stroke; stroke: var(--surface); stroke-width: 3.5px; stroke-linejoin: round; }
 .course-sym { stroke: var(--ink-2); stroke-width: 1; stroke-dasharray: 4 3; }
 .traj.preview { stroke: var(--ink-2); stroke-dasharray: 6 4; }
+.amp-stab, .amp-gain, .amp-nf { fill: none; stroke-width: 1.4; }
+.amp-stab { stroke: var(--ink); stroke-dasharray: 9 3 2 3; }
+.amp-gain { stroke: var(--ink-2); stroke-dasharray: 6 3; }
+.amp-nf { stroke: var(--ink-2); stroke-dasharray: 1.5 3; }
+.check { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
 @media (max-width: 860px) {
   .plots { grid-template-columns: minmax(0, 1fr); }
 }
@@ -405,6 +410,7 @@ details.card > summary small { color: var(--muted); font-weight: 400; letter-spa
         <g id="l-labels"></g>
         <g id="l-rings"></g>
         <g id="l-course"></g>
+        <g id="l-amp"></g>
         <g id="l-sweep"></g>
         <g id="l-traj"></g>
         <g id="l-preview"></g>
@@ -460,6 +466,10 @@ details.card > summary small { color: var(--muted); font-weight: 400; letter-spa
       <summary>Cercles</summary>
       <div class="row"><label for="in-vswr">VSWR</label><input class="mini-input" id="in-vswr" placeholder="2" autocomplete="off"><div class="chips" id="chips-vswr"></div></div>
       <div class="row"><label for="in-q">Q</label><input class="mini-input" id="in-q" placeholder="1" autocomplete="off"><div class="chips" id="chips-q"></div></div>
+    </details>
+    <details class="card ed" id="card-amp">
+      <summary>Amplificateur (paramètres S)</summary>
+      <div id="amp-box"></div>
     </details>
     <details class="card ed" id="card-files">
       <summary>Fichiers et exports</summary>
@@ -1661,6 +1671,139 @@ const SmithCore = (() => {
     return { points, unit };
   };
 
+  /* --- Amplifier design from two-port S parameters -------------------------------------
+   * s = { s11, s12, s21, s22 }. Circles are returned in the gamma plane of the
+   * source (gamma_S) or of the load (gamma_L). Formulas: Gonzalez, "Microwave
+   * transistor amplifiers", as summarised in the help of Smith V4.1. */
+
+  const abs2 = (a) => a.re * a.re + a.im * a.im;
+  const db10 = (x) => 10 * Math.log10(x);
+  const sDelta = (s) => sub(mul(s.s11, s.s22), mul(s.s12, s.s21));
+
+  /** Stability factors and maximum gains. `mag` exists only when K >= 1. */
+  const ampFigures = (s) => {
+    const delta = sDelta(s);
+    const loop = abs(mul(s.s12, s.s21));
+    const k = (1 - abs2(s.s11) - abs2(s.s22) + abs2(delta)) / (2 * loop);
+    const muLoad = (1 - abs2(s.s11)) / (abs(sub(s.s22, mul(delta, conj(s.s11)))) + loop);
+    const muSource = (1 - abs2(s.s22)) / (abs(sub(s.s11, mul(delta, conj(s.s22)))) + loop);
+    const ratio = abs(s.s21) / abs(s.s12);
+    const mag = k >= 1 ? ratio * (k - Math.sqrt(k * k - 1)) : null;
+    return {
+      delta, k, muLoad, muSource,
+      unconditional: k > 1 && abs(delta) < 1,
+      msg: ratio, msgDb: db10(ratio),
+      mag, magDb: mag == null ? null : db10(mag),
+      s21Db: db10(abs2(s.s21)),
+    };
+  };
+
+  /** Stability circle in the 'source' or 'load' plane: the terminations for
+   *  which the reflection seen at the other port has modulus 1. */
+  const stabilityCircle = (s, plane) => {
+    const delta = sDelta(s);
+    const own = plane === 'source' ? s.s11 : s.s22;
+    const other = plane === 'source' ? s.s22 : s.s11;
+    const den = abs2(own) - abs2(delta);
+    if (den === 0) return null;
+    const centre = scale(conj(sub(own, mul(delta, conj(other)))), 1 / den);
+    const rad = abs(mul(s.s12, s.s21)) / Math.abs(den);
+    // at the centre of the chart the other port shows |S| of that port
+    const originStable = abs(other) < 1;
+    const containsOrigin = abs(centre) < rad;
+    return { cx: centre.re, cy: centre.im, rad, stableInside: originStable === containsOrigin };
+  };
+
+  /** Constant-gain circle. kind: 'available' (source plane), 'operating'
+   *  (load plane), 'unilateral-source' or 'unilateral-load'. Returns null when
+   *  the gain asked for cannot be reached. */
+  const gainCircle = (s, kind, gainDb) => {
+    const g = 10 ** (gainDb / 10);
+    if (kind === 'unilateral-source' || kind === 'unilateral-load') {
+      const sii = kind === 'unilateral-source' ? s.s11 : s.s22;
+      const m = abs2(sii);
+      if (!(m < 1)) return null;
+      const gn = g * (1 - m);                       // gain relative to its maximum 1 / (1 - |Sii|²)
+      if (!(gn > 0 && gn <= 1)) return null;
+      const den = 1 - m * (1 - gn);
+      const centre = scale(conj(sii), gn / den);
+      return { cx: centre.re, cy: centre.im, rad: (Math.sqrt(1 - gn) * (1 - m)) / den };
+    }
+    const delta = sDelta(s);
+    const own = kind === 'available' ? s.s11 : s.s22;
+    const other = kind === 'available' ? s.s22 : s.s11;
+    const gn = g / abs2(s.s21);
+    const loop = abs(mul(s.s12, s.s21));
+    const k = (1 - abs2(s.s11) - abs2(s.s22) + abs2(delta)) / (2 * loop);
+    const den = 1 + gn * (abs2(own) - abs2(delta));
+    const disc = 1 - 2 * k * loop * gn + loop * loop * gn * gn;
+    // at the maximum gain the discriminant is zero: allow for rounding just below it
+    if (den === 0 || disc < -1e-9) return null;
+    const centre = scale(conj(sub(own, mul(delta, conj(other)))), gn / den);
+    return { cx: centre.re, cy: centre.im, rad: Math.sqrt(Math.max(0, disc)) / Math.abs(den) };
+  };
+
+  /** Constant noise-figure circle in the source plane.
+   *  noise = { nfmin (dB), gopt (complex), rn (normalised to z0) }. */
+  const noiseCircle = (noise, nfDb) => {
+    const f = 10 ** (nfDb / 10);
+    const fmin = 10 ** (noise.nfmin / 10);
+    if (!(f >= fmin) || !(noise.rn > 0)) return null;
+    const n = ((f - fmin) * abs2(add(ONE, noise.gopt))) / (4 * noise.rn);
+    const centre = scale(noise.gopt, 1 / (1 + n));
+    return { cx: centre.re, cy: centre.im, rad: Math.sqrt(n * (n + 1 - abs2(noise.gopt))) / (1 + n) };
+  };
+  /** Noise figure in dB for a source reflection coefficient. */
+  const noiseFigure = (noise, gs) => {
+    const fmin = 10 ** (noise.nfmin / 10);
+    return db10(fmin + (4 * noise.rn * abs2(sub(gs, noise.gopt))) / ((1 - abs2(gs)) * abs2(add(ONE, noise.gopt))));
+  };
+
+  /** Source and load reflection coefficients of the simultaneous conjugate
+   *  match; null unless the two-port is unconditionally stable. */
+  const conjugateMatch = (s) => {
+    const fig = ampFigures(s);
+    if (!fig.unconditional) return null;
+    const d2 = abs2(fig.delta);
+    const side = (own, other) => {
+      const b = 1 + abs2(own) - abs2(other) - d2;
+      const cc = sub(own, mul(fig.delta, conj(other)));
+      const root = Math.sqrt(Math.max(0, b * b - 4 * abs2(cc)));
+      return scale(inv(cc), (b > 0 ? b - root : b + root) / 2);
+    };
+    return { gs: side(s.s11, s.s22), gl: side(s.s22, s.s11) };
+  };
+
+  /** Transducer, available and operating power gains (linear) for given
+   *  source and load reflection coefficients. */
+  const powerGains = (s, gs, gl) => {
+    const gin = terminated(s, 1, gl);
+    const gout = terminated(s, 2, gs);
+    const s21 = abs2(s.s21);
+    return {
+      gin, gout,
+      gt: ((1 - abs2(gs)) * s21 * (1 - abs2(gl))) / (abs2(sub(ONE, mul(gs, gin))) * abs2(sub(ONE, mul(s.s22, gl)))),
+      ga: ((1 - abs2(gs)) * s21) / (abs2(sub(ONE, mul(s.s11, gs))) * (1 - abs2(gout))),
+      gp: (s21 * (1 - abs2(gl))) / ((1 - abs2(gin)) * abs2(sub(ONE, mul(s.s22, gl)))),
+    };
+  };
+
+  /** S parameters (and noise data) of a parsed two-port Touchstone file at
+   *  frequency f, by linear interpolation of the complex values. */
+  const deviceAt = (ts, f) => {
+    const lerp = (a, b, u) => add(a, scale(sub(b, a), u));
+    const pick = (rows, blend) => {
+      if (!rows.length) return null;
+      if (rows.length === 1 || f <= rows[0].f) return blend(rows[0], rows[0], 0);
+      if (f >= rows[rows.length - 1].f) return blend(rows[rows.length - 1], rows[rows.length - 1], 0);
+      const k = tableSegment(rows, f);
+      return blend(rows[k], rows[k + 1], (f - rows[k].f) / (rows[k + 1].f - rows[k].f));
+    };
+    const s = pick(ts.points, (a, b, u) => ({ s11: lerp(a.s.s11, b.s.s11, u), s12: lerp(a.s.s12, b.s.s12, u), s21: lerp(a.s.s21, b.s.s21, u), s22: lerp(a.s.s22, b.s.s22, u) }));
+    const noise = pick(ts.noise || [], (a, b, u) => ({ nfmin: a.nfmin + (b.nfmin - a.nfmin) * u, gopt: lerp(a.gopt, b.gopt, u), rn: a.rn + (b.rn - a.rn) * u }));
+    return { s, noise };
+  };
+
   /* --- Netlists ------------------------------------------------------------------- */
 
   const sp = (v) => String(Number(v.toPrecision(9)));
@@ -1852,6 +1995,26 @@ const SmithCore = (() => {
   };
   const numberList = (list, ok) => (Array.isArray(list) ? list.filter((v) => typeof v === 'number' && Number.isFinite(v) && ok(v)).slice(0, 24) : []);
 
+  const GAIN_KINDS = ['available', 'operating', 'unilateral-source', 'unilateral-load'];
+  const cleanAmp = (a) => {
+    if (!a || typeof a !== 'object' || !a.s || typeof a.s !== 'object') return null;
+    const s = {};
+    for (const key of ['s11', 's12', 's21', 's22']) {
+      const v = cxOf(a.s[key], null);
+      if (!v || !isFiniteCx(v)) return null;
+      s[key] = v;
+    }
+    const n = a.noise;
+    const gopt = n && cxOf(n.gopt, null);
+    return {
+      s,
+      noise: n && typeof n.nfmin === 'number' && Number.isFinite(n.nfmin) && gopt && isFiniteCx(gopt) && n.rn > 0 && Number.isFinite(n.rn) ? { nfmin: n.nfmin, gopt, rn: n.rn } : null,
+      stab: { source: Boolean(a.stab && a.stab.source), load: Boolean(a.stab && a.stab.load) },
+      gains: (Array.isArray(a.gains) ? a.gains : []).filter((g) => g && GAIN_KINDS.includes(g.kind) && typeof g.db === 'number' && Number.isFinite(g.db)).slice(0, 24).map((g) => ({ kind: g.kind, db: g.db })),
+      nfs: numberList(a.nfs, () => true),
+    };
+  };
+
   /** A well-formed project from anything that was read from a file or a link:
    *  only known fields are kept, and every value is checked. Throws when the
    *  input is not a project at all. */
@@ -1879,6 +2042,7 @@ const SmithCore = (() => {
         points: Math.round(Math.min(2001, Math.max(2, posNum(sw.points, 201)))),
         scale: sw.scale === 'log' ? 'log' : 'lin',
       },
+      amp: cleanAmp(src.amp),
     };
   };
 
@@ -1952,6 +2116,7 @@ const SmithCore = (() => {
     net: { applyElement, branchOf, loadState, loadCovers, evaluate, solve, inputAt, frequencyList, sweep, trajectory, stepInfo, defaultElement, primaryKey, tuneToward },
     match: { synthesize, assess, character, throughLine, stubLength },
     eseries: { values: (name) => E_SERIES[name], snap: snapValue, snapElements },
+    amp: { figures: ampFigures, stabilityCircle, gainCircle, noiseCircle, noiseFigure, conjugateMatch, powerGains, deviceAt },
     io: { stringify, parse: parseJson, parseTouchstone, terminated, touchstoneToTable, parseImpedanceTable, toCir, toCkt, normalizeProject, exportProject, importProject, encodeLink, decodeLink },
   };
 })();
@@ -2265,7 +2430,7 @@ const SmithChart = (() => {
  * ========================================================================== */
 (() => {
   'use strict';
-  const { cx: K, rf, eng, net, io, match, eseries } = SmithCore;
+  const { cx: K, rf, eng, net, io, match, eseries, amp } = SmithCore;
   const CR = SmithChart;
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
@@ -2549,6 +2714,7 @@ const SmithChart = (() => {
     $('l-points').innerHTML = pts;
     state.nodePx = nodePx;
     drawCourse();
+    drawAmpLayer();
     drawPreview();
   };
 
@@ -3377,13 +3543,155 @@ const SmithChart = (() => {
     box.innerHTML = out;
   };
 
+  /* --- Amplifier panel ---------------------------------------------------------------------- */
+
+  const GAIN_KINDS = [['available', 'Gain disponible (plan source)', 'GA'], ['operating', 'Gain en puissance (plan charge)', 'GP'], ['unilateral-source', 'Unilatéral, côté source', 'GS'], ['unilateral-load', 'Unilatéral, côté charge', 'GL']];
+  const gainTag = (kind) => (GAIN_KINDS.find((k) => k[0] === kind) || GAIN_KINDS[0])[2];
+  const plainCx = (z) => ({ re: z.re, im: z.im });
+  const exampleDevice = () => ({
+    s: { s11: plainCx(K.polar(0.121, -149)), s12: plainCx(K.polar(0.108, 59.4)), s21: plainCx(K.polar(3.756, 78.9)), s22: plainCx(K.polar(0.41, -54.5)) },
+    noise: { nfmin: 3.6, gopt: plainCx(K.polar(0.42, 39.1)), rn: 0.98 },
+    stab: { source: true, load: true }, gains: [], nfs: [],
+  });
+  state.ampKind = 'available';
+  state.device = null;
+
+  const drawAmp = () => {
+    const box = $('amp-box');
+    if (!$('card-amp').open) { box.innerHTML = ''; return; }
+    const p = state.project;
+    const A = () => state.project.amp;
+    let out = '';
+    if (!p.amp) {
+      out += '<p class="info">Cercles de stabilité, de gain et de facteur de bruit d\'un quadripôle (transistor) décrit par ses paramètres S.</p><div class="actions">';
+      out += button('amp-example', 'Exemple : BFG33G à 2 GHz', () => change((q) => { q.amp = exampleDevice(); }));
+      if (state.device) {
+        out += button('amp-device', 'Depuis le .s2p importé, à f₀', () => change((q) => {
+          const d = amp.deviceAt(state.device, q.f0);
+          const s = {};
+          for (const key of ['s11', 's12', 's21', 's22']) s[key] = plainCx(d.s[key]);
+          q.amp = { s, noise: d.noise ? { nfmin: d.noise.nfmin, gopt: plainCx(d.noise.gopt), rn: d.noise.rn } : null, stab: { source: true, load: true }, gains: [], nfs: [] };
+        }));
+      }
+      box.innerHTML = `${out}</div>`;
+      return;
+    }
+    const degText = (v) => `${sig(v, 5).replace('−', '-')}°`;
+    const plain = (v) => sig(v, 5).replace('−', '-');
+    /** Two linked fields, modulus and phase, for a complex value read and written by get / set. */
+    const polarRow = (id, label, get, set) => {
+      const def = (part) => ({
+        unit: part ? '°' : '', scope: id,
+        get: () => (part ? K.arg(get()) * 180 / Math.PI : K.abs(get())),
+        set: (v) => { const cur = get(); set(plainCx(part ? K.polar(K.abs(cur), v) : K.polar(v, K.arg(cur) * 180 / Math.PI))); },
+        ok: (v) => Number.isFinite(v) && (part === 1 || v >= 0),
+        text: part ? degText : plain,
+        step: part ? stepAdd(1) : undefined,
+      });
+      const m = def(0);
+      const a = def(1);
+      fields.set(`${id}-m`, m);
+      fields.set(`${id}-a`, a);
+      return `<div class="row"><label for="${id}-m">${label}</label><input class="vf" id="${id}-m" data-field="${id}-m" value="${esc(showField(m))}" aria-label="${label}, module" autocomplete="off"><input class="vf" id="${id}-a" data-field="${id}-a" value="${esc(showField(a))}" aria-label="${label}, phase" autocomplete="off"></div>`;
+    };
+    const check = (id, label, on, fn) => {
+      actions.set(id, (value, checked) => change(() => fn(checked)));
+      return `<label class="check"><input type="checkbox" data-act="${id}"${on ? ' checked' : ''}> ${label}</label>`;
+    };
+    const chipList = (list, text, prefix) => `<div class="chips">${list.map((item, i) => {
+      actions.set(`${prefix}-${i}`, () => change(() => list.splice(i, 1)));
+      return `<span class="chip">${esc(text(item))}<button type="button" data-act="${prefix}-${i}" aria-label="Retirer ${esc(text(item))}">×</button></span>`;
+    }).join('')}</div>`;
+
+    out += '<div class="sub-head">Paramètres S (module, phase)</div>';
+    for (const [key, label] of [['s11', 'S11'], ['s21', 'S21'], ['s12', 'S12'], ['s22', 'S22']]) out += polarRow(`amp-${key}`, label, () => A().s[key], (z) => { A().s[key] = z; });
+
+    const fig = amp.figures(p.amp.s);
+    const rows = [
+      ['K', sig(fig.k)],
+      ['μ charge / source', `${sig(fig.muLoad)} / ${sig(fig.muSource)}`],
+      ['|Δ|', sig(K.abs(fig.delta))],
+      [fig.mag != null ? 'Gain maximal (MAG)' : 'Gain stable maximal (MSG)', fmtDb(fig.mag != null ? fig.magDb : fig.msgDb)],
+      ['|S21|²', fmtDb(fig.s21Db)],
+    ];
+    const gs = model.nodes[model.nodes.length - 1].gamma;
+    if (K.isFinite(gs) && K.abs(gs) < 1) {
+      const g = amp.powerGains(p.amp.s, gs, K.make(0, 0));
+      rows.push(['— pour ΓS = entrée du réseau —', ''], ['Γ de sortie', `${sig(K.abs(g.gout))} ∠ ${(K.arg(g.gout) * 180 / Math.PI).toFixed(2).replace('-', '−')}°`], ['Z de sortie', fmtZ(rf.gammaToZ(g.gout, p.z0))]);
+      if (K.abs(g.gout) < 1) rows.push(['Gain disponible', fmtDb(10 * Math.log10(g.ga))]);
+      if (p.amp.noise) rows.push(['Facteur de bruit', fmtDb(amp.noiseFigure(p.amp.noise, gs))]);
+    }
+    out += `<dl class="kv">${rows.map(([k, val]) => `<dt>${esc(k)}</dt><dd>${esc(val)}</dd>`).join('')}</dl>`;
+    out += `<p class="info">${fig.unconditional ? 'Inconditionnellement stable.' : '▲ Conditionnellement stable : gardez les terminaisons du côté stable des cercles.'}</p>`;
+
+    out += '<div class="sub-head">Cercles</div>';
+    out += check('amp-stab-s', 'Stabilité, plan de la source', p.amp.stab.source, (on) => { A().stab.source = on; });
+    out += check('amp-stab-l', 'Stabilité, plan de la charge', p.amp.stab.load, (on) => { A().stab.load = on; });
+    actions.set('amp-kind', (value) => { state.ampKind = value; });
+    out += `<div class="row"><select data-act="amp-kind" aria-label="Type de cercle de gain">${GAIN_KINDS.map(([k, t]) => `<option value="${k}"${k === state.ampKind ? ' selected' : ''}>${t}</option>`).join('')}</select><input class="mini-input" id="amp-gain" data-add="gain" placeholder="dB" aria-label="Gain du cercle, en dB" autocomplete="off"></div>`;
+    out += chipList(p.amp.gains, (g) => `${gainTag(g.kind)} ${sig(g.db)} dB`, 'amp-gain-del');
+
+    out += '<div class="sub-head">Bruit</div>';
+    out += check('amp-noise', 'Données de bruit', Boolean(p.amp.noise), (on) => { A().noise = on ? { nfmin: 1, gopt: { re: 0, im: 0 }, rn: 0.5 } : null; });
+    if (p.amp.noise) {
+      out += fieldRow('amp-nfmin', 'NF minimal', { unit: 'dB', scope: 'amp-nfmin', get: () => A().noise.nfmin, set: (v) => { A().noise.nfmin = v; }, ok: (v) => v >= 0 && Number.isFinite(v), text: (v) => `${plain(v)} dB`, step: stepAdd(0.1) });
+      out += polarRow('amp-gopt', 'Γ optimal', () => A().noise.gopt, (z) => { A().noise.gopt = z; });
+      out += fieldRow('amp-rn', 'rn = Rn / Z0', { unit: '', scope: 'amp-rn', get: () => A().noise.rn, set: (v) => { A().noise.rn = v; }, text: plain });
+      out += '<div class="row"><label for="amp-nf">Cercle NF</label><input class="mini-input" id="amp-nf" data-add="nf" placeholder="dB" autocomplete="off"></div>';
+      out += chipList(p.amp.nfs, (nf) => `NF ${sig(nf)} dB`, 'amp-nf-del');
+    }
+    out += `<div class="actions">${button('amp-remove', 'Retirer l\'amplificateur', () => change((q) => { q.amp = null; }))}</div>`;
+    box.innerHTML = out;
+  };
+  $('amp-box').addEventListener('keydown', (ev) => {
+    const t = ev.target;
+    if (ev.key !== 'Enter' || !t.dataset || !t.dataset.add) return;
+    const v = eng.parse(t.value, 'dB');
+    if (!Number.isFinite(v)) { t.setAttribute('aria-invalid', 'true'); return; }
+    const kind = t.dataset.add;
+    change((p) => { if (kind === 'gain') p.amp.gains.push({ kind: state.ampKind, db: v }); else p.amp.nfs.push(v); });
+  });
+
+  const drawAmpLayer = () => {
+    const layer = $('l-amp');
+    const a = state.project.amp;
+    if (!a) { layer.innerHTML = ''; return; }
+    const v = state.view;
+    let out = '';
+    const ring = (circle, cls, text) => {
+      if (!circle || !Number.isFinite(circle.rad) || circle.rad > 200) return;
+      out += `<path class="${cls}" d="${CR.circleD(v, circle)}"/>`;
+      // label on the side of the circle that faces the centre of the chart
+      const d = Math.hypot(circle.cx, circle.cy);
+      const q = CR.toPx(v, K.make(circle.cx - (d > 1e-9 ? circle.cx / d : 0) * circle.rad, circle.cy - (d > 1e-9 ? circle.cy / d : -1) * circle.rad));
+      out += `<text class="ring-label" x="${q.x.toFixed(1)}" y="${(q.y - 5).toFixed(1)}" text-anchor="middle">${esc(text)}</text>`;
+    };
+    for (const [plane, on, name] of [['source', a.stab.source, 'source'], ['load', a.stab.load, 'charge']]) {
+      if (!on) continue;
+      const c = amp.stabilityCircle(a.s, plane);
+      if (c) ring(c, 'amp-stab', `Stabilité ${name} : stable ${c.stableInside ? 'dedans' : 'dehors'}`);
+    }
+    for (const g of a.gains) ring(amp.gainCircle(a.s, g.kind, g.db), 'amp-gain', `${gainTag(g.kind)} ${sig(g.db)} dB`);
+    if (a.noise) {
+      for (const nf of a.nfs) ring(amp.noiseCircle(a.noise, nf), 'amp-nf', `NF ${sig(nf)} dB`);
+      const q = CR.toPx(v, a.noise.gopt);
+      out += `<path class="amp-stab" d="M${(q.x - 4).toFixed(1)} ${q.y.toFixed(1)}h8M${q.x.toFixed(1)} ${(q.y - 4).toFixed(1)}v8"/><text class="ring-label" x="${(q.x + 7).toFixed(1)}" y="${(q.y - 6).toFixed(1)}">Γopt</text>`;
+    }
+    layer.innerHTML = out;
+  };
+
   const drawSide = (force = false) => {
+    const active = document.activeElement;
+    const keep = active && active.id && active.closest('#amp-box, #eseries-box') ? active.id : null;
     useReg(sideReg);
     fields.clear(); infos.clear(); actions.clear();
     drawMatch(force);
     drawEseries();
+    drawAmp();
     useReg(editorReg);
+    if (keep && $(keep) && $(keep) !== document.activeElement) $(keep).focus();   // rebuilt panels keep the focus
   };
+  $('card-amp').addEventListener('toggle', () => drawSide(true));
   $('card-match').addEventListener('toggle', () => drawSide(true));
   $('card-eseries').addEventListener('toggle', () => drawSide(true));
 

@@ -1531,6 +1531,146 @@ test('lien : aller-retour, caractères sûrs pour une URL, lien abîmé refusé'
 });
 
 /* ========================================================================== */
+group('17. Amplificateur : stabilité, gain, bruit');
+
+const { amp } = Core;
+const polarC = (mag, deg) => c(mag * Math.cos(deg * Math.PI / 180), mag * Math.sin(deg * Math.PI / 180));
+const mod2 = (z) => z.re * z.re + z.im * z.im;
+const cconj = (z) => c(z.re, -z.im);
+// reflection seen at one port when the other is closed on a reflection coefficient (independent reference)
+const gammaIn = (s, gl) => cadd(s.s11, cdiv(cmul(cmul(s.s12, s.s21), gl), csub(c(1), cmul(s.s22, gl))));
+const gammaOut = (s, gs) => cadd(s.s22, cdiv(cmul(cmul(s.s12, s.s21), gs), csub(c(1), cmul(s.s11, gs))));
+const onCircle = (circle, deg) => c(circle.cx + circle.rad * Math.cos(deg * Math.PI / 180), circle.cy + circle.rad * Math.sin(deg * Math.PI / 180));
+const randomDevice = (rnd) => ({
+  s11: polarC(between(rnd, 0.05, 0.95), between(rnd, -180, 180)), s12: polarC(logBetween(rnd, 0.01, 0.3), between(rnd, -180, 180)),
+  s21: polarC(logBetween(rnd, 0.5, 6), between(rnd, -180, 180)), s22: polarC(between(rnd, 0.05, 0.95), between(rnd, -180, 180)),
+});
+// BFG33G à 2 GHz, exemple 13 de Dellsperger
+const BFG = { s11: polarC(0.121, -149), s12: polarC(0.108, 59.4), s21: polarC(3.756, 78.9), s22: polarC(0.41, -54.5) };
+const BFG_NOISE = { nfmin: 3.6, gopt: polarC(0.42, 39.1), rn: 0.98 };
+
+test('exemple 13 de Dellsperger (BFG33G, 2 GHz) : K, gain maximal, sortie pour Zs = 50 + j30 Ω', () => {
+  const fig = amp.figures(BFG);
+  shown(fig.k, 1.17, 2, 'K');
+  shown(fig.magDb, 12.94, 2, 'Gmax');
+  same(fig.unconditional, true);
+  const gs = rf.zToGamma(c(50, 30), 50);
+  close(gs, c(0.083, 0.275), 4e-3, 'ΓS');
+  const g2 = amp.powerGains(BFG, gs, c(0, 0)).gout;
+  shown(g2.re, 0.136, 3, 'Re Γ2'); shown(g2.im, -0.392, 3, 'Im Γ2');
+  close(g2, gammaOut(BFG, gs), EXACT);
+  close(rf.gammaToZ(g2, 50), c(45.987, -43.54), TOL, 'Z2');
+});
+test('exemple 13 : gain disponible ≈ 12 dB et NF ≈ 3,85 dB pour Zs = 50 + j30 Ω (valeurs ADS du document)', () => {
+  const gs = rf.zToGamma(c(50, 30), 50);
+  const gl = cconj(gammaOut(BFG, gs));                       // sortie adaptée en conjugué
+  const g = amp.powerGains(BFG, gs, gl);
+  close(10 * Math.log10(g.ga), 12.005, 2e-3, 'gain disponible');
+  close(g.gt, g.ga, EXACT, 'sortie adaptée : GT = GA');
+  close(amp.noiseFigure(BFG_NOISE, gs), 3.852, 2e-3, 'facteur de bruit');
+});
+test('cercles de stabilité : |Γ| = 1 à l\'autre accès, côté stable correct', () => {
+  const rnd = prng(1313);
+  for (let n = 0; n < 200; n += 1) {
+    const s = randomDevice(rnd);
+    for (const plane of ['source', 'load']) {
+      const circle = amp.stabilityCircle(s, plane);
+      const seen = (g) => Math.hypot(...Object.values(plane === 'load' ? gammaIn(s, g) : gammaOut(s, g)));
+      for (const a of [10, 100, 190, 280]) close(seen(onCircle(circle, a)), 1, 1e-8, `plan ${plane}`);
+      const centreSeen = seen(c(circle.cx, circle.cy));
+      if (Number.isFinite(centreSeen)) same(circle.stableInside, centreSeen < 1);
+    }
+  }
+});
+test('K > 1 et |Δ| < 1 équivaut à μ > 1 (Edwards et Sinsky)', () => {
+  const rnd = prng(77);
+  let stable = 0;
+  for (let n = 0; n < 500; n += 1) {
+    const fig = amp.figures(randomDevice(rnd));
+    same(fig.unconditional, fig.muLoad > 1);
+    same(fig.muLoad > 1, fig.muSource > 1);
+    if (fig.unconditional) stable += 1;
+  }
+  ok(stable > 20 && stable < 480, `échantillon déséquilibré (${stable} stables)`);
+});
+test('cercles de gain : le gain calculé sur le cercle est le gain demandé', () => {
+  const rnd = prng(2718);
+  const devices = [BFG];
+  while (devices.length < 60) { const s = randomDevice(rnd); if (amp.figures(s).unconditional) devices.push(s); }
+  for (const s of devices) {
+    const fig = amp.figures(s);
+    for (const back of [0.3, 1, 3]) {
+      const db = fig.magDb - back;
+      const g = 10 ** (db / 10);
+      const op = amp.gainCircle(s, 'operating', db);
+      const av = amp.gainCircle(s, 'available', db);
+      for (const a of [20, 140, 260]) {
+        const gl = onCircle(op, a);
+        close(mod2(s.s21) * (1 - mod2(gl)) / ((1 - mod2(gammaIn(s, gl))) * mod2(csub(c(1), cmul(s.s22, gl)))), g, 1e-8, 'gain opérant');
+        const gs = onCircle(av, a);
+        close(mod2(s.s21) * (1 - mod2(gs)) / (mod2(csub(c(1), cmul(s.s11, gs))) * (1 - mod2(gammaOut(s, gs)))), g, 1e-8, 'gain disponible');
+      }
+    }
+    same(amp.gainCircle(s, 'operating', fig.magDb + 0.5), null);
+    close(amp.gainCircle(s, 'available', fig.magDb).rad, 0, 1e-5, 'au gain maximal le cercle se réduit à un point');
+    for (const [kind, sii] of [['unilateral-source', s.s11], ['unilateral-load', s.s22]]) {
+      const maxDb = -10 * Math.log10(1 - mod2(sii));
+      const circle = amp.gainCircle(s, kind, maxDb - 1);
+      for (const a of [45, 200]) { const gm = onCircle(circle, a); close((1 - mod2(gm)) / mod2(csub(c(1), cmul(sii, gm))), 10 ** ((maxDb - 1) / 10), 1e-8, kind); }
+      same(amp.gainCircle(s, kind, maxDb + 0.2), null);
+    }
+  }
+});
+test('adaptation conjuguée simultanée : Γin = ΓS*, Γout = ΓL*, gain = MAG', () => {
+  const rnd = prng(4);
+  let done = 0;
+  while (done < 60) {
+    const s = done === 0 ? BFG : randomDevice(rnd);
+    const fig = amp.figures(s);
+    const m = amp.conjugateMatch(s);
+    if (!fig.unconditional) { same(m, null); continue; }
+    done += 1;
+    ok(Math.hypot(m.gs.re, m.gs.im) < 1 && Math.hypot(m.gl.re, m.gl.im) < 1, 'terminaison hors du disque');
+    close(gammaIn(s, m.gl), cconj(m.gs), 1e-7); close(gammaOut(s, m.gs), cconj(m.gl), 1e-7);
+    const g = amp.powerGains(s, m.gs, m.gl);
+    close(g.gt, fig.mag, 1e-7, 'GT = MAG'); close(g.ga, fig.mag, 1e-7); close(g.gp, fig.mag, 1e-7);
+  }
+});
+test('cercles de facteur de bruit', () => {
+  const fmin = 10 ** (BFG_NOISE.nfmin / 10);
+  for (const nf of [3.7, 3.8, 3.9, 4.0, 6]) {
+    const circle = amp.noiseCircle(BFG_NOISE, nf);
+    for (const a of [0, 95, 190, 300]) {
+      const gs = onCircle(circle, a);
+      const f = fmin + 4 * BFG_NOISE.rn * mod2(csub(gs, BFG_NOISE.gopt)) / ((1 - mod2(gs)) * mod2(cadd(c(1), BFG_NOISE.gopt)));
+      close(10 * Math.log10(f), nf, 1e-9, `NF = ${nf} dB`);
+      close(amp.noiseFigure(BFG_NOISE, gs), nf, 1e-9);
+    }
+  }
+  const least = amp.noiseCircle(BFG_NOISE, 3.6);
+  close(c(least.cx, least.cy), BFG_NOISE.gopt, EXACT); close(least.rad, 0, 1e-6);
+  same(amp.noiseCircle(BFG_NOISE, 3.5), null);
+  close(amp.noiseFigure(BFG_NOISE, BFG_NOISE.gopt), 3.6, EXACT);
+});
+test('paramètres S interpolés depuis un .s2p, et sauvegarde dans le projet', () => {
+  const ts = io.parseTouchstone(`${s2pText('MA', 'GHz', 1e9, 50)}\n0.9 1.60 0.63 26 0.98\n1.8 1.90 0.52 51 0.72\n`);
+  const at = amp.deviceAt(ts, 850e6);
+  const a = twoPort(700e6, 50);
+  const b = twoPort(1e9, 50);
+  close(at.s.s21, cadd(cscale(a.s21, 0.5), cscale(b.s21, 0.5)), 1e-9);
+  close(amp.deviceAt(ts, 1e9).s.s11, b.s11, 1e-9);
+  close(amp.deviceAt(ts, 9e9).s.s22, twoPort(2.5e9, 50).s22, 1e-9);          // figé hors plage
+  close(amp.deviceAt(ts, 1.35e9).noise.nfmin, 1.75, EXACT);
+  same(amp.deviceAt(io.parseTouchstone(s2pText('MA', 'GHz', 1e9, 50)), 1e9).noise, null);
+  const p = { ...fullProject(), amp: { s: BFG, noise: BFG_NOISE, stab: { source: true }, gains: [{ kind: 'available', db: 12 }, { kind: 'bogus', db: 1 }], nfs: [3.8, 'x'] } };
+  const back = io.decodeLink(io.encodeLink(p)).amp;
+  close(back.s.s21, BFG.s21, EXACT); close(back.noise.gopt, BFG_NOISE.gopt, EXACT);
+  same(back.stab.source, true); same(back.stab.load, false); same(back.gains.length, 1); same(back.nfs.join(), '3.8');
+  same(io.normalizeProject({ amp: { s: { s11: c(0, 0) } } }).amp, null);
+  same(io.normalizeProject(fullProject()).amp, null);
+});
+
+/* ========================================================================== */
 const total = passed + failures.length;
 console.log(`\n${total} tests : ${passed} réussis, ${failures.length} en échec`);
 if (failures.length) {
