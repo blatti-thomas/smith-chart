@@ -1126,12 +1126,732 @@ const SmithCore = (() => {
   };
 
   /* ==========================================================================
+   * § network — synthesis of matching networks
+   *
+   * Every function takes the impedance to transform `zl` (what the network is
+   * attached to), the impedance wanted at its input `zt`, and the frequency.
+   * It returns { solutions: [{ type, elements }], reason? }; elements are
+   * ordered from the load towards the source, ready to append to a project.
+   * The formulas here are closed forms on plain impedances: they share no code
+   * with the (V, I) evaluation above, which is what tests.mjs uses to check them.
+   * ======================================================================== */
+
+  const TINY = 1e-12;
+  const seriesEl = (x, f, scale) => {
+    if (Math.abs(x) <= TINY * scale) return null;
+    const c = componentForReactance(x, f);
+    return c ? { kind: c.kind, conn: 'series', value: c.value } : null;
+  };
+  const shuntEl = (b, f, scale) => {
+    if (Math.abs(b) <= TINY / scale) return null;
+    const c = componentForSusceptance(b, f);
+    return c ? { kind: c.kind, conn: 'shunt', value: c.value } : null;
+  };
+  const lineEl = (zc, deg, f) => (deg > 1e-9 ? { kind: 'TL', zc, deg, fref: f, er: 1, alpha: 0, alphaLaw: 'sqrt' } : null);
+  const stubEl = (term, zc, deg, f) => ({ kind: 'STUB', term, zc, deg, fref: f, er: 1, alpha: 0, alphaLaw: 'sqrt' });
+  const compact = (list) => list.filter(Boolean);
+  const usable = (z) => isFiniteCx(z) && !(z.re === 0 && z.im === 0);
+
+  /** Impedance z seen through a lossless line (zc, deg). */
+  const throughLine = (z, zc, deg) => {
+    const c = cosd(deg);
+    const s = sind(deg);
+    return div(cx(z.re * c, z.im * c + zc * s), cx(c - (z.im / zc) * s, (z.re / zc) * s));
+  };
+
+  /** Zeros of fn on [a, b]: sign changes on n samples, refined by bisection.
+   *  Jumps through a pole are discarded. */
+  const zerosOf = (fn, a, b, n, tol) => {
+    const out = [];
+    let x0 = a;
+    let y0 = fn(a);
+    for (let k = 1; k <= n; k += 1) {
+      const x1 = a + ((b - a) * k) / n;
+      const y1 = fn(x1);
+      if (Number.isFinite(y0) && Number.isFinite(y1) && (y0 === 0 || y0 * y1 < 0)) {
+        let lo = x0; let hi = x1; let ylo = y0;
+        for (let i = 0; i < 60 && ylo !== 0; i += 1) {
+          const mid = (lo + hi) / 2;
+          const ym = fn(mid);
+          if (ylo * ym <= 0) hi = mid; else { lo = mid; ylo = ym; }
+        }
+        const root = ylo === 0 ? lo : (lo + hi) / 2;
+        if (Math.abs(fn(root)) <= tol) out.push(root);
+      }
+      x0 = x1;
+      y0 = y1;
+    }
+    return out;
+  };
+
+  /** Electrical length of a stub of impedance zc that presents susceptance b. */
+  const stubLength = (b, zc, term) => {
+    // open: b = tan(theta) / zc; shorted: b = -cot(theta) / zc
+    const deg = term === 'open' ? Math.atan(b * zc) / DEG : Math.atan2(1, -b * zc) / DEG;
+    return deg < 0 ? deg + 180 : deg;
+  };
+
+  const signature = (elements) => elements.map((e) => `${e.kind}${e.conn || e.term || ''}${Number((e.value ?? e.deg ?? e.n).toPrecision(9))}${e.zc ? Number(e.zc.toPrecision(9)) : ''}`).join('|');
+  const unique = (solutions) => {
+    const seen = new Set();
+    return solutions.filter((s) => {
+      const key = signature(s.elements);
+      if (!s.elements.length || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  };
+  const fail = (reason) => ({ solutions: [], reason });
+
+  /** L network: up to four solutions (two topologies, two signs). */
+  const matchL = ({ zl, zt, f }) => {
+    if (!usable(zl) || !usable(zt)) return fail('Impédance nulle ou infinie : pas de réseau en L.');
+    const yl = inv(zl);
+    const yt = inv(zt);
+    const scale = abs(zt);
+    const out = [];
+    const d1 = yl.re / zt.re - yl.re * yl.re;          // shunt element at the load, then series
+    if (yl.re > 0 && zt.re > 0 && d1 >= 0) {
+      for (const s of d1 === 0 ? [1] : [1, -1]) {
+        const bt = s * Math.sqrt(d1);
+        out.push({ type: 'L', elements: compact([shuntEl(bt - yl.im, f, scale), seriesEl(zt.im + bt / (yl.re * yl.re + bt * bt), f, scale)]) });
+      }
+    }
+    const d2 = zl.re / yt.re - zl.re * zl.re;          // series element at the load, then shunt
+    if (zl.re > 0 && yt.re > 0 && d2 >= 0) {
+      for (const s of d2 === 0 ? [1] : [1, -1]) {
+        const xt = s * Math.sqrt(d2);
+        out.push({ type: 'L', elements: compact([seriesEl(xt - zl.im, f, scale), shuntEl(yt.im + xt / (zl.re * zl.re + xt * xt), f, scale)]) });
+      }
+    }
+    const solutions = unique(out);
+    return solutions.length ? { solutions } : fail(zl.re > 0 && zt.re > 0 ? 'Déjà adapté : aucun élément nécessaire.' : 'Partie réelle négative ou nulle : pas de réseau en L sans pertes.');
+  };
+
+  /** Pi network (shunt, series, shunt) with the loaded Q imposed: two L sections
+   *  back to back through a virtual resistance rv = Rhigh / (Q² + 1). */
+  const matchPi = ({ zl, zt, f, q }) => {
+    if (!usable(zl) || !usable(zt)) return fail('Impédance nulle ou infinie.');
+    const yl = inv(zl);
+    const yt = inv(zt);
+    if (!(yl.re > 0 && yt.re > 0)) return fail('Partie réelle négative ou nulle.');
+    const rpl = 1 / yl.re;
+    const rpt = 1 / yt.re;
+    const qMin = Math.sqrt(Math.max(rpl, rpt) / Math.min(rpl, rpt) - 1);
+    if (!(q > qMin)) return { solutions: [], reason: `Q trop faible : il doit dépasser ${Number(qMin.toPrecision(4))} (celui du réseau en L).`, qMin };
+    const rv = Math.max(rpl, rpt) / (q * q + 1);
+    const scale = abs(zt);
+    const out = [];
+    for (const s1 of [1, -1]) {
+      const bt = s1 * Math.sqrt(Math.max(0, yl.re / rv - yl.re * yl.re));
+      const xa = bt / (yl.re * yl.re + bt * bt);
+      for (const s2 of [1, -1]) {
+        const xb = s2 * Math.sqrt(Math.max(0, rv / yt.re - rv * rv));
+        if (xa * xb < 0) continue;       // opposite signs would merge into one element and lose the imposed Q
+        out.push({ type: 'pi', elements: compact([shuntEl(bt - yl.im, f, scale), seriesEl(xa + xb, f, scale), shuntEl(yt.im + xb / (rv * rv + xb * xb), f, scale)]) });
+      }
+    }
+    return { solutions: unique(out), qMin, rv };
+  };
+
+  /** T network (series, shunt, series) with the loaded Q imposed, through a
+   *  virtual resistance rv = Rlow · (Q² + 1). */
+  const matchT = ({ zl, zt, f, q }) => {
+    if (!usable(zl) || !usable(zt)) return fail('Impédance nulle ou infinie.');
+    if (!(zl.re > 0 && zt.re > 0)) return fail('Partie réelle négative ou nulle.');
+    const qMin = Math.sqrt(Math.max(zl.re, zt.re) / Math.min(zl.re, zt.re) - 1);
+    if (!(q > qMin)) return { solutions: [], reason: `Q trop faible : il doit dépasser ${Number(qMin.toPrecision(4))} (celui du réseau en L).`, qMin };
+    const rv = Math.min(zl.re, zt.re) * (q * q + 1);
+    const scale = abs(zt);
+    const out = [];
+    for (const s1 of [1, -1]) {
+      const xt = s1 * Math.sqrt(Math.max(0, zl.re * rv - zl.re * zl.re));
+      const ba = xt / (zl.re * zl.re + xt * xt);
+      for (const s2 of [1, -1]) {
+        const bb = s2 * Math.sqrt(Math.max(0, 1 / (rv * zt.re) - 1 / (rv * rv)));
+        if (ba * bb < 0) continue;
+        out.push({ type: 'T', elements: compact([seriesEl(xt - zl.im, f, scale), shuntEl(ba + bb, f, scale), seriesEl(zt.im + bb / (1 / (rv * rv) + bb * bb), f, scale)]) });
+      }
+    }
+    return { solutions: unique(out), qMin, rv };
+  };
+
+  /** Single stub: a series line up to the conductance wanted, then a shunt stub. */
+  const matchStub = ({ zl, zt, f, zcLine, zcStub }) => {
+    if (!usable(zl) || !usable(zt)) return fail('Impédance nulle ou infinie.');
+    const yt = inv(zt);
+    const yAt = (deg) => inv(throughLine(zl, zcLine, deg));
+    const out = [];
+    for (const deg of zerosOf((d) => yAt(d).re - yt.re, 0, 180, 720, 1e-9 * Math.abs(yt.re))) {
+      const b = yt.im - yAt(deg).im;
+      for (const term of ['open', 'short']) {
+        out.push({ type: 'stub', elements: compact([lineEl(zcLine, deg, f), stubEl(term, zcStub, stubLength(b, zcStub, term), f)]) });
+      }
+    }
+    const solutions = unique(out);
+    return solutions.length ? { solutions } : fail('Aucune longueur de ligne n\'amène la charge sur le cercle de conductance visé.');
+  };
+
+  /** Double stub: a stub at the load, a line of fixed length, a second stub. */
+  const matchDoubleStub = ({ zl, zt, f, zcLine, zcStub, spacing }) => {
+    if (!usable(zl) || !usable(zt)) return fail('Impédance nulle ou infinie.');
+    const yl = inv(zl);
+    const yt = inv(zt);
+    const after = (phi) => inv(throughLine(inv(cx(yl.re, yl.im + Math.tan(phi * DEG) / zcStub)), zcLine, spacing));
+    const out = [];
+    for (const phi of zerosOf((p) => after(p).re - yt.re, -89.9999, 89.9999, 1440, 1e-9 * Math.abs(yt.re))) {
+      const b1 = Math.tan(phi * DEG) / zcStub;
+      const b2 = yt.im - after(phi).im;
+      for (const term of ['open', 'short']) {
+        out.push({ type: 'stub2', elements: compact([stubEl(term, zcStub, stubLength(b1, zcStub, term), f), lineEl(zcLine, spacing, f), stubEl(term, zcStub, stubLength(b2, zcStub, term), f)]) });
+      }
+    }
+    const solutions = unique(out);
+    return solutions.length ? { solutions } : fail('Zone interdite : avec cet écartement, aucun réglage du premier stub n\'amène la charge sur le cercle visé. Changez l\'écartement ou ajoutez une ligne avant le premier stub.');
+  };
+
+  /** Quarter-wave transformer (real target). A complex load is first brought
+   *  to the real axis by a line; a single line of computed impedance is offered
+   *  too when it exists. */
+  const matchQuarter = ({ zl, zt, f, zcLine }) => {
+    if (!usable(zl) || !usable(zt)) return fail('Impédance nulle ou infinie.');
+    if (Math.abs(zt.im) > 1e-9 * Math.abs(zt.re) || !(zt.re > 0)) return fail('Le transformateur quart d\'onde demande une cible réelle.');
+    if (!(zl.re > 0)) return fail('Partie réelle négative ou nulle.');
+    const rt = zt.re;
+    const out = [];
+    if (Math.abs(zl.im) <= 1e-9 * abs(zl)) {
+      out.push({ type: 'quarter', elements: [lineEl(Math.sqrt(zl.re * rt), 90, f)] });
+    } else {
+      for (const deg of zerosOf((d) => throughLine(zl, zcLine, d).im, 0, 180, 720, 1e-9 * abs(zl))) {
+        const r = throughLine(zl, zcLine, deg).re;
+        if (r > 0) out.push({ type: 'quarter', elements: compact([lineEl(zcLine, deg, f), lineEl(Math.sqrt(r * rt), 90, f)]) });
+      }
+      // one line alone: Zc² = Rt·Rl − Rt·Xl² / (Rt − Rl), tan(theta) = Zc·(Rt − Rl) / (Rt·Xl)
+      const zc2 = rt * zl.re - (rt * zl.im * zl.im) / (rt - zl.re);
+      if (rt !== zl.re && zc2 > 0) {
+        const zc = Math.sqrt(zc2);
+        let deg = Math.atan((zc * (rt - zl.re)) / (rt * zl.im)) / DEG;
+        if (deg < 0) deg += 180;
+        out.push({ type: 'line', elements: compact([lineEl(zc, deg, f)]) });
+      }
+    }
+    return { solutions: unique(out) };
+  };
+
+  /** A series line, then one reactive element (shunt or series). */
+  const matchLineReactive = ({ zl, zt, f, zcLine }) => {
+    if (!usable(zl) || !usable(zt)) return fail('Impédance nulle ou infinie.');
+    const yt = inv(zt);
+    const scale = abs(zt);
+    const out = [];
+    for (const deg of zerosOf((d) => inv(throughLine(zl, zcLine, d)).re - yt.re, 0, 180, 720, 1e-9 * Math.abs(yt.re))) {
+      out.push({ type: 'line+shunt', elements: compact([lineEl(zcLine, deg, f), shuntEl(yt.im - inv(throughLine(zl, zcLine, deg)).im, f, scale)]) });
+    }
+    for (const deg of zerosOf((d) => throughLine(zl, zcLine, d).re - zt.re, 0, 180, 720, 1e-9 * Math.abs(zt.re))) {
+      out.push({ type: 'line+series', elements: compact([lineEl(zcLine, deg, f), seriesEl(zt.im - throughLine(zl, zcLine, deg).im, f, scale)]) });
+    }
+    const solutions = unique(out);
+    return solutions.length ? { solutions } : fail('Aucune longueur de ligne ne convient.');
+  };
+
+  const MATCHERS = { L: matchL, pi: matchPi, T: matchT, stub: matchStub, stub2: matchDoubleStub, quarter: matchQuarter, line: matchLineReactive };
+  /** Matching networks of one family. opts: { zl, zt, f, q, zcLine, zcStub, spacing }. */
+  const synthesize = (family, opts) => (MATCHERS[family] ? MATCHERS[family](opts) : fail('Famille inconnue.'));
+
+  /** 'lowpass' | 'highpass' | 'mixed' | 'lines' for a list of elements. */
+  const character = (elements) => {
+    if (elements.some((e) => e.kind === 'TL' || e.kind === 'STUB')) return 'lines';
+    const lumped = elements.filter((e) => e.kind === 'L' || e.kind === 'C');
+    if (!lumped.length) return 'mixed';
+    if (lumped.every((e) => (e.conn === 'series') === (e.kind === 'L'))) return 'lowpass';
+    if (lumped.every((e) => (e.conn === 'series') === (e.kind === 'C'))) return 'highpass';
+    return 'mixed';
+  };
+
+  /** How good a solution is once appended to the project: residual mismatch at
+   *  f0, largest node Q inside the new network, and the band around f0 where
+   *  the return loss against `zt` stays above `rlMin` dB. The band is found on
+   *  the real network, with the project's own load model, by walking outwards
+   *  from f0 (up to a factor `span`) and bisecting the crossing. */
+  const assess = (project, elements, { zt, rlMin = 10, span = 4 } = {}) => {
+    const target = zt || cx(project.z0, 0);
+    const p = { ...project, elements: [...project.elements, ...elements] };
+    const { f0 } = project;
+    const reflection = (f) => {
+      const states = evaluate(p, f);
+      const st = states[states.length - 1];
+      const den = add(st.v, mul(conj(target), st.i));
+      if (isZero(den)) return Infinity;
+      return abs(div(sub(st.v, mul(target, st.i)), den));     // power-wave reflection against the target
+    };
+    const limit = 10 ** (-rlMin / 20);
+    const error = reflection(f0);
+    const edge = (dir) => {
+      if (!(error <= limit)) return f0;
+      let fa = f0;
+      for (let k = 1; k <= 400; k += 1) {
+        const fb = f0 * span ** ((dir * k) / 400);
+        if (!(reflection(fb) <= limit)) {
+          let lo = fa; let hi = fb;
+          for (let i = 0; i < 40; i += 1) { const mid = Math.sqrt(lo * hi); if (reflection(mid) <= limit) lo = mid; else hi = mid; }
+          return Math.sqrt(lo * hi);
+        }
+        fa = fb;
+      }
+      return null;                                            // no crossing within the span
+    };
+    const low = edge(-1);
+    const high = edge(1);
+    const fLow = low == null ? f0 / span : low;
+    const fHigh = high == null ? f0 * span : high;
+    const nodes = solve(p, f0);
+    let qMax = 0;
+    for (let i = project.elements.length + 1; i < nodes.length - 1; i += 1) if (nodes[i].q != null && nodes[i].q > qMax) qMax = nodes[i].q;
+    return {
+      zin: nodes[nodes.length - 1].z, error, qMax,
+      fLow, fHigh, bw: fHigh - fLow, fbw: (fHigh - fLow) / f0,
+      openLow: low == null, openHigh: high == null,
+      character: character(elements), count: elements.length,
+    };
+  };
+
+  /* --- Preferred values (IEC 60063) ---------------------------------------------- */
+
+  const E_SERIES = {
+    E12: [1.0, 1.2, 1.5, 1.8, 2.2, 2.7, 3.3, 3.9, 4.7, 5.6, 6.8, 8.2],
+    E24: [1.0, 1.1, 1.2, 1.3, 1.5, 1.6, 1.8, 2.0, 2.2, 2.4, 2.7, 3.0, 3.3, 3.6, 3.9, 4.3, 4.7, 5.1, 5.6, 6.2, 6.8, 7.5, 8.2, 9.1],
+    E96: Array.from({ length: 96 }, (_, i) => Math.round(10 ** (i / 96) * 100) / 100),
+  };
+
+  /** Nearest preferred value, the distance being measured as a ratio. */
+  const snapValue = (value, series) => {
+    const list = E_SERIES[series];
+    if (!list || !(value > 0) || !Number.isFinite(value)) return value;
+    const decade = Math.floor(Math.log10(value));
+    const m = value / 10 ** decade;
+    let best = 10;
+    let dBest = Math.abs(Math.log(m / 10));
+    for (const c of list) {
+      const d = Math.abs(Math.log(m / c));
+      if (d < dBest) { dBest = d; best = c; }
+    }
+    return Number((best * 10 ** decade).toPrecision(12));
+  };
+
+  /** Round every R, L and C of a list of elements (lines are left alone).
+   *  Returns the new list and what changed. */
+  const snapElements = (elements, series) => {
+    const changes = [];
+    const out = elements.map((el, index) => {
+      const copy = { ...el };
+      const keys = el.kind === 'RLC' ? ['r', 'l', 'c'] : (el.kind === 'R' || el.kind === 'L' || el.kind === 'C') ? ['value'] : [];
+      for (const key of keys) {
+        if (copy[key] == null) continue;
+        const to = snapValue(copy[key], series);
+        if (to !== copy[key]) { changes.push({ index, key, from: copy[key], to }); copy[key] = to; }
+      }
+      return copy;
+    });
+    return { elements: out, changes };
+  };
+
+  /* ==========================================================================
    * § io (pure part)
    * ======================================================================== */
 
   /** JSON that survives Infinity and NaN (an open-circuit load is infinite). */
   const stringify = (value, space) => JSON.stringify(value, (k, v) => (typeof v === 'number' && !Number.isFinite(v) ? { $num: String(v) } : v), space);
   const parseJson = (text) => JSON.parse(text, (k, v) => (v && typeof v === 'object' && typeof v.$num === 'string' && Object.keys(v).length === 1 ? Number(v.$num) : v));
+
+  /* --- Touchstone 1.x (.s1p, .s2p) ------------------------------------------------- */
+
+  const UNIT_HZ = { HZ: 1, KHZ: 1e3, MHZ: 1e6, GHZ: 1e9 };
+
+  /** Parse a Touchstone 1.x file with one or two ports.
+   *  Returns { ports, z0, param, format, points: [{ f, s }], noise: [...] } where
+   *  s is a complex number (one port) or { s11, s21, s12, s22 } (two ports).
+   *  One-port Z and Y files are converted to S. Throws an Error with a message
+   *  meant for the user when the file cannot be used. */
+  const parseTouchstone = (text) => {
+    let unit = 1e9; let param = 'S'; let format = 'MA'; let z0 = 50;
+    let sawOptions = false;
+    const rows = [];
+    for (const raw of String(text).split(/\r?\n/)) {
+      const line = raw.split('!')[0].trim();
+      if (!line) continue;
+      if (line[0] === '[') throw new Error('Touchstone 2.0 n\'est pas pris en charge : exportez le fichier au format 1.x.');
+      if (line[0] === '#') {
+        if (sawOptions) continue;
+        sawOptions = true;
+        const tok = line.slice(1).trim().toUpperCase().split(/\s+/).filter(Boolean);
+        for (let i = 0; i < tok.length; i += 1) {
+          if (tok[i] in UNIT_HZ) unit = UNIT_HZ[tok[i]];
+          else if (tok[i] === 'S' || tok[i] === 'Y' || tok[i] === 'Z' || tok[i] === 'H' || tok[i] === 'G') param = tok[i];
+          else if (tok[i] === 'MA' || tok[i] === 'DB' || tok[i] === 'RI') format = tok[i];
+          else if (tok[i] === 'R' && i + 1 < tok.length) { z0 = Number(tok[i + 1]); i += 1; }
+        }
+        continue;
+      }
+      const nums = line.split(/[\s,]+/).filter(Boolean).map(Number);
+      if (nums.some((v) => Number.isNaN(v))) throw new Error(`Ligne illisible dans le fichier Touchstone : « ${line.slice(0, 40)} »`);
+      rows.push(nums);
+    }
+    if (!(z0 > 0)) throw new Error('Impédance de référence invalide dans le fichier Touchstone.');
+    if (!rows.length) throw new Error('Aucune donnée dans le fichier Touchstone.');
+    const width = rows[0].length;
+    if (width !== 3 && width !== 9) throw new Error('Seuls les fichiers à 1 ou 2 ports (.s1p, .s2p) sont pris en charge.');
+    const ports = width === 3 ? 1 : 2;
+    if (param === 'H' || param === 'G' || (ports === 2 && param !== 'S')) throw new Error(`Paramètres ${param} non pris en charge pour un fichier à ${ports} port${ports > 1 ? 's' : ''}.`);
+    const pair = (a, b) => {
+      if (format === 'RI') return cx(a, b);
+      return polar(format === 'DB' ? 10 ** (a / 20) : a, b);
+    };
+    const points = [];
+    const noise = [];
+    for (const r of rows) {
+      if (r.length === width && !noise.length) {
+        const f = r[0] * unit;
+        if (ports === 1) {
+          let s = pair(r[1], r[2]);
+          // Touchstone 1.x normalises Z and Y to the reference resistance
+          if (param === 'Z') s = zToGamma(s, 1);
+          else if (param === 'Y') s = zToGamma(invZ(s), 1);
+          points.push({ f, s });
+        } else {
+          points.push({ f, s: { s11: pair(r[1], r[2]), s21: pair(r[3], r[4]), s12: pair(r[5], r[6]), s22: pair(r[7], r[8]) } });
+        }
+      } else if (ports === 2 && r.length === 5) {
+        noise.push({ f: r[0] * unit, nfmin: r[1], gopt: polar(r[2], r[3]), rn: r[4] });   // rn normalised to z0
+      } else {
+        throw new Error('Nombre de valeurs inattendu sur une ligne du fichier Touchstone.');
+      }
+    }
+    points.sort((a, b) => a.f - b.f);
+    return { ports, z0, param, format, points, noise };
+  };
+
+  /** Reflection coefficient seen at one port of a two-port whose other port is
+   *  closed on a reflection coefficient `gammaOther` (0 = matched). */
+  const terminated = (s, port, gammaOther) => {
+    const own = port === 2 ? s.s22 : s.s11;
+    const far = port === 2 ? s.s11 : s.s22;
+    const den = sub(ONE, mul(far, gammaOther));
+    if (isZero(den)) return INF();
+    return add(own, div(mul(mul(s.s12, s.s21), gammaOther), den));
+  };
+
+  /** Turn a parsed Touchstone file into a tabulated load: [{ f, z }].
+   *  opts: { port: 1 | 2, zOther: impedance closing the other port (default z0) }. */
+  const touchstoneToTable = (ts, opts = {}) => {
+    const port = opts.port === 2 ? 2 : 1;
+    const gOther = opts.zOther ? zToGamma(opts.zOther, ts.z0) : cx(0, 0);
+    return ts.points.map((pt) => {
+      const g = ts.ports === 1 ? pt.s : terminated(pt.s, port, gOther);
+      const z = isFiniteCx(g) ? gammaToZ(g, ts.z0) : INF();
+      return { f: pt.f, z: { re: z.re, im: z.im } };
+    });
+  };
+
+  /** Parse a table "frequency, R, X" (comma, semicolon, tab or space separated).
+   *  The frequency unit is taken from a header when there is one (Hz, kHz, MHz,
+   *  GHz; EZNEC's LastZ.txt is recognised), otherwise values below 100 000 are
+   *  read as MHz. Returns { points: [{ f, z }], unit }. */
+  const parseImpedanceTable = (text) => {
+    const lines = String(text).split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    let unit = null;
+    let cols = [0, 1, 2];
+    const data = [];
+    for (const line of lines) {
+      const cells = line.split(/[;,\t]+|\s{1,}(?=[-+.\d"])/).map((c) => c.replace(/"/g, '').trim()).filter((c) => c !== '');
+      const nums = cells.map(Number);
+      if (nums.length >= 3 && nums.slice(0, 3).every((v) => Number.isFinite(v))) { data.push(nums); continue; }
+      const head = line.toLowerCase();
+      const m = /\b(ghz|mhz|khz|hz)\b/.exec(head);
+      if (m && unit == null) unit = UNIT_HZ[m[1].toUpperCase()];
+      if (head.includes('src')) cols = [0, 2, 3];              // EZNEC: Freq MHz, Src #, R, X, ...
+    }
+    if (!data.length) throw new Error('Aucune ligne « fréquence, R, X » trouvée.');
+    if (unit == null) unit = Math.max(...data.map((r) => r[cols[0]])) < 1e5 ? 1e6 : 1;
+    const points = data
+      .filter((r) => r.length > cols[2] && r[cols[0]] > 0)
+      .map((r) => ({ f: r[cols[0]] * unit, z: { re: r[cols[1]], im: r[cols[2]] } }))
+      .sort((a, b) => a.f - b.f);
+    if (!points.length) throw new Error('Aucune ligne « fréquence, R, X » exploitable.');
+    return { points, unit };
+  };
+
+  /* --- Netlists ------------------------------------------------------------------- */
+
+  const sp = (v) => String(Number(v.toPrecision(9)));
+
+  /** LTspice netlist of the network: an AC source of internal resistance z0,
+   *  the elements, and the load. Nodes run from `in` (source side) to the load.
+   *  A fixed or tabulated load is represented by its series equivalent at f0. */
+  const toCir = (project) => {
+    const { z0, f0 } = project;
+    const out = [
+      '* Abaque de Smith - reseau construit de la charge vers la source',
+      `* f0 = ${sp(f0)} Hz, Z0 = ${sp(z0)} ohm`,
+      '* Zin = V(in) / I(Rs) ;  S11 = (Zin - Z0) / (Zin + Z0)',
+      'V1 src 0 AC 1',
+      `Rs src in ${sp(z0)}`,
+    ];
+    const models = [];
+    const count = {};
+    const name = (prefix) => { count[prefix] = (count[prefix] || 0) + 1; return `${prefix}${count[prefix]}`; };
+    let extra = 0;
+    const fresh = () => { extra += 1; return `x${extra}`; };
+    const ser = (v) => (v > 0 ? ` Rser=${sp(v)}` : '');
+
+    const emitRLC = (o, a, b) => {
+      const parts = [];
+      if (o.r != null) parts.push(['R', o.r]);
+      if (o.l != null) parts.push(['L', o.l]);
+      if (o.c != null) parts.push(['C', o.c]);
+      if (o.topology === 'parallel') {
+        if (!parts.length) out.push(`${name('R')} ${a} ${b} 1e12`);
+        for (const [k, v] of parts) out.push(`${name(k)} ${a} ${b} ${sp(v)}`);
+        return;
+      }
+      if (!parts.length) { out.push(`${name('R')} ${a} ${b} 1e-9`); return; }
+      let from = a;
+      parts.forEach(([k, v], i) => {
+        const to = i === parts.length - 1 ? b : fresh();
+        out.push(`${name(k)} ${from} ${to} ${sp(v)}`);
+        from = to;
+      });
+    };
+    const emitLine = (el, a, b) => {
+      const len = lineLengths(el);
+      if (!(len.delay > 0)) { out.push(`${name('R')} ${a} ${b} 1e-9`); return; }
+      if (el.alpha > 0 && len.phys > 0) {
+        const v = len.phys / len.delay;
+        const model = name('LTRA');
+        out.push(`${name('O')} ${a} 0 ${b} 0 ${model}`);
+        models.push(`.model ${model} LTRA(len=${sp(len.phys)} R=${sp(2 * el.zc * el.alpha * NP_PER_DB)} L=${sp(el.zc / v)} C=${sp(1 / (el.zc * v))})`);
+        if (el.alphaLaw !== 'const') out.push('* pertes de la ligne ci-dessus : valeur a la frequence de reference, constante dans LTspice');
+      } else {
+        out.push(`${name('T')} ${a} 0 ${b} 0 Td=${sp(len.delay)} Z0=${sp(el.zc)}`);
+      }
+    };
+    const emit = (el, a, b) => {
+      switch (el.kind) {
+        case 'R': out.push(`${name('R')} ${a} ${b} ${sp(el.value)}`); break;
+        case 'L': out.push(`${name('L')} ${a} ${b} ${sp(el.value)}${ser(esrOf(el))}`); break;
+        case 'C': out.push(`${name('C')} ${a} ${b} ${sp(el.value)}${ser(esrOf(el))}`); break;
+        case 'RLC': emitRLC(el, a, b); break;
+        default: break;
+      }
+    };
+
+    let node = 'in';
+    let next = 0;
+    for (let i = project.elements.length - 1; i >= 0; i -= 1) {
+      const el = project.elements[i];
+      if (el.off) continue;
+      if (el.kind === 'STUB') {
+        if (el.term === 'short') emitLine(el, node, '0');
+        else { const far = fresh(); emitLine(el, node, far); out.push(`${name('R')} ${far} 0 1e12`); }
+      } else if (el.kind === 'TL') {
+        next += 1; emitLine(el, node, `n${next}`); node = `n${next}`;
+      } else if (el.kind === 'XFMR') {
+        next += 1;
+        const b = `n${next}`;
+        const mid = fresh();
+        const sense = name('Vx');
+        out.push(`* transformateur ideal, Zin = n^2 * Z, n = ${sp(el.n)}`, `${sense} ${node} ${mid} 0`, `${name('Ex')} ${mid} 0 ${b} 0 ${sp(el.n)}`, `${name('Fx')} 0 ${b} ${sense} ${sp(el.n)}`);
+        node = b;
+      } else if (isShunt(el)) {
+        emit(el, node, '0');
+      } else {
+        next += 1; emit(el, node, `n${next}`); node = `n${next}`;
+      }
+    }
+
+    const { load } = project;
+    if (load.kind === 'rlc') {
+      out.push('* charge');
+      emitRLC(load, node, '0');
+    } else {
+      const z = stZ(loadState(load, f0, z0));
+      out.push(`* charge${load.kind === 'table' ? ' tabulee' : ''} : equivalent serie a f0`);
+      if (!isFiniteCx(z)) out.push(`${name('R')} ${node} 0 1e12`);
+      else {
+        const react = componentForReactance(z.im, f0);
+        if (!react) out.push(`${name('R')} ${node} 0 ${sp(z.re === 0 ? 1e-9 : z.re)}`);
+        else {
+          const mid = fresh();
+          out.push(`${name('R')} ${node} ${mid} ${sp(z.re === 0 ? 1e-9 : z.re)}`, `${name(react.kind)} ${mid} 0 ${sp(react.value)}`);
+        }
+      }
+    }
+    const sw = project.sweep;
+    if (sw && sw.on && sw.stop > sw.start) {
+      if (sw.scale === 'log') out.push(`.ac dec ${Math.max(1, Math.round(sw.points / Math.log10(sw.stop / sw.start)))} ${sp(sw.start)} ${sp(sw.stop)}`);
+      else out.push(`.ac lin ${sw.points} ${sp(sw.start)} ${sp(sw.stop)}`);
+    } else out.push(`.ac lin 201 ${sp(f0 / 2)} ${sp(f0 * 2)}`);
+    return [...out, ...models, '.end', ''].join('\n');
+  };
+
+  /** Netlist in the format Smith V4 writes (Touchstone circuit file): only the
+   *  network, node 1 on the load side. Units: MHz, ohm, nH, pF, mm. */
+  const toCkt = (project) => {
+    const out = [
+      '! Abaque de Smith - netlist au format de Smith (Dellsperger)',
+      '! noeud 1 = cote charge ; la charge elle-meme n\'est pas dans le circuit',
+      'DIM FREQ=1e6 RES=1e0 IND=1e-9 CAP=1e-12 LNG=1e-3',
+      '!',
+      'CKT',
+    ];
+    const rlc = (o) => `R=${sp(o.r == null ? (o.topology === 'parallel' ? 1e12 : 0) : o.r)} L=${sp((o.l == null ? (o.topology === 'parallel' ? 1e6 : 0) : o.l) * 1e9)} C=${sp((o.c == null ? (o.topology === 'parallel' ? 0 : 1) : o.c) * 1e12)}`;
+    const line = (el) => `Z=${sp(el.zc)} L=${sp(lineLengths(el).elec * 1e3)} K=${sp(el.er > 0 ? el.er : 1)} A=${sp(el.alpha || 0)} F=0`;
+    let node = 1;
+    for (const el of project.elements) {
+      if (el.off) continue;
+      const shunt = isShunt(el);
+      const b = shunt ? 0 : node + 1;
+      if (el.kind === 'R') out.push(`RES ${node} ${b} R=${sp(el.value)}`);
+      else if (el.kind === 'L') out.push(`IND ${node} ${b} L=${sp(el.value * 1e9)}`);
+      else if (el.kind === 'C') out.push(`CAP ${node} ${b} C=${sp(el.value * 1e12)}`);
+      else if (el.kind === 'RLC') out.push(`${el.topology === 'parallel' ? 'PRLC' : 'SRLC'} ${node} ${b} ${rlc(el)}`);
+      else if (el.kind === 'TL') out.push(`TLINP ${node} ${b} 0 ${line(el)}`);
+      else if (el.kind === 'STUB') out.push(`TLINP ${node} ${el.term === 'short' ? 0 : 99} 0 ${line(el)}`);
+      else if (el.kind === 'XFMR') out.push(`TRF ${b} ${node} 0 0 N=${sp(el.n)} R1=0`);
+      if ((el.kind === 'L' || el.kind === 'C') && esrOf(el) > 0) out.push(`! ESR de ${sp(esrOf(el))} ohm non representee ci-dessus`);
+      if (!shunt) node += 1;
+    }
+    out.push(`DEF2P 1 ${node} A`, '!', 'FREQ', `FIXED ${sp(project.f0 / 1e6)}`, '');
+    return out.join('\n');
+  };
+
+  /* --- Project files ----------------------------------------------------------------- */
+
+  const posNum = (v, fallback) => (typeof v === 'number' && v > 0 && Number.isFinite(v) ? v : fallback);
+  const anyNum = (v, fallback) => (typeof v === 'number' && !Number.isNaN(v) ? v : fallback);
+  const cxOf = (z, fallback) => (z && typeof z === 'object' && typeof z.re === 'number' && typeof z.im === 'number' && !hasNaN(z) ? { re: z.re, im: z.im } : fallback);
+  const part = (v) => (typeof v === 'number' && v >= 0 && !Number.isNaN(v) ? v : null);
+  const lineFields = (e) => ({
+    zc: posNum(e.zc, 50), deg: typeof e.deg === 'number' && e.deg >= 0 && Number.isFinite(e.deg) ? e.deg : 45, fref: posNum(e.fref, 1e9),
+    er: typeof e.er === 'number' && e.er >= 1 && Number.isFinite(e.er) ? e.er : 1,
+    alpha: typeof e.alpha === 'number' && e.alpha >= 0 && Number.isFinite(e.alpha) ? e.alpha : 0,
+    alphaLaw: e.alphaLaw === 'const' ? 'const' : 'sqrt',
+  });
+  const cleanElement = (e) => {
+    if (!e || typeof e !== 'object') return null;
+    const conn = e.conn === 'shunt' ? 'shunt' : 'series';
+    let out;
+    switch (e.kind) {
+      case 'R': out = { kind: 'R', conn, value: typeof e.value === 'number' && !Number.isNaN(e.value) ? e.value : 50 }; break;
+      case 'L': case 'C': {
+        out = { kind: e.kind, conn, value: typeof e.value === 'number' && e.value >= 0 && !Number.isNaN(e.value) ? e.value : 0 };
+        const loss = e.loss;
+        if (loss && loss.mode === 'esr' && loss.esr >= 0) out.loss = { mode: 'esr', esr: anyNum(loss.esr, 0) };
+        else if (loss && loss.mode === 'q') out.loss = { mode: 'q', q: posNum(loss.q, 100), f: posNum(loss.f, 1e9) };
+        break;
+      }
+      case 'RLC': out = { kind: 'RLC', conn, topology: e.topology === 'parallel' ? 'parallel' : 'series', r: part(e.r), l: part(e.l), c: part(e.c) }; break;
+      case 'TL': out = { kind: 'TL', ...lineFields(e) }; break;
+      case 'STUB': out = { kind: 'STUB', term: e.term === 'short' ? 'short' : 'open', ...lineFields(e) }; break;
+      case 'XFMR': out = { kind: 'XFMR', n: posNum(e.n, 1) }; break;
+      default: return null;
+    }
+    if (e.off) out.off = true;
+    return out;
+  };
+  const cleanLoad = (l, z0, f0) => {
+    if (l && l.kind === 'rlc') return { kind: 'rlc', topology: l.topology === 'parallel' ? 'parallel' : 'series', r: part(l.r), l: part(l.l), c: part(l.c) };
+    if (l && l.kind === 'table' && Array.isArray(l.points)) {
+      const points = l.points.slice(0, 20001)
+        .map((p) => (p && posNum(p.f, 0) ? { f: p.f, z: cxOf(p.z, null) } : null))
+        .filter((p) => p && p.z)
+        .sort((a, b) => a.f - b.f);
+      if (points.length) return { kind: 'table', points };
+    }
+    return { kind: 'z', z: cxOf(l && l.z, { re: z0, im: 0 }) };
+  };
+  const numberList = (list, ok) => (Array.isArray(list) ? list.filter((v) => typeof v === 'number' && Number.isFinite(v) && ok(v)).slice(0, 24) : []);
+
+  /** A well-formed project from anything that was read from a file or a link:
+   *  only known fields are kept, and every value is checked. Throws when the
+   *  input is not a project at all. */
+  const normalizeProject = (raw) => {
+    const src = raw && typeof raw === 'object' && raw.project && typeof raw.project === 'object' ? raw.project : raw;
+    if (!src || typeof src !== 'object' || Array.isArray(src)) throw new Error('Ce fichier ne contient pas de projet.');
+    const z0 = posNum(src.z0, 50);
+    const f0 = posNum(src.f0, 1e9);
+    const sw = src.sweep && typeof src.sweep === 'object' ? src.sweep : {};
+    const start = posNum(sw.start, f0 / 2);
+    const stop = posNum(sw.stop, f0 * 2);
+    return {
+      z0,
+      f0,
+      load: cleanLoad(src.load, z0, f0),
+      elements: (Array.isArray(src.elements) ? src.elements.slice(0, 200) : []).map(cleanElement).filter(Boolean),
+      markers: (Array.isArray(src.markers) ? src.markers.slice(0, 50) : [])
+        .map((m) => (m && cxOf(m.z, null) ? { label: String(m.label == null ? '' : m.label).slice(0, 60), z: cxOf(m.z) } : null)).filter(Boolean),
+      circles: {
+        vswr: numberList(src.circles && src.circles.vswr, (v) => v > 1),
+        q: numberList(src.circles && src.circles.q, (v) => v > 0),
+      },
+      sweep: {
+        on: Boolean(sw.on), start: Math.min(start, stop), stop: Math.max(start, stop),
+        points: Math.round(Math.min(2001, Math.max(2, posNum(sw.points, 201)))),
+        scale: sw.scale === 'log' ? 'log' : 'lin',
+      },
+    };
+  };
+
+  const FILE_TAG = 'abaque-smith';
+  const exportProject = (project) => stringify({ app: FILE_TAG, version: 1, project }, 2);
+  const importProject = (text) => {
+    let raw;
+    try { raw = parseJson(text); } catch (err) { throw new Error('Fichier illisible : ce n\'est pas du JSON.'); }
+    return normalizeProject(raw);
+  };
+
+  /* --- Link (URL fragment) ------------------------------------------------------------- */
+
+  const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+  const utf8Bytes = (text) => {
+    const bytes = [];
+    const enc = encodeURIComponent(text);
+    for (let i = 0; i < enc.length; i += 1) {
+      if (enc[i] === '%') { bytes.push(parseInt(enc.slice(i + 1, i + 3), 16)); i += 2; } else bytes.push(enc.charCodeAt(i));
+    }
+    return bytes;
+  };
+  const utf8Text = (bytes) => decodeURIComponent(bytes.map((b) => `%${b.toString(16).padStart(2, '0')}`).join(''));
+  const toBase64Url = (bytes) => {
+    let out = '';
+    for (let i = 0; i < bytes.length; i += 3) {
+      const n = (bytes[i] << 16) | ((bytes[i + 1] || 0) << 8) | (bytes[i + 2] || 0);
+      out += B64[(n >> 18) & 63] + B64[(n >> 12) & 63] + (i + 1 < bytes.length ? B64[(n >> 6) & 63] : '') + (i + 2 < bytes.length ? B64[n & 63] : '');
+    }
+    return out;
+  };
+  const fromBase64Url = (text) => {
+    const bytes = [];
+    let acc = 0;
+    let bits = 0;
+    for (const ch of text) {
+      const v = B64.indexOf(ch);
+      if (v < 0) throw new Error('Lien illisible.');
+      acc = (acc << 6) | v;
+      bits += 6;
+      if (bits >= 8) { bits -= 8; bytes.push((acc >> bits) & 255); acc &= (1 << bits) - 1; }
+    }
+    return bytes;
+  };
+
+  /** Project <-> fragment of a link ("p1." followed by base64url JSON). */
+  const encodeLink = (project) => `p1.${toBase64Url(utf8Bytes(stringify(project)))}`;
+  const decodeLink = (fragment) => {
+    const m = /^#?p1\.([A-Za-z0-9_-]+)$/.exec(String(fragment).trim());
+    if (!m) throw new Error('Lien illisible.');
+    let raw;
+    try { raw = parseJson(utf8Text(fromBase64Url(m[1]))); } catch (err) { throw new Error('Lien illisible.'); }
+    return normalizeProject(raw);
+  };
 
   /* ==========================================================================
    * Public surface
@@ -1149,7 +1869,9 @@ const SmithCore = (() => {
     },
     eng: { parse: parseEng, format: formatEng, formatCx },
     net: { applyElement, branchOf, loadState, loadCovers, evaluate, solve, inputAt, frequencyList, sweep, trajectory, stepInfo, defaultElement, primaryKey, tuneToward },
-    io: { stringify, parse: parseJson },
+    match: { synthesize, assess, character, throughLine, stubLength },
+    eseries: { values: (name) => E_SERIES[name], snap: snapValue, snapElements },
+    io: { stringify, parse: parseJson, parseTouchstone, terminated, touchstoneToTable, parseImpedanceTable, toCir, toCkt, normalizeProject, exportProject, importProject, encodeLink, decodeLink },
   };
 })();
 </script>

@@ -1040,6 +1040,497 @@ test('signe moins typographique accepté à la saisie ; graduations des graphes'
 });
 
 /* ========================================================================== */
+group('12. Synthèse des réseaux d\'adaptation');
+
+const { match, eseries } = Core;
+const Z50 = c(50, 0);
+/** Every solution is put back into the direct engine: Zin must be the target. */
+const verify = (res, zl, zt, f, label, tol = 1e-7) => {
+  ok(res.solutions.length > 0, `${label} : aucune solution (${res.reason || ''})`);
+  res.solutions.forEach((s, k) => close(zin(project(50, f, zl, s.elements)), zt, tol, `${label}, solution ${k + 1}`));
+};
+
+test('réseau en L : toutes les solutions adaptent, 300 charges aléatoires', () => {
+  const rnd = prng(606);
+  for (let n = 0; n < 300; n += 1) {
+    const f = logBetween(rnd, 50e6, 5e9);
+    const zl = c(logBetween(rnd, 2, 800), between(rnd, -400, 400));
+    const zt = n % 3 === 0 ? c(logBetween(rnd, 5, 300), between(rnd, -100, 100)) : Z50;
+    const res = match.synthesize('L', { zl, zt, f });
+    verify(res, zl, zt, f, `L n° ${n}`);
+    ok(res.solutions.length === 2 || res.solutions.length === 4, `L n° ${n} : ${res.solutions.length} solutions`);
+    res.solutions.forEach((s) => ok(s.elements.length <= 2, 'un réseau en L a deux éléments au plus'));
+  }
+});
+test('réseau en L : 2 solutions dans le cercle r = 1 ou g = 1, 4 ailleurs', () => {
+  const count = (zl) => match.synthesize('L', { zl, zt: Z50, f: 1e9 }).solutions.length;
+  same(count(c(100, -50)), 2);     // r > 1 : dans le cercle r = 1
+  same(count(c(10, 7)), 2);        // g > 1 : dans le cercle g = 1
+  same(count(c(20, 60)), 4);       // hors des deux cercles
+  same(count(c(20, -60)), 4);
+  const already = match.synthesize('L', { zl: Z50, zt: Z50, f: 1e9 });
+  same(already.solutions.length, 0);
+  ok(/adapté/.test(already.reason), 'charge déjà adaptée non signalée');
+  same(match.synthesize('L', { zl: c(0, 0), zt: Z50, f: 1e9 }).solutions.length, 0);
+  same(match.synthesize('L', { zl: c(Infinity, 0), zt: Z50, f: 1e9 }).solutions.length, 0);
+});
+test('réseau en L : retrouve les exemples 1 et 4 de Dellsperger (à 3 %)', () => {
+  const has = (res, a, b) => res.solutions.some((s) => s.elements.length === 2 && a(s.elements[0]) && b(s.elements[1]));
+  const near = (v, ref) => Math.abs(v / ref - 1) < 0.03;
+  // ex. 1, passe-haut : C série 39,2 pF puis L // 26,6 nH
+  const ex1 = match.synthesize('L', { zl: c(10, 7), zt: Z50, f: 150e6 });
+  ok(has(ex1, (e) => e.kind === 'C' && e.conn === 'series' && near(e.value, 39.2e-12), (e) => e.kind === 'L' && e.conn === 'shunt' && near(e.value, 26.6e-9)), 'solution de l\'exemple 1 absente');
+  // ex. 4, passe-bas : C // 1,9 pF puis L série 19,4 nH
+  const ex4 = match.synthesize('L', { zl: c(100, -50), zt: Z50, f: 500e6 });
+  ok(has(ex4, (e) => e.kind === 'C' && e.conn === 'shunt' && near(e.value, 1.9e-12), (e) => e.kind === 'L' && e.conn === 'series' && near(e.value, 19.4e-9)), 'solution de l\'exemple 4 absente');
+  same(match.character(ex4.solutions.find((s) => s.elements[0].kind === 'C').elements), 'lowpass');
+});
+test('réseaux en π et en T : adaptent, et le Q de nœud vaut le Q demandé', () => {
+  const rnd = prng(31);
+  for (let n = 0; n < 120; n += 1) {
+    const f = logBetween(rnd, 50e6, 3e9);
+    const zl = c(logBetween(rnd, 5, 500), n % 2 ? between(rnd, -150, 150) : 0);
+    const zt = n % 5 === 0 ? c(logBetween(rnd, 10, 200), between(rnd, -40, 40)) : Z50;
+    for (const family of ['pi', 'T']) {
+      const probe = match.synthesize(family, { zl, zt, f, q: 0.01 });
+      same(probe.solutions.length, 0);
+      ok(probe.qMin >= 0, `${family} : Q minimal manquant`);
+      const q = probe.qMin + between(rnd, 0.3, 8);
+      const res = match.synthesize(family, { zl, zt, f, q });
+      verify(res, zl, zt, f, `${family} n° ${n}`, 1e-6);
+      same(res.solutions.length, 2);
+      for (const s of res.solutions) {
+        same(s.elements.length, 3);
+        ok(family === 'pi' ? s.elements[0].conn === 'shunt' && s.elements[1].conn === 'series' : s.elements[0].conn === 'series' && s.elements[1].conn === 'shunt', `${family} : mauvaise topologie`);
+        close(match.assess(project(50, f, zl), s.elements, { zt }).qMax, q, 1e-6, `${family} n° ${n} : Q de nœud`);
+      }
+    }
+  }
+});
+test('π et T : Q minimal = celui du réseau en L', () => {
+  const pi = match.synthesize('pi', { zl: c(200, 0), zt: Z50, f: 1e9, q: 1 });
+  same(pi.solutions.length, 0);
+  close(pi.qMin, Math.sqrt(3), EXACT);
+  ok(/Q trop faible/.test(pi.reason), 'motif absent');
+  close(match.synthesize('T', { zl: c(5, 0), zt: Z50, f: 1e9, q: 1 }).qMin, 3, EXACT);
+  // passe-bas et passe-haut
+  const kinds = match.synthesize('pi', { zl: c(200, 0), zt: Z50, f: 1e9, q: 4 }).solutions.map((s) => match.character(s.elements)).sort();
+  same(kinds.join(), 'highpass,lowpass');
+});
+test('simple stub : 4 solutions, et celles des exemples 9 et 10 de Dellsperger', () => {
+  const f = 430e6;
+  const zl = c(30, -40);
+  const res = match.synthesize('stub', { zl, zt: Z50, f, zcLine: 50, zcStub: 50 });
+  verify(res, zl, Z50, f, 'stub');
+  same(res.solutions.length, 4);
+  const pick = (term, line, stub) => res.solutions.some((s) => s.elements[1].term === term && Math.abs(s.elements[0].deg - line) < 1.5 && Math.abs(s.elements[1].deg - stub) < 1.5);
+  ok(pick('open', 0.208 * 360, 0.138 * 360), 'exemple 9 (0,208 λ puis stub ouvert 0,138 λ) absent');
+  ok(pick('short', 0.208 * 360, 0.388 * 360), 'exemple 10 (stub court-circuité 0,388 λ) absent');
+  // Ligne d'impédance quelconque : la charge décrit un cercle |Γ| = ρ sur l'abaque de la ligne.
+  // Il coupe le cercle de conductance visé (g' = Gt·Zc) si et seulement si ρ ≥ |1 − g'| / (1 + g').
+  const rnd = prng(5);
+  let none = 0;
+  for (let n = 0; n < 200; n += 1) {
+    const z = c(logBetween(rnd, 3, 600), between(rnd, -300, 300));
+    const zt = n % 4 === 0 ? c(between(rnd, 20, 120), between(rnd, -30, 30)) : Z50;
+    const zcLine = n % 3 === 0 ? 50 : between(rnd, 30, 100);
+    const res = match.synthesize('stub', { zl: z, zt, f, zcLine, zcStub: between(rnd, 30, 100) });
+    const gn = cinv(zt).re * zcLine;
+    const rho = Math.hypot(...Object.values(cdiv(csub(z, c(zcLine)), cadd(z, c(zcLine)))));
+    const reachable = rho >= Math.abs(1 - gn) / (1 + gn);
+    if (reachable) { verify(res, z, zt, f, `stub n° ${n}`); same(res.solutions.length, 4); }
+    else { none += 1; same(res.solutions.length, 0); ok(/Aucune longueur/.test(res.reason), 'absence de solution non expliquée'); }
+  }
+  ok(none >= 1, 'le cas sans solution n\'a pas été exercé');
+  // cas sans solution construit exprès : 70 Ω derrière une ligne de 75 Ω, cible 50 Ω (ρ = 0,034 < 0,2)
+  const far = match.synthesize('stub', { zl: c(70, 0), zt: Z50, f, zcLine: 75, zcStub: 50 });
+  same(far.solutions.length, 0);
+  ok(/Aucune longueur/.test(far.reason), 'absence de solution non expliquée');
+});
+test('double stub : solutions de l\'exemple 11, zone interdite signalée', () => {
+  const f = 430e6;
+  const spacing = 80e-3 / (LIGHT / f) * 360;                  // 80 mm dans l'air
+  const zl = c(30, -40);
+  const res = match.synthesize('stub2', { zl, zt: Z50, f, zcLine: 50, zcStub: 50, spacing });
+  verify(res, zl, Z50, f, 'double stub');
+  same(res.solutions.length, 4);
+  res.solutions.forEach((s) => { same(s.elements.length, 3); close(s.elements[1].deg, spacing, EXACT); });
+  // écartement λ/8 : interdit dès que g > 1/sin²(45°) = 2
+  const blocked = match.synthesize('stub2', { zl: c(10, 0), zt: Z50, f, zcLine: 50, zcStub: 50, spacing: 45 });
+  same(blocked.solutions.length, 0);
+  ok(/Zone interdite/.test(blocked.reason), 'zone interdite non signalée');
+  verify(match.synthesize('stub2', { zl: c(30, 0), zt: Z50, f, zcLine: 50, zcStub: 50, spacing: 45 }), c(30, 0), Z50, f, 'g = 1,67 < 2');
+});
+test('transformateur quart d\'onde, ligne unique, ligne + réactance', () => {
+  const f = 2.4e9;
+  const real = match.synthesize('quarter', { zl: c(100, 0), zt: Z50, f, zcLine: 50 });
+  same(real.solutions.length, 1);
+  close(real.solutions[0].elements[0].zc, Math.sqrt(5000), EXACT); same(real.solutions[0].elements[0].deg, 90);
+  verify(real, c(100, 0), Z50, f, 'λ/4 réel');
+  const zl = c(30, 20);
+  const res = match.synthesize('quarter', { zl, zt: Z50, f, zcLine: 50 });
+  verify(res, zl, Z50, f, 'λ/4 complexe');
+  same(res.solutions.filter((s) => s.type === 'quarter').length, 2);
+  const single = res.solutions.find((s) => s.type === 'line');
+  ok(single && single.elements.length === 1, 'ligne unique absente');
+  close(single.elements[0].zc, Math.sqrt(500), 1e-9);          // Zc² = 50·30 − 50·20²/(50 − 30)
+  ok(/cible réelle/.test(match.synthesize('quarter', { zl, zt: c(50, 10), f, zcLine: 50 }).reason), 'cible complexe acceptée à tort');
+  const both = match.synthesize('line', { zl: c(10, -12), zt: Z50, f, zcLine: 50 });
+  verify(both, c(10, -12), Z50, f, 'ligne + réactance');
+  same(both.solutions.filter((s) => s.type === 'line+shunt').length, 2);
+  same(both.solutions.filter((s) => s.type === 'line+series').length, 2);
+});
+test('bande passante : bords à la limite demandée, un Q plus élevé réduit la bande', () => {
+  const f = 1e9;
+  const p = project(50, f, c(10, 0));
+  const lNet = match.synthesize('L', { zl: c(10, 0), zt: Z50, f }).solutions;
+  same(lNet.length, 2);
+  const limit = 10 ** (-10 / 20);
+  for (const s of lNet) {
+    const a = match.assess(p, s.elements, { rlMin: 10 });
+    ok(a.error < 1e-9, 'réseau non adapté à f0');
+    ok(a.fLow < f && a.fHigh > f && a.bw > 0, 'bande vide');
+    for (const edge of [a.fLow, a.fHigh]) close(net.inputAt({ ...p, elements: s.elements }, edge).mag, limit, 1e-6, 'bord de bande');
+    close(a.qMax, 2, EXACT, 'Q du réseau en L : sqrt(50/10 − 1)');
+  }
+  const bwL = Math.max(...lNet.map((s) => match.assess(p, s.elements).fbw));
+  const bwPi = Math.max(...match.synthesize('pi', { zl: c(10, 0), zt: Z50, f, q: 10 }).solutions.map((s) => match.assess(p, s.elements).fbw));
+  ok(bwPi < bwL / 2, `π à Q = 10 : bande ${bwPi} non réduite face au L (${bwL})`);
+  // seuil plus sévère, bande plus étroite
+  ok(match.assess(p, lNet[0].elements, { rlMin: 20 }).bw < match.assess(p, lNet[0].elements, { rlMin: 10 }).bw, 'seuil 20 dB');
+  // réseau transparent : aucune coupure dans la plage explorée
+  const flat = match.assess(project(50, f, Z50), [TL(50, 30, f)]);
+  ok(flat.openLow && flat.openHigh, 'bande ouverte non signalée');
+  same(match.character([TL(50, 30, f)]), 'lines');
+});
+
+/* ========================================================================== */
+group('13. Séries normalisées');
+
+test('séries E12, E24, E96', () => {
+  same(eseries.values('E12').join(), '1,1.2,1.5,1.8,2.2,2.7,3.3,3.9,4.7,5.6,6.8,8.2');
+  same(eseries.values('E24').length, 24);
+  const e96 = eseries.values('E96');
+  same(e96.length, 96);
+  same(e96.slice(0, 12).join(), '1,1.02,1.05,1.07,1.1,1.13,1.15,1.18,1.21,1.24,1.27,1.3');
+  same(e96.slice(-4).join(), '9.09,9.31,9.53,9.76');
+  for (const v of [4.99, 1.5, 2.21, 3.32, 6.81, 8.25]) ok(e96.includes(v), `${v} absent de E96`);
+  for (const v of eseries.values('E12')) ok(eseries.values('E24').includes(v), `${v} de E12 absent de E24`);
+});
+test('arrondi au plus proche, en rapport', () => {
+  close(eseries.snap(6.6e-12, 'E12'), 6.8e-12, EXACT);
+  close(eseries.snap(9.6e-9, 'E12'), 10e-9, EXACT);            // passe à la décade suivante
+  close(eseries.snap(39.3e-12, 'E24'), 39e-12, EXACT);
+  close(eseries.snap(26.5e-9, 'E24'), 27e-9, EXACT);
+  close(eseries.snap(19.4e-9, 'E96'), 19.6e-9, EXACT);
+  const mid = Math.sqrt(1.0 * 1.2);                           // milieu géométrique
+  close(eseries.snap(mid * 0.999, 'E12'), 1.0, EXACT); close(eseries.snap(mid * 1.001, 'E12'), 1.2, EXACT);
+  same(eseries.snap(0, 'E12'), 0); same(eseries.snap(Infinity, 'E12'), Infinity);
+  for (const s of ['E12', 'E24', 'E96']) for (const v of eseries.values(s)) close(eseries.snap(v * 1e-9, s), v * 1e-9, EXACT);
+});
+test('arrondi d\'un réseau : R, L, C et R-L-C touchés, lignes intactes', () => {
+  const elements = [C('series', 39.3e-12), L('shunt', 26.5e-9), TL(51.3, 44.2, 1e9), R('series', 47), { kind: 'RLC', conn: 'shunt', topology: 'series', r: 31, l: null, c: 5.4e-12 }];
+  const { elements: out, changes } = eseries.snapElements(elements, 'E12');
+  close(out[0].value, 39e-12, EXACT); close(out[1].value, 27e-9, EXACT);
+  same(out[2].zc, 51.3); same(out[2].deg, 44.2);
+  same(out[3].value, 47); close(out[4].r, 33, EXACT); same(out[4].l, null); close(out[4].c, 5.6e-12, EXACT);
+  same(changes.length, 4);
+  same(elements[0].value, 39.3e-12);                          // l'original n'est pas modifié
+});
+
+/* ========================================================================== */
+group('14. Touchstone et tables d\'impédance');
+
+/** S parameters of a two-port from its ABCD matrix (independent reference). */
+const abcdToS = (m, z0) => {
+  const [A, B, Cc, D] = m;
+  const bz = cscale(B, 1 / z0);
+  const cz = cscale(Cc, z0);
+  const den = cadd(cadd(A, bz), cadd(cz, D));
+  return {
+    s11: cdiv(csub(cadd(A, bz), cadd(cz, D)), den),
+    s12: cdiv(cscale(csub(cmul(A, D), cmul(B, Cc)), 2), den),
+    s21: cdiv(c(2), den),
+    s22: cdiv(cadd(csub(bz, A), csub(D, cz)), den),
+  };
+};
+/** Zin of a two-port given by S parameters, through its ABCD matrix (independent reference). */
+const sToZin = (s, z0, zl) => {
+  const two = cscale(s.s21, 2);
+  const A = cdiv(cadd(cmul(cadd(c(1), s.s11), csub(c(1), s.s22)), cmul(s.s12, s.s21)), two);
+  const B = cscale(cdiv(csub(cmul(cadd(c(1), s.s11), cadd(c(1), s.s22)), cmul(s.s12, s.s21)), two), z0);
+  const Cc = cscale(cdiv(csub(cmul(csub(c(1), s.s11), csub(c(1), s.s22)), cmul(s.s12, s.s21)), two), 1 / z0);
+  const D = cdiv(cadd(cmul(csub(c(1), s.s11), cadd(c(1), s.s22)), cmul(s.s12, s.s21)), two);
+  return mZin([A, B, Cc, D], zl);
+};
+const twoPortFreqs = [400e6, 700e6, 1e9, 1.6e9, 2.5e9];
+/** Port 1 — series 10 nH — shunt 3 pF — port 2. */
+const twoPort = (f, z0) => abcdToS(mMul(mSeries(zInd(f, 10e-9)), mShunt(zCap(f, 3e-12))), z0);
+const fmtPair = (z, format) => {
+  if (format === 'RI') return `${z.re} ${z.im}`;
+  const mag = Math.hypot(z.re, z.im);
+  return `${format === 'DB' ? 20 * Math.log10(mag) : mag} ${Math.atan2(z.im, z.re) * 180 / Math.PI}`;
+};
+const s2pText = (format, unitName, unit, z0) => [
+  '! fichier d\'essai', `# ${unitName} S ${format} R ${z0}`, '! f  S11  S21  S12  S22',
+  ...twoPortFreqs.map((f) => { const s = twoPort(f, z0); return `${f / unit} ${fmtPair(s.s11, format)} ${fmtPair(s.s21, format)} ${fmtPair(s.s12, format)} ${fmtPair(s.s22, format)}  ! commentaire`; }),
+].join('\r\n');
+
+test('.s2p en MA, DB et RI, toutes unités, référence 50 ou 75 Ω', () => {
+  for (const [format, unitName, unit, z0] of [['MA', 'GHz', 1e9, 50], ['DB', 'mhz', 1e6, 50], ['RI', 'Hz', 1, 75], ['ma', 'kHz', 1e3, 50]]) {
+    const ts = io.parseTouchstone(s2pText(format.toUpperCase(), unitName, unit, z0));
+    same(ts.ports, 2); same(ts.z0, z0); same(ts.points.length, twoPortFreqs.length);
+    ts.points.forEach((pt, k) => {
+      close(pt.f, twoPortFreqs[k], 1e-12);
+      const s = twoPort(twoPortFreqs[k], z0);
+      for (const key of ['s11', 's21', 's12', 's22']) close(pt.s[key], s[key], 1e-9, `${format} ${key}`);
+    });
+  }
+});
+test('.s2p chargé : formule S11 + S12·S21·ΓL/(1 − S22·ΓL), matrice ABCD et moteur', () => {
+  const ts = io.parseTouchstone(s2pText('MA', 'GHz', 1e9, 50));
+  const zLoad = c(20, 35);
+  const table = io.touchstoneToTable(ts, { port: 1, zOther: zLoad });
+  table.forEach((pt, k) => {
+    const f = twoPortFreqs[k];
+    close(pt.z, sToZin(ts.points[k].s, 50, zLoad), 1e-9, 'ABCD');
+    close(pt.z, zin(project(50, f, zLoad, [C('shunt', 3e-12), L('series', 10e-9)]), f), 1e-9, 'moteur');
+  });
+  // port 2 fermé sur Z0 : Γin = S11 ; vu depuis le port 2 : S22
+  io.touchstoneToTable(ts).forEach((pt, k) => close(rf.zToGamma(pt.z, 50), ts.points[k].s.s11, 1e-9));
+  io.touchstoneToTable(ts, { port: 2 }).forEach((pt, k) => close(rf.zToGamma(pt.z, 50), ts.points[k].s.s22, 1e-9));
+  const back = io.touchstoneToTable(ts, { port: 2, zOther: zLoad });
+  close(back[2].z, zin(project(50, 1e9, zLoad, [L('series', 10e-9), C('shunt', 3e-12)]), 1e9), 1e-9, 'vu depuis le port 2');
+});
+test('.s1p : paramètres S, Z et Y ; valeurs par défaut ; bruit dans un .s2p', () => {
+  const s1 = io.parseTouchstone('# MHz S MA R 50\n100 0.5 90\n200 0.25 -45\n');
+  same(s1.ports, 1); close(s1.points[0].s, c(0, 0.5), 1e-12);
+  close(io.touchstoneToTable(s1)[0].z, rf.gammaToZ(c(0, 0.5), 50), EXACT);
+  const zf = io.parseTouchstone('# Hz Z RI R 50\n1e9 0.6 0.8\n');           // Z normalisée à R
+  close(io.touchstoneToTable(zf)[0].z, c(30, 40), 1e-12);
+  const yf = io.parseTouchstone('# Hz Y RI R 50\n1e9 1.2 -0.4\n');
+  close(io.touchstoneToTable(yf)[0].z, cscale(cinv(c(1.2, -0.4)), 50), 1e-12);
+  const bare = io.parseTouchstone('1.5 0.3 10\n');                          // sans ligne d'options : GHz S MA R 50
+  close(bare.points[0].f, 1.5e9, EXACT); same(bare.z0, 50);
+  const noisy = io.parseTouchstone(`${s2pText('MA', 'GHz', 1e9, 50)}\n! NOISE\n0.9 1.60 0.63 26 0.98\n1.8 1.90 0.52 51 0.72\n`);
+  same(noisy.points.length, 5); same(noisy.noise.length, 2);
+  close(noisy.noise[0].f, 0.9e9, EXACT); same(noisy.noise[0].nfmin, 1.6); same(noisy.noise[1].rn, 0.72);
+  close(K.abs(noisy.noise[1].gopt), 0.52, 1e-12);
+});
+test('fichiers refusés avec un message clair', () => {
+  const refused = (text, pattern) => {
+    let message = '';
+    try { io.parseTouchstone(text); } catch (err) { message = err.message; }
+    ok(pattern.test(message), `message inattendu : « ${message} »`);
+  };
+  refused('[Version] 2.0\n# GHz S MA R 50\n', /2\.0/);
+  refused('# GHz S MA R 50\n1 0.1 0 0.2 0 0.3 0\n', /1 ou 2 ports/);
+  refused('# GHz H MA R 50\n1 0.1 0 0.2 0 0.3 0 0.4 0\n', /non pris en charge/);
+  refused('# GHz S MA R 50\n1 abc 0\n', /illisible/);
+  refused('! rien\n', /Aucune donnée/);
+});
+test('tables « fréquence, R, X » : EZNEC, en-tête d\'unité, valeurs nues', () => {
+  const eznec = '"EZNEC+ ver. 5.0"\n"Vert13m h=2,5m 4xRad6m Hut4x7m","10.09.2008 12:48:36"\n"Alt Z0: ",75\n"Freq MHz","Src #","R","X","SWR (50 ohms)","SWR (alt. Z0)"\n3.4,1,30.0344,-104.4704,9.427082,7.611355\n3.45,1,31.09572,-87.45639,7.006533,5.937705\n';
+  const a = io.parseImpedanceTable(eznec);
+  same(a.points.length, 2); close(a.points[0].f, 3.4e6, EXACT); close(a.points[0].z, c(30.0344, -104.4704), EXACT);
+  const b = io.parseImpedanceTable('f (GHz); R; X\n1.9; 42; -13\n1.7; 38; -21\n');
+  close(b.points[0].f, 1.7e9, EXACT); close(b.points[1].z, c(42, -13), EXACT);      // trié par fréquence
+  close(io.parseImpedanceTable('869e6\t2\t10\n').points[0].f, 869e6, EXACT);          // valeur ≥ 1e5 : hertz
+  close(io.parseImpedanceTable('140 100.8 24.2\n145 106.9 41.7\n').points[1].f, 145e6, EXACT);   // sans unité : MHz
+  let message = '';
+  try { io.parseImpedanceTable('bonjour\n'); } catch (err) { message = err.message; }
+  ok(/Aucune ligne/.test(message), 'table vide acceptée');
+});
+
+/* ========================================================================== */
+group('15. Netlists');
+
+/** Small AC circuit solver (modified nodal analysis) for the element types the
+ *  LTspice export writes: R, L, C (with Rser), T, V, E, F. Independent of the engine. */
+const solveCir = (text, f) => {
+  const nodeIds = new Map([['0', -1]]);
+  const id = (n) => { if (!nodeIds.has(n)) nodeIds.set(n, nodeIds.size - 1); return nodeIds.get(n); };
+  const parts = [];
+  for (const raw of text.split('\n')) {
+    const line = raw.trim();
+    if (!line || line[0] === '*' || line[0] === '.') continue;
+    const tok = line.split(/\s+/);
+    const opt = Object.fromEntries(tok.filter((t) => t.includes('=')).map((t) => { const [k, v] = t.split('='); return [k.toLowerCase(), Number(v)]; }));
+    parts.push({ name: tok[0], type: tok[0][0].toUpperCase(), tok, opt });
+    for (const n of tok.slice(1, tok[0][0].toUpperCase() === 'T' || tok[0][0].toUpperCase() === 'E' ? 5 : 3)) id(n);
+  }
+  const branches = parts.filter((p) => p.type === 'V' || p.type === 'E');
+  const N = nodeIds.size - 1;
+  const size = N + branches.length;
+  const M = Array.from({ length: size }, () => Array.from({ length: size + 1 }, () => c(0)));
+  const stamp = (r, col, v) => { if (r >= 0 && col >= 0) M[r][col] = cadd(M[r][col], v); };
+  const admit = (a, b, y) => { stamp(a, a, y); stamp(b, b, y); stamp(a, b, cscale(y, -1)); stamp(b, a, cscale(y, -1)); };
+  const omega = 2 * Math.PI * f;
+  for (const p of parts) {
+    const t = p.tok;
+    if (p.type === 'R') admit(id(t[1]), id(t[2]), c(1 / Number(t[3])));
+    else if (p.type === 'L') admit(id(t[1]), id(t[2]), cinv(c(p.opt.rser || 0, omega * Number(t[3]))));
+    else if (p.type === 'C') admit(id(t[1]), id(t[2]), cinv(c(p.opt.rser || 0, -1 / (omega * Number(t[3])))));
+    else if (p.type === 'T') {
+      ok(t[2] === '0' && t[4] === '0', 'ligne sans retour à la masse');
+      const theta = omega * p.opt.td;
+      const y11 = cinv(c(0, p.opt.z0 * Math.tan(theta)));
+      const y12 = cscale(cinv(c(0, p.opt.z0 * Math.sin(theta))), -1);
+      const a = id(t[1]); const b = id(t[3]);
+      stamp(a, a, y11); stamp(b, b, y11); stamp(a, b, y12); stamp(b, a, y12);
+    }
+  }
+  branches.forEach((p, k) => {
+    const row = N + k;
+    const a = id(p.tok[1]); const b = id(p.tok[2]);
+    stamp(a, row, c(1)); stamp(b, row, c(-1));              // the branch current leaves a and enters b
+    stamp(row, a, c(1)); stamp(row, b, c(-1));
+    if (p.type === 'V') M[row][size] = c(p.tok.includes('AC') ? Number(p.tok[p.tok.indexOf('AC') + 1]) : Number(p.tok[3]));
+    else { const gain = Number(p.tok[5]); stamp(row, id(p.tok[3]), c(-gain)); stamp(row, id(p.tok[4]), c(gain)); }
+  });
+  for (const p of parts.filter((q) => q.type === 'F')) {
+    const col = N + branches.findIndex((b) => b.name === p.tok[3]);
+    ok(col >= N, `source de commande ${p.tok[3]} introuvable`);
+    const gain = Number(p.tok[4]);
+    stamp(id(p.tok[1]), col, c(gain)); stamp(id(p.tok[2]), col, c(-gain));
+  }
+  for (let i = 0; i < size; i += 1) {                         // Gauss elimination with partial pivoting
+    let piv = i;
+    for (let r = i + 1; r < size; r += 1) if (Math.hypot(M[r][i].re, M[r][i].im) > Math.hypot(M[piv][i].re, M[piv][i].im)) piv = r;
+    [M[i], M[piv]] = [M[piv], M[i]];
+    for (let r = 0; r < size; r += 1) {
+      if (r === i) continue;
+      const k = cdiv(M[r][i], M[i][i]);
+      for (let col = i; col <= size; col += 1) M[r][col] = csub(M[r][col], cmul(k, M[i][col]));
+    }
+  }
+  const volt = (n) => (id(n) < 0 ? c(0) : cdiv(M[id(n)][size], M[id(n)][id(n)]));
+  const rs = Number(parts.find((p) => p.name === 'Rs').tok[3]);
+  return cdiv(volt('in'), cscale(csub(volt('src'), volt('in')), 1 / rs));       // Zin = V(in) / I(Rs)
+};
+
+test('netlist LTspice : relue par un solveur nodal indépendant, Zin identique', () => {
+  const load = { kind: 'rlc', topology: 'series', r: 2, l: 92e-9, c: null };
+  const elements = [
+    C('shunt', 22e-12), L('series', 15e-9, { mode: 'q', q: 40, f: 869e6 }), C('shunt', 3.9e-12, { mode: 'esr', esr: 0.4 }),
+    TL(62, 57, 869e6), STUB('open', 50, 33, 869e6), { kind: 'XFMR', n: 1.6 }, STUB('short', 75, 71, 869e6),
+    { kind: 'RLC', conn: 'shunt', topology: 'series', r: 33, l: 22e-9, c: 18e-12 },
+    { kind: 'RLC', conn: 'series', topology: 'parallel', r: 330, l: 12e-9, c: 4.7e-12 },
+    { ...R('shunt', 10), off: true }, C('series', 6.8e-12),
+  ];
+  const p = { ...project(50, 869e6, load, elements), sweep: { on: true, start: 700e6, stop: 1e9, points: 101, scale: 'lin' } };
+  const cir = io.toCir(p);
+  ok(/^\.ac lin 101 700000000 1000000000$/m.test(cir), 'directive .ac absente');
+  ok(/\.end\s*$/.test(cir), '.end absent');
+  ok(!/[^\x00-\x7f]/.test(cir), 'caractère non ASCII dans la netlist');
+  for (const f of [700e6, 869e6, 1.1e9]) close(solveCir(cir, f), zin(p, f), 1e-7, `Zin à ${f} Hz`);
+});
+test('netlist LTspice : charge fixe = équivalent série à f0, ouverte ou en court-circuit', () => {
+  const p = project(50, 869e6, c(2, 10), ladder);
+  close(solveCir(io.toCir(p), 869e6), c(88.740, -115.544), TOL);
+  close(solveCir(io.toCir(project(50, 1e9, c(30, -40), [L('series', 5e-9)])), 1e9), zin(project(50, 1e9, c(30, -40), [L('series', 5e-9)])), 1e-9);
+  close(solveCir(io.toCir(project(50, 1e9, OPEN, [C('shunt', 2e-12), L('series', 5e-9)])), 1e9), zin(project(50, 1e9, OPEN, [C('shunt', 2e-12), L('series', 5e-9)])), 1e-6);
+  ok(/\.ac lin 201/.test(io.toCir(p)), 'balayage par défaut absent');
+});
+test('netlist LTspice : ligne à pertes en modèle LTRA cohérent', () => {
+  const line = TL(60, 200, 500e6, { er: 2.5, alpha: 2 });
+  const cir = io.toCir(project(50, 500e6, c(50, 0), [line]));
+  const m = /LTRA\(len=(\S+) R=(\S+) L=(\S+) C=(\S+)\)/.exec(cir);
+  ok(m, 'modèle LTRA absent');
+  const [len, r, l, cap] = m.slice(1).map(Number);
+  close(len, rf.lineLengths(line).phys, 1e-8);
+  close(Math.sqrt(l / cap), 60, 1e-8);                                  // Zc
+  close(1 / Math.sqrt(l * cap), LIGHT / Math.sqrt(2.5), 1e-8);          // vitesse de phase
+  close(r / (2 * 60), 2 * NEPER, 1e-8);                                 // alpha = R / (2·Zc), en Np/m
+});
+test('netlist au format de Smith (.ckt) : relue, Zin identique', () => {
+  const elements = [C('shunt', 22e-12), L('series', 15e-9), TL(62, 57, 869e6, { er: 2.2 }), STUB('open', 50, 33, 869e6), STUB('short', 75, 71, 869e6), R('series', 4.7), { kind: 'RLC', conn: 'shunt', topology: 'series', r: 33, l: 22e-9, c: 18e-12 }, { kind: 'RLC', conn: 'series', topology: 'parallel', r: 330, l: 12e-9, c: 4.7e-12 }, C('series', 6.8e-12)];
+  const p = project(50, 869e6, c(2, 10), elements);
+  const ckt = io.toCkt(p);
+  const f = 869e6;
+  let z = c(2, 10);
+  let node = 1;
+  for (const raw of ckt.split('\n')) {
+    const t = raw.trim().split(/\s+/);
+    const o = Object.fromEntries(t.filter((s) => s.includes('=')).map((s) => { const [k, v] = s.split('='); return [k, Number(v)]; }));
+    let ze = null;
+    if (t[0] === 'RES') ze = c(o.R);
+    else if (t[0] === 'IND') ze = zInd(f, o.L * 1e-9);
+    else if (t[0] === 'CAP') ze = zCap(f, o.C * 1e-12);
+    else if (t[0] === 'SRLC') ze = cadd(c(o.R), cadd(zInd(f, o.L * 1e-9), zCap(f, o.C * 1e-12)));
+    else if (t[0] === 'PRLC') ze = cinv(cadd(cinv(c(o.R)), cadd(cinv(zInd(f, o.L * 1e-9)), cinv(zCap(f, o.C * 1e-12)))));
+    else if (t[0] === 'TLINP') {
+      const theta = 2 * Math.PI * (o.L * 1e-3) / (LIGHT / f);            // longueur électrique en mm
+      if (t[2] === '99') ze = c(0, -o.Z / Math.tan(theta));              // stub ouvert
+      else if (t[2] === '0') ze = c(0, o.Z * Math.tan(theta));           // stub court-circuité
+      else { same(Number(t[1]), node); z = lineZin(z, o.Z, 0, theta); node += 1; continue; }
+    } else if (t[0] === 'DEF2P') { same(Number(t[2]), node); continue; } else continue;
+    same(Number(t[1]), node);
+    if (t[2] === '0' || t[2] === '99') z = parZ(z, ze); else { z = serZ(z, ze); node += 1; }
+  }
+  close(z, zin(p), 1e-7);
+  ok(/^DIM FREQ=1e6 RES=1e0 IND=1e-9 CAP=1e-12 LNG=1e-3$/m.test(ckt) && /^FIXED 869$/m.test(ckt), 'en-tête ou fréquence absents');
+});
+
+/* ========================================================================== */
+group('16. Projet et lien partageable');
+
+const fullProject = () => ({
+  ...project(50, 869e6, { kind: 'rlc', topology: 'series', r: 2, l: 92e-9, c: null }, [...ladder, TL(50, 45, 869e6, { er: 1, alpha: 0, alphaLaw: 'sqrt' })]),
+  markers: [{ label: 'z = 1,2 − j1,4 « été » Ω', z: c(60, -70) }],
+  circles: { vswr: [2], q: [1, 3] },
+  sweep: { on: true, start: 700e6, stop: 1e9, points: 201, scale: 'lin' },
+});
+
+test('fichier projet : aller-retour sans perte', () => {
+  const p = fullProject();
+  const back = io.importProject(io.exportProject(p));
+  same(io.stringify(back), io.stringify(io.normalizeProject(p)));
+  close(net.inputAt(back).z, net.inputAt(p).z, EXACT);
+  same(back.markers[0].label, 'z = 1,2 − j1,4 « été » Ω');
+  const open = io.importProject(io.exportProject({ ...p, load: { kind: 'z', z: OPEN } }));
+  same(open.load.z.re, Infinity);
+});
+test('fichier projet : contenu douteux nettoyé, contenu étranger refusé', () => {
+  const messy = io.normalizeProject({
+    z0: -5, f0: 'abc', load: { kind: 'z', z: { re: 'x', im: 0 } },
+    elements: [{ kind: 'C', conn: 'bogus', value: 1e-12 }, { kind: 'EVIL', run: 'alert(1)' }, null, { kind: 'TL', zc: -1, deg: NaN, fref: 0, er: 0.2, alpha: -3 }, { kind: 'L', value: 1e-9, loss: { mode: 'q', q: -1, f: 0 }, extra: '<script>' }],
+    markers: [{ label: { toString: () => 'x'.repeat(500) }, z: c(1, 2) }, { label: 'sans z' }],
+    circles: { vswr: [0.5, 2, 'a', Infinity], q: [-1, 3] },
+    sweep: { on: 1, start: 9e9, stop: 1e9, points: 1e9, scale: 'cubic' },
+  });
+  same(messy.z0, 50); same(messy.f0, 1e9);
+  same(io.stringify(messy.load), io.stringify({ kind: 'z', z: c(50, 0) }));
+  same(messy.elements.length, 3);
+  same(messy.elements[0].conn, 'series');
+  same(io.stringify(messy.elements[1]), io.stringify({ kind: 'TL', zc: 50, deg: 45, fref: 1e9, er: 1, alpha: 0, alphaLaw: 'sqrt' }));
+  same(Object.keys(messy.elements[2]).join(), 'kind,conn,value,loss');
+  same(messy.elements[2].loss.q, 100);
+  same(messy.markers.length, 1); same(messy.markers[0].label.length, 60);
+  same(messy.circles.vswr.join(), '2'); same(messy.circles.q.join(), '3');
+  same(messy.sweep.start, 1e9); same(messy.sweep.stop, 9e9); same(messy.sweep.points, 2001); same(messy.sweep.scale, 'lin'); same(messy.sweep.on, true);
+  net.solve(messy).forEach((m) => noNaN(m));
+  for (const bad of ['[1, 2]', '"texte"', 'null', '{pas du json']) {
+    let message = '';
+    try { io.importProject(bad); } catch (err) { message = err.message; }
+    ok(message.length > 0, `contenu accepté à tort : ${bad}`);
+  }
+});
+test('lien : aller-retour, caractères sûrs pour une URL, lien abîmé refusé', () => {
+  const p = fullProject();
+  const link = io.encodeLink(p);
+  ok(/^p1\.[A-Za-z0-9_-]+$/.test(link), 'caractères non sûrs dans le lien');
+  same(io.stringify(io.decodeLink(link)), io.stringify(io.normalizeProject(p)));
+  same(io.stringify(io.decodeLink(`#${link}`)), io.stringify(io.normalizeProject(p)));
+  same(io.decodeLink(io.encodeLink({ ...p, load: { kind: 'z', z: OPEN } })).load.z.re, Infinity);
+  for (const bad of ['', 'p1.', 'p2.abcd', `${link.slice(0, 40)}`, 'p1.@@@@']) {
+    let message = '';
+    try { io.decodeLink(bad); } catch (err) { message = err.message; }
+    ok(/illisible|projet/.test(message), `lien accepté à tort : « ${bad} »`);
+  }
+});
+
+/* ========================================================================== */
 const total = passed + failures.length;
 console.log(`\n${total} tests : ${passed} réussis, ${failures.length} en échec`);
 if (failures.length) {
