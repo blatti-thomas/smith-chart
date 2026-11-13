@@ -1094,7 +1094,7 @@ const SmithCore = (() => {
     let hi;
     let log = true;
     if (key === 'deg') {
-      // one half-wave window around the present length: a long line keeps its turns
+      // a span of one half-wave around the present length: a long line keeps its turns
       const half = 90 * (el.fref > 0 && f > 0 ? el.fref / f : 1);
       lo = Math.max(0, el.deg - half); hi = lo + 2 * half; log = false;
     }
