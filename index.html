@@ -375,7 +375,7 @@ details.card > summary small { color: var(--muted); font-weight: 400; letter-spa
       <button type="button" data-units="norm" title="Normalized graduations">z, y</button>
       <button type="button" data-units="abs" title="Graduations in ohms and siemens">Ω, mS</button>
     </div>
-    <label class="field">Example <select id="sel-preset" aria-label="Course examples"></select></label>
+    <button type="button" class="btn" id="btn-new" title="Start an empty project (50 Ω load)">New project</button>
     <label class="field">Language <select id="sel-lang" aria-label="Language"></select></label>
     <span class="spacer"></span>
     <button type="button" class="btn" id="btn-course" aria-pressed="false" title="Shows the r or g circle followed by each element, its Δx or Δb, and the impedance / admittance symmetry">Course mode</button>
@@ -406,7 +406,7 @@ details.card > summary small { color: var(--muted); font-weight: 400; letter-spa
           <button type="button" class="btn sm" data-add="STUB:short" title="Shunt short-circuit stub">Short stub</button>
           <button type="button" class="btn sm" data-add="RLC:shunt" title="Series R-L-C inserted in shunt">RLC</button>
         </span>
-        <button type="button" class="btn sm" id="btn-flip" title="Load on the right (as on slide 16) or on the left (as in Smith V3.10)">Flip schematic</button>
+        <button type="button" class="btn sm" id="btn-flip" title="Load on the right or on the left (as in Smith V3.10)">Flip schematic</button>
       </div>
     </section>
     <section class="chart-box">
@@ -593,8 +593,8 @@ SmithI18n.register('fr', {
   'Chart graduations': 'Graduations de l\'abaque',
   'Normalized graduations': 'Graduations normalisées',
   'Graduations in ohms and siemens': 'Graduations en ohms et en siemens',
-  'Example': 'Exemple',
-  'Course examples': 'Exemples du cours',
+  'New project': 'Nouveau projet',
+  'Start an empty project (50 Ω load)': 'Démarrer un projet vide (charge 50 Ω)',
   'Shows the r or g circle followed by each element, its Δx or Δb, and the impedance / admittance symmetry': 'Affiche le cercle r ou g suivi par chaque élément, son Δx ou Δb, et la symétrie impédance / admittance',
   'Course mode': 'Mode cours',
   'Undo (Ctrl+Z)': 'Annuler (Ctrl+Z)',
@@ -629,7 +629,7 @@ SmithI18n.register('fr', {
   'Shunt short-circuit stub': 'Stub parallèle court-circuité',
   'Short stub': 'Stub c-c',
   'Series R-L-C inserted in shunt': 'R-L-C série inséré en parallèle',
-  'Load on the right (as on slide 16) or on the left (as in Smith V3.10)': 'Charge à droite (comme la slide 16) ou à gauche (comme Smith V3.10)',
+  'Load on the right or on the left (as in Smith V3.10)': 'Charge à droite ou à gauche (comme Smith V3.10)',
   'Flip schematic': 'Inverser le schéma',
   'Smith chart. Mouse wheel to zoom, drag the background to pan, drag a point to tune its element, keys plus, minus, zero and arrows.': 'Abaque de Smith. Molette pour zoomer, glisser le fond pour déplacer, glisser un point pour régler son élément, touches plus, moins, zéro et flèches.',
   'Zoom': 'Zoom',
@@ -719,19 +719,6 @@ SmithI18n.register('fr', {
   'transformer': 'transformateur',
   'Load {0}': 'Charge {0}',
   'Tabulated load ({0} points)': 'Charge tabulée ({0} points)',
-  'Slide 17 — ladder network, load 2 + j10 Ω': 'Slide 17 — réseau en échelle, charge 2 + j10 Ω',
-  'Slide 16 — same network, load 92 nH + 2 Ω': 'Slide 16 — même réseau, charge 92 nH + 2 Ω',
-  'Slide 6 — placing impedances': 'Slide 6 — placement d\'impédances',
-  'z = 1.2 − j1.4': 'z = 1,2 − j1,4',
-  'Slide 7 — series C, Δ = −j1.1': 'Slide 7 — C série, Δ = −j1,1',
-  'Slide 8 — series L, Δ = +j1.8': 'Slide 8 — L série, Δ = +j1,8',
-  'Slide 9 — series R-L-C, Q = 1': 'Slide 9 — R-L-C série, Q = 1',
-  'Slide 10 — impedance and admittance': 'Slide 10 — impédance et admittance',
-  'y = 0.26 − j0.6': 'y = 0,26 − j0,6',
-  'Slide 13 — shunt C, Δ = +j1.4': 'Slide 13 — C parallèle, Δ = +j1,4',
-  'Slide 14 — shunt L, Δ = −j1.4': 'Slide 14 — L parallèle, Δ = −j1,4',
-  'Slide 15 — frequency variation': 'Slide 15 — variation de fréquence',
-  'Empty project — 50 Ω load': 'Projet vide — charge 50 Ω',
   'f increasing': 'f croissant',
   'input': 'entrée',
   'DP1 · load': 'DP1 · charge',
@@ -904,8 +891,8 @@ SmithI18n.register('de', {
   'Chart graduations': 'Skalenteilung des Diagramms',
   'Normalized graduations': 'Normierte Skalenteilung',
   'Graduations in ohms and siemens': 'Skalenteilung in Ohm und Siemens',
-  'Example': 'Beispiel',
-  'Course examples': 'Beispiele aus der Vorlesung',
+  'New project': 'Neues Projekt',
+  'Start an empty project (50 Ω load)': 'Leeres Projekt starten (Last 50 Ω)',
   'Shows the r or g circle followed by each element, its Δx or Δb, and the impedance / admittance symmetry': 'Zeigt den r- oder g-Kreis, dem jedes Element folgt, dessen Δx oder Δb sowie die Impedanz-/Admittanz-Symmetrie',
   'Course mode': 'Vorlesungsmodus',
   'Undo (Ctrl+Z)': 'Rückgängig (Strg+Z)',
@@ -940,7 +927,7 @@ SmithI18n.register('de', {
   'Shunt short-circuit stub': 'Paralleler Kurzschluss-Stub',
   'Short stub': 'Kurzschluss-Stub',
   'Series R-L-C inserted in shunt': 'Serien-R-L-C parallel eingefügt',
-  'Load on the right (as on slide 16) or on the left (as in Smith V3.10)': 'Last rechts (wie auf Folie 16) oder links (wie in Smith V3.10)',
+  'Load on the right or on the left (as in Smith V3.10)': 'Last rechts oder links (wie in Smith V3.10)',
   'Flip schematic': 'Schaltplan spiegeln',
   'Smith chart. Mouse wheel to zoom, drag the background to pan, drag a point to tune its element, keys plus, minus, zero and arrows.': 'Smith-Diagramm. Mausrad zum Zoomen, Hintergrund ziehen zum Verschieben, Punkt ziehen, um sein Element abzustimmen, Tasten Plus, Minus, Null und Pfeile.',
   'Zoom': 'Zoom',
@@ -1030,19 +1017,6 @@ SmithI18n.register('de', {
   'transformer': 'Transformator',
   'Load {0}': 'Last {0}',
   'Tabulated load ({0} points)': 'Tabellierte Last ({0} Punkte)',
-  'Slide 17 — ladder network, load 2 + j10 Ω': 'Folie 17 — Abzweignetzwerk, Last 2 + j10 Ω',
-  'Slide 16 — same network, load 92 nH + 2 Ω': 'Folie 16 — gleiches Netzwerk, Last 92 nH + 2 Ω',
-  'Slide 6 — placing impedances': 'Folie 6 — Impedanzen eintragen',
-  'z = 1.2 − j1.4': 'z = 1,2 − j1,4',
-  'Slide 7 — series C, Δ = −j1.1': 'Folie 7 — C in Reihe, Δ = −j1,1',
-  'Slide 8 — series L, Δ = +j1.8': 'Folie 8 — L in Reihe, Δ = +j1,8',
-  'Slide 9 — series R-L-C, Q = 1': 'Folie 9 — Serien-R-L-C, Q = 1',
-  'Slide 10 — impedance and admittance': 'Folie 10 — Impedanz und Admittanz',
-  'y = 0.26 − j0.6': 'y = 0,26 − j0,6',
-  'Slide 13 — shunt C, Δ = +j1.4': 'Folie 13 — C parallel, Δ = +j1,4',
-  'Slide 14 — shunt L, Δ = −j1.4': 'Folie 14 — L parallel, Δ = −j1,4',
-  'Slide 15 — frequency variation': 'Folie 15 — Frequenzänderung',
-  'Empty project — 50 Ω load': 'Leeres Projekt — Last 50 Ω',
   'f increasing': 'f steigend',
   'input': 'Eingang',
   'DP1 · load': 'DP1 · Last',
@@ -1215,8 +1189,8 @@ SmithI18n.register('it', {
   'Chart graduations': 'Graduazioni della carta',
   'Normalized graduations': 'Graduazioni normalizzate',
   'Graduations in ohms and siemens': 'Graduazioni in ohm e siemens',
-  'Example': 'Esempio',
-  'Course examples': 'Esempi del corso',
+  'New project': 'Nuovo progetto',
+  'Start an empty project (50 Ω load)': 'Avviare un progetto vuoto (carico 50 Ω)',
   'Shows the r or g circle followed by each element, its Δx or Δb, and the impedance / admittance symmetry': 'Mostra il cerchio r o g seguito da ogni elemento, il suo Δx o Δb e la simmetria impedenza / ammettenza',
   'Course mode': 'Modalità corso',
   'Undo (Ctrl+Z)': 'Annulla (Ctrl+Z)',
@@ -1251,7 +1225,7 @@ SmithI18n.register('it', {
   'Shunt short-circuit stub': 'Stub in parallelo in cortocircuito',
   'Short stub': 'Stub in corto',
   'Series R-L-C inserted in shunt': 'R-L-C serie inserito in parallelo',
-  'Load on the right (as on slide 16) or on the left (as in Smith V3.10)': 'Carico a destra (come nella diapositiva 16) o a sinistra (come in Smith V3.10)',
+  'Load on the right or on the left (as in Smith V3.10)': 'Carico a destra o a sinistra (come in Smith V3.10)',
   'Flip schematic': 'Inverti lo schema',
   'Smith chart. Mouse wheel to zoom, drag the background to pan, drag a point to tune its element, keys plus, minus, zero and arrows.': 'Carta di Smith. Rotellina per zoomare, trascina lo sfondo per spostare, trascina un punto per regolare il suo elemento, tasti più, meno, zero e frecce.',
   'Zoom': 'Zoom',
@@ -1341,19 +1315,6 @@ SmithI18n.register('it', {
   'transformer': 'trasformatore',
   'Load {0}': 'Carico {0}',
   'Tabulated load ({0} points)': 'Carico tabulato ({0} punti)',
-  'Slide 17 — ladder network, load 2 + j10 Ω': 'Diapositiva 17 — rete a scala, carico 2 + j10 Ω',
-  'Slide 16 — same network, load 92 nH + 2 Ω': 'Diapositiva 16 — stessa rete, carico 92 nH + 2 Ω',
-  'Slide 6 — placing impedances': 'Diapositiva 6 — posizionamento delle impedenze',
-  'z = 1.2 − j1.4': 'z = 1,2 − j1,4',
-  'Slide 7 — series C, Δ = −j1.1': 'Diapositiva 7 — C in serie, Δ = −j1,1',
-  'Slide 8 — series L, Δ = +j1.8': 'Diapositiva 8 — L in serie, Δ = +j1,8',
-  'Slide 9 — series R-L-C, Q = 1': 'Diapositiva 9 — R-L-C serie, Q = 1',
-  'Slide 10 — impedance and admittance': 'Diapositiva 10 — impedenza e ammettenza',
-  'y = 0.26 − j0.6': 'y = 0,26 − j0,6',
-  'Slide 13 — shunt C, Δ = +j1.4': 'Diapositiva 13 — C in parallelo, Δ = +j1,4',
-  'Slide 14 — shunt L, Δ = −j1.4': 'Diapositiva 14 — L in parallelo, Δ = −j1,4',
-  'Slide 15 — frequency variation': 'Diapositiva 15 — variazione di frequenza',
-  'Empty project — 50 Ω load': 'Progetto vuoto — carico 50 Ω',
   'f increasing': 'f crescente',
   'input': 'ingresso',
   'DP1 · load': 'DP1 · carico',
@@ -1526,8 +1487,8 @@ SmithI18n.register('es', {
   'Chart graduations': 'Graduaciones de la carta',
   'Normalized graduations': 'Graduaciones normalizadas',
   'Graduations in ohms and siemens': 'Graduaciones en ohmios y siemens',
-  'Example': 'Ejemplo',
-  'Course examples': 'Ejemplos del curso',
+  'New project': 'Nuevo proyecto',
+  'Start an empty project (50 Ω load)': 'Iniciar un proyecto vacío (carga 50 Ω)',
   'Shows the r or g circle followed by each element, its Δx or Δb, and the impedance / admittance symmetry': 'Muestra el círculo r o g seguido por cada elemento, su Δx o Δb y la simetría impedancia / admitancia',
   'Course mode': 'Modo curso',
   'Undo (Ctrl+Z)': 'Deshacer (Ctrl+Z)',
@@ -1562,7 +1523,7 @@ SmithI18n.register('es', {
   'Shunt short-circuit stub': 'Stub en paralelo en cortocircuito',
   'Short stub': 'Stub en corto',
   'Series R-L-C inserted in shunt': 'R-L-C serie insertado en paralelo',
-  'Load on the right (as on slide 16) or on the left (as in Smith V3.10)': 'Carga a la derecha (como en la diapositiva 16) o a la izquierda (como en Smith V3.10)',
+  'Load on the right or on the left (as in Smith V3.10)': 'Carga a la derecha o a la izquierda (como en Smith V3.10)',
   'Flip schematic': 'Invertir el esquema',
   'Smith chart. Mouse wheel to zoom, drag the background to pan, drag a point to tune its element, keys plus, minus, zero and arrows.': 'Carta de Smith. Rueda del ratón para ampliar, arrastre el fondo para desplazar, arrastre un punto para ajustar su elemento, teclas más, menos, cero y flechas.',
   'Zoom': 'Zoom',
@@ -1652,19 +1613,6 @@ SmithI18n.register('es', {
   'transformer': 'transformador',
   'Load {0}': 'Carga {0}',
   'Tabulated load ({0} points)': 'Carga tabulada ({0} puntos)',
-  'Slide 17 — ladder network, load 2 + j10 Ω': 'Diapositiva 17 — red en escalera, carga 2 + j10 Ω',
-  'Slide 16 — same network, load 92 nH + 2 Ω': 'Diapositiva 16 — misma red, carga 92 nH + 2 Ω',
-  'Slide 6 — placing impedances': 'Diapositiva 6 — colocación de impedancias',
-  'z = 1.2 − j1.4': 'z = 1,2 − j1,4',
-  'Slide 7 — series C, Δ = −j1.1': 'Diapositiva 7 — C en serie, Δ = −j1,1',
-  'Slide 8 — series L, Δ = +j1.8': 'Diapositiva 8 — L en serie, Δ = +j1,8',
-  'Slide 9 — series R-L-C, Q = 1': 'Diapositiva 9 — R-L-C serie, Q = 1',
-  'Slide 10 — impedance and admittance': 'Diapositiva 10 — impedancia y admitancia',
-  'y = 0.26 − j0.6': 'y = 0,26 − j0,6',
-  'Slide 13 — shunt C, Δ = +j1.4': 'Diapositiva 13 — C en paralelo, Δ = +j1,4',
-  'Slide 14 — shunt L, Δ = −j1.4': 'Diapositiva 14 — L en paralelo, Δ = −j1,4',
-  'Slide 15 — frequency variation': 'Diapositiva 15 — variación de frecuencia',
-  'Empty project — 50 Ω load': 'Proyecto vacío — carga 50 Ω',
   'f increasing': 'f creciente',
   'input': 'entrada',
   'DP1 · load': 'DP1 · carga',
@@ -3826,41 +3774,19 @@ const SmithChart = (() => {
   };
   const nodeName = (i) => (i === 0 ? 'DP1' : `TP${i + 1}`);
 
-  /* --- Course examples -------------------------------------------------------------- */
+  /* --- Empty project ---------------------------------------------------------------------- */
 
   const F1 = 1e9;
-  const zn = (re, im) => ({ re: 50 * re, im: 50 * im });
-  const yn = (re, im) => K.scale(rf.invZ(K.make(re, im)), 50);
-  const seriesX = (x) => ({ ...rf.componentForReactance(50 * x, F1), conn: 'series' });
-  const shuntB = (b) => ({ ...rf.componentForSusceptance(b / 50, F1), conn: 'shunt' });
-  const ladder = () => [
-    { kind: 'C', conn: 'shunt', value: 22e-12 }, { kind: 'L', conn: 'series', value: 15e-9 },
-    { kind: 'C', conn: 'shunt', value: 3.9e-12 }, { kind: 'C', conn: 'series', value: 6.8e-12 },
-  ];
-  const base = (extra) => ({
-    z0: 50, f0: F1, load: { kind: 'z', z: zn(1, 0) }, elements: [],
+  const newProject = () => ({
+    z0: 50, f0: F1, load: { kind: 'z', z: { re: 50, im: 0 } }, elements: [],
     markers: [], circles: { vswr: [], q: [] },
     sweep: { on: false, start: 500e6, stop: 1500e6, points: 201, scale: 'lin' },
-    ...extra,
   });
-  const PRESETS = [
-    { name: 'Slide 17 — ladder network, load 2 + j10 Ω', make: () => base({ f0: 869e6, load: { kind: 'z', z: { re: 2, im: 10 } }, elements: ladder(), sweep: { on: false, start: 700e6, stop: 1000e6, points: 201, scale: 'lin' } }) },
-    { name: 'Slide 16 — same network, load 92 nH + 2 Ω', make: () => base({ f0: 869e6, load: { kind: 'rlc', topology: 'series', r: 2, l: 92e-9, c: null }, elements: ladder(), sweep: { on: false, start: 700e6, stop: 1000e6, points: 201, scale: 'lin' } }) },
-    { name: 'Slide 6 — placing impedances', make: () => base({ load: { kind: 'z', z: zn(0.6, 0.8) }, markers: [{ label: 'z = 1', z: zn(1, 0) }, { label: tr('z = 1.2 − j1.4'), z: zn(1.2, -1.4) }] }) },
-    { name: 'Slide 7 — series C, Δ = −j1.1', make: () => base({ load: { kind: 'z', z: zn(0.6, 0.8) }, elements: [seriesX(-1.1)] }) },
-    { name: 'Slide 8 — series L, Δ = +j1.8', make: () => base({ load: { kind: 'z', z: zn(1.2, -1.4) }, elements: [seriesX(1.8)] }) },
-    { name: 'Slide 9 — series R-L-C, Q = 1', make: () => base({ f0: rf.rlcResonance({ r: 30, l: 5.5e-9, c: 6.11e-12 }).f0, load: { kind: 'rlc', topology: 'series', r: 30, l: 5.5e-9, c: 6.11e-12 }, circles: { vswr: [], q: [1] }, sweep: { on: true, start: 300e6, stop: 2500e6, points: 201, scale: 'log' } }) },
-    { name: 'Slide 10 — impedance and admittance', make: () => base({ load: { kind: 'z', z: zn(0.6, 1.4) }, markers: [{ label: tr('y = 0.26 − j0.6'), z: K.scale(rf.invZ(K.make(0.6, 1.4)), 50) }] }) },
-    { name: 'Slide 13 — shunt C, Δ = +j1.4', make: () => base({ load: { kind: 'z', z: yn(1.2, -0.4) }, elements: [shuntB(1.4)] }) },
-    { name: 'Slide 14 — shunt L, Δ = −j1.4', make: () => base({ load: { kind: 'z', z: yn(1.2, 1.0) }, elements: [shuntB(-1.4)] }) },
-    { name: 'Slide 15 — frequency variation', make: () => base({ load: { kind: 'rlc', topology: 'series', r: 25, l: 8e-9, c: 3e-12 }, sweep: { on: true, start: 200e6, stop: 3e9, points: 201, scale: 'log' } }) },
-    { name: 'Empty project — 50 Ω load', make: () => base({}) },
-  ];
 
   /* --- State and history ---------------------------------------------------------------- */
 
   const state = {
-    project: PRESETS[0].make(),
+    project: newProject(),
     mode: 'zy',          // 'z' | 'y' | 'zy'
     units: 'norm',       // grid labels: 'norm' | 'abs'
     view: null,
@@ -5050,7 +4976,7 @@ const SmithChart = (() => {
       const at = CR.pointAlong(v, model.paths[i].map((s) => s.gamma), 0.5);
       if (at) out += `<text class="course-label" x="${(at.x - at.dy * 16).toFixed(1)}" y="${(at.y + at.dx * 16 + 4).toFixed(1)}" text-anchor="middle">${esc(text)}</text>`;
     });
-    // an impedance and its admittance are symmetric about the centre (slides 10 and 12)
+    // an impedance and its admittance are symmetric about the centre 
     const node = state.selected;
     if (node >= 0 && model.nodes[node] && K.isFinite(model.nodes[node].gamma) && model.nodes[node].mag > 1e-6) {
       const a = CR.toPx(v, model.nodes[node].gamma);
@@ -5422,15 +5348,9 @@ const SmithChart = (() => {
     select(state.selected === i ? -1 : i);
   });
 
-  const presetSelect = $('sel-preset');
-  const fillPresets = () => {
-    const keep = presetSelect.selectedIndex;
-    presetSelect.innerHTML = PRESETS.map((p, i) => `<option value="${i}">${esc(tr(p.name))}</option>`).join('');
-    presetSelect.selectedIndex = keep < 0 ? 0 : keep;
-  };
-  presetSelect.addEventListener('change', () => {
+  $('btn-new').addEventListener('click', () => {
     state.selected = -1;
-    change(() => { state.project = PRESETS[Number(presetSelect.value)].make(); });
+    change(() => { state.project = newProject(); });
   });
 
   $('btn-undo').addEventListener('click', undo);
@@ -5480,7 +5400,6 @@ const SmithChart = (() => {
     $('plot-s11').setAttribute('aria-label', tr('Magnitude of S11 in decibels versus frequency'));
     $('plot-vswr').setAttribute('aria-label', tr('VSWR versus frequency'));
     $('plot-phase').setAttribute('aria-label', tr('Phase of the reflection coefficient versus frequency'));
-    fillPresets();
   };
   let savedLang = null;
   try { savedLang = localStorage.getItem('smith.lang'); } catch (err) { /* storage unavailable */ }
@@ -5496,7 +5415,7 @@ const SmithChart = (() => {
 
   fitView();
   refresh();
-  window.SmithApp = { state, history, refresh, change, select, undo, redo, fitView, zoomAt, drawAll, drawSide, addElement, PRESETS, chartSvg, svgToPng, pointsCsv, linkOf, get model() { return model; } };
+  window.SmithApp = { state, history, refresh, change, select, undo, redo, fitView, zoomAt, drawAll, drawSide, addElement, newProject, chartSvg, svgToPng, pointsCsv, linkOf, get model() { return model; } };
 })();
 </script>
 </body>

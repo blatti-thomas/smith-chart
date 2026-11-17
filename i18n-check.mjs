@@ -3,7 +3,7 @@
 //
 // English is the source language of the page. This script:
 //   (a) collects every translatable key: t() / tr() literals in smith-core and
-//       smith-app, the PRESETS names, and the static HTML (text nodes and the
+//       smith-app, and the static HTML (text nodes and the
 //       title / aria-label / placeholder attributes, outside data-i18n-skip subtrees);
 //   (b) loads smith-i18n + smith-i18n-data in a VM and checks, for fr / de / it / es:
 //       an entry for every key, no extra key, identical {n} placeholders and HTML tags,
@@ -65,10 +65,6 @@ for (const id of ['smith-core', 'smith-app']) {
     const where = `${id}:${lineOf(src, m.index)}`;
     if (lit) note(literal(lit[1]), where);
     else if (!/^p\.name\)/.test(rest)) dynamic.push(`${where}  ${rest.slice(0, 50).replace(/\n/g, ' ')}`);
-  }
-  if (id === 'smith-app') {
-    const preset = /\{ name: ('(?:[^'\\\n]|\\.)*'), make:/g;
-    while ((m = preset.exec(src))) note(literal(m[1]), `PRESETS:${lineOf(src, m.index)}`);
   }
 }
 

@@ -37,8 +37,7 @@ You can also skip the installer: download the repository and open `index.html` i
 
 ## Usage
 
-Open `index.html`. The slide 17 example is loaded; the "Example" menu offers the other slides of the
-course and an empty project. The "Language" menu switches the interface language (the browser language
+Open `index.html`: an empty project with a 50 Ω load. "New project" resets it. The "Language" menu switches the interface language (the browser language
 is used by default, and the choice is remembered).
 
 **Build a network.** The network is built **from the load towards the source**: the first element touches

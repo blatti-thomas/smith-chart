@@ -146,7 +146,7 @@ Decision: **R** = kept, **A** = kept and improved, **X** = excluded (reason in �
 | Solution ranking | By maximum node Q and by actual bandwidth (band where RL ≥ threshold, computed by numerical sweep of the synthesized network), with low-pass / high-pass character and DC pass or block |
 | Preferred values | E12 / E24 / E96 rounding per element or global, with resulting Γ, RL and VSWR displayed before / after |
 | Linked graphs | \|S11\| dB, VSWR, phase of Γ versus f; hovering over a graph = cursor on the chart, and vice versa |
-| "Course" mode | Constant r or constant g circle followed by each element, Δx / Δb label as on slides 7, 8, 13, 14; z ↔ y symmetry about the centre (slides 10, 12); slide examples preloaded |
+| "Course" mode | Constant r or constant g circle followed by each element, Δx / Δb label as on slides 7, 8, 13, 14; z ↔ y symmetry about the centre (slides 10, 12) |
 | Real components | Finite Q on L and C; losses on the stubs |
 | Active region | r < 0 drawn outside the disc, flagged "active / unstable" |
 | Engineering input | "6.8p", "15n", "869M", "2k2", "0.25λ", "90°", comma or period as decimal separator; wheel and arrows for fine adjustment |
