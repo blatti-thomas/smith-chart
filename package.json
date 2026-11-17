@@ -1,0 +1,89 @@
+{
+  "name": "smith-chart",
+  "version": "0.1.0",
+  "description": "Smith chart tool: impedance matching, stability circles, Touchstone import.",
+  "license": "MIT",
+  "author": "Thomas Blatti",
+  "homepage": "https://github.com/blatti-thomas/smith-chart",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/blatti-thomas/smith-chart.git"
+  },
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist:win": "electron-builder --win --publish never",
+    "dist:mac": "electron-builder --mac --publish never",
+    "test": "node tests.mjs && node i18n-check.mjs"
+  },
+  "devDependencies": {
+    "electron": "45.1.0",
+    "electron-builder": "26.18.1"
+  },
+  "build": {
+    "appId": "io.github.blatti-thomas.smith-chart",
+    "productName": "Smith Chart",
+    "copyright": "Copyright (c) Thomas Blatti",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "index.html",
+      "main.js",
+      "package.json"
+    ],
+    "win": {
+      "icon": "build/icon.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "artifactName": "Smith-Chart-Windows-Setup-${arch}.${ext}",
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "portable": {
+      "artifactName": "Smith-Chart-Windows-Portable-${arch}.${ext}"
+    },
+    "mac": {
+      "icon": "build/icon.png",
+      "category": "public.app-category.developer-tools",
+      "identity": null,
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "artifactName": "Smith-Chart-macOS-${arch}.${ext}"
+    }
+  },
+  "allowScripts": {
+    "electron": true,
+    "electron-winstaller": false
+  }
+}
