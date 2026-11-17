@@ -1,123 +1,180 @@
-# Abaque de Smith interactif
+# Interactive Smith chart
 
-Outil d'abaque de Smith et d'adaptation d'impédance pour le cours SysRF (HEIG-VD, chap. 8), conçu pour
-remplacer Smith V3.10 de F. Dellsperger. Un seul fichier, sans installation ni connexion.
+[![Latest release](https://img.shields.io/github/v/release/blatti-thomas/smith-chart?label=latest%20release)](https://github.com/blatti-thomas/smith-chart/releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-| Fichier | Rôle |
+Smith chart and impedance-matching tool built for the SysRF course (HEIG-VD, chapter 8), designed to
+replace Smith V3.10 by F. Dellsperger. One file, no installation, no network connection.
+The interface is available in English, French, German, Italian and Spanish.
+
+## Download
+
+Desktop builds are attached to every [release](https://github.com/blatti-thomas/smith-chart/releases/latest).
+The links below always point to the latest version.
+
+| Platform | Download |
 |---|---|
-| `index.html` | L'outil complet : ouvrir ce fichier dans un navigateur |
-| `tests.mjs` | Tests du moteur de calcul : `node tests.mjs` (Node ≥ 18, aucune dépendance) |
-| `SPEC.md` | Spécification : fonctions reprises de Smith, ajoutées, exclues, et pourquoi |
+| Windows (installer) | [Smith-Chart-Windows-Setup-x64.exe](https://github.com/blatti-thomas/smith-chart/releases/latest/download/Smith-Chart-Windows-Setup-x64.exe) |
+| Windows (portable, no installation) | [Smith-Chart-Windows-Portable-x64.exe](https://github.com/blatti-thomas/smith-chart/releases/latest/download/Smith-Chart-Windows-Portable-x64.exe) |
+| macOS, Apple Silicon (M1 and later) | [Smith-Chart-macOS-arm64.dmg](https://github.com/blatti-thomas/smith-chart/releases/latest/download/Smith-Chart-macOS-arm64.dmg) |
+| macOS, Intel | [Smith-Chart-macOS-x64.dmg](https://github.com/blatti-thomas/smith-chart/releases/latest/download/Smith-Chart-macOS-x64.dmg) |
 
-## Utilisation
+The builds are not code-signed. Windows SmartScreen may warn on first launch ("More info" → "Run anyway").
+On macOS, open the app with right-click → Open the first time (or run
+`xattr -dr com.apple.quarantine "/Applications/Smith Chart.app"`).
 
-Ouvrir `index.html`. L'exemple de la slide 17 est chargé ; le menu « Exemple » propose les autres slides du
-cours et un projet vide.
+You can also skip the installer: download the repository and open `index.html` in a browser.
 
-**Construire un réseau.** Le réseau se construit **de la charge vers la source** : le premier élément
-touche la charge, l'impédance d'entrée est vue après le dernier.
+## Files
 
-1. Régler `Z0` et `f0` dans la barre du haut.
-2. Cliquer sur la charge dans le schéma et la saisir (Z, Y, valeurs normalisées, Γ, S11, circuit R-L-C ou
-   table Z(f)). Le point DP1 se glisse aussi sur l'abaque.
-3. Ajouter les éléments avec les boutons « Série » et « Parallèle ». Le nouvel élément s'insère après
-   l'élément sélectionné, côté source, et son champ de valeur prend le focus : taper la valeur, puis Entrée.
-
-**Saisir une valeur.** Notation ingénieur libre : `6.8p`, `6,8 pF`, `15n`, `869M`, `2k2`, `4R7`, `1e-9`.
-Les préfixes et les unités respectent la casse (`m` = milli, `M` = méga) ; une saisie ambiguë comme
-`869mhz` est refusée.
-
-**Régler une valeur.**
-
-| Geste | Effet |
+| File | Role |
 |---|---|
-| Molette ou flèches ↑ ↓ sur un champ | ± 1 % (± 1° pour un angle) ; Maj : × 10 ; Alt : ÷ 10 |
-| Curseur « Réglage » | Balaye autour de la valeur ; revient au centre quand on le relâche |
-| Glisser un point TP sur l'abaque | Règle l'élément qui aboutit à ce point, le long de son lieu |
-| Glisser DP1 | Déplace une charge fixe |
+| `index.html` | The complete tool: open this file in a browser |
+| `tests.mjs` | Tests of the calculation engine: `node tests.mjs` (Node ≥ 18, no dependency) |
+| `i18n-check.mjs` | Checks that every UI string is translated in every language: `node i18n-check.mjs` |
+| `SPEC.md` | Specification: functions taken from Smith, added, excluded, and why |
+| `main.js`, `package.json` | Desktop wrapper (Electron) used to build the Windows and macOS apps |
 
-**Lire l'abaque.** Le panneau de lecture donne Z, Y, Γ, VSWR, return loss, mismatch loss, Q, les valeurs
-normalisées et les composants équivalents, pour le curseur, un point survolé, un échantillon du sweep ou,
-à défaut, l'entrée du réseau. Molette : zoom ; glisser le fond : déplacer ; double-clic ou `0` : ajuster.
+## Usage
 
-**Panneaux de l'inspecteur** (repliables) : adaptation automatique, valeurs normalisées E12/E24/E96, sweep
-en fréquence, cercles VSWR et Q, amplificateur (stabilité, gain, bruit), fichiers et exports.
+Open `index.html`. The slide 17 example is loaded; the "Example" menu offers the other slides of the
+course and an empty project. The "Language" menu switches the interface language (the browser language
+is used by default, and the choice is remembered).
 
-**Clavier.** `Ctrl+Z` / `Ctrl+Y` annuler et rétablir ; `Ctrl+S` enregistrer le projet ; `Ctrl+O` ouvrir ;
-`Suppr` supprimer l'élément sélectionné ; `Échap` désélectionner ; flèches ← → dans le schéma ;
-`+` `−` `0` et flèches sur l'abaque.
+**Build a network.** The network is built **from the load towards the source**: the first element touches
+the load, and the input impedance is seen after the last element.
 
-**Partager.** Le projet est encodé dans l'adresse de la page : « Copier le lien » suffit. « Enregistrer »
-produit un fichier JSON.
+1. Set `Z0` and `f0` in the top bar.
+2. Click the load in the schematic and enter it (Z, Y, normalized values, Γ, S11, R-L-C circuit or Z(f)
+   table). The DP1 point can also be dragged on the chart.
+3. Add elements with the "Series" and "Shunt" buttons. The new element is inserted after the selected
+   element, on the source side, and its value field gets the focus: type the value, then Enter.
 
-## Conventions RF
+**Enter a value.** Free engineering notation: `6.8p`, `6,8 pF`, `15n`, `869M`, `2k2`, `4R7`, `1e-9`.
+Prefixes and units are case-sensitive (`m` = milli, `M` = mega); an ambiguous entry such as `869mhz` is
+rejected.
 
-- ω = 2πf ; Z_L = jωL ; Z_C = 1/(jωC) ; Γ = (Z − Z0)/(Z + Z0), Z0 réel.
-- VSWR = (1 + |Γ|)/(1 − |Γ|) ; return loss = −20·log|Γ| (positif) ; mismatch loss = −10·log(1 − |Γ|²).
-- Q d'un point = |X|/R.
-- Élément série : déplacement sur un cercle r. Élément parallèle : déplacement sur un cercle g.
-- **Lignes.** La longueur électrique est définie à une fréquence de référence ; la ligne garde sa longueur
-  physique quand la fréquence varie. Longueur physique = longueur électrique / √εr_eff. Pertes α en dB par
-  mètre de longueur physique, en α·√(f/f_ref) par défaut (conducteur) ou constantes.
-- Stub ouvert : Y = tanh(γl)/Zc. Stub court-circuité : Y = coth(γl)/Zc.
-- **Transformateur idéal** de rapport n : Zin = n²·Z, n = spires côté source / spires côté charge.
-- **Q fini** : résistance série constante en fréquence, donnée directement ou déduite d'un Q à une fréquence.
-- **Charge pendant un sweep** : une impédance fixe reste fixe (comme dans Smith) ; un circuit R-L-C varie ;
-  une table est interpolée linéairement sur Γ, sans extrapolation.
-- **π et T à Q imposé** : Q est le Q de nœud le plus élevé à l'intérieur du réseau (résistance virtuelle
-  Rhaut/(Q² + 1) pour le π, Rbas·(Q² + 1) pour le T).
-- **Bande passante d'une solution** : plage autour de f0 où le return loss par rapport à la cible reste
-  au-dessus du seuil, mesurée sur le réseau réel avec le modèle de charge du projet.
-- **Amplificateur** : la source vue par le transistor est l'entrée du réseau. On part donc de 50 Ω comme
-  « charge » et on construit vers le transistor (méthode 2 de l'exemple 14 de Dellsperger).
+**Tune a value.**
 
-## Vérification
+| Gesture | Effect |
+|---|---|
+| Mouse wheel or ↑ ↓ arrows on a field | ± 1 % (± 1° for an angle); Shift: × 10; Alt: ÷ 10 |
+| "Tuning" slider | Sweeps around the value; returns to the centre when released |
+| Drag a TP point on the chart | Tunes the element that ends at this point, along its locus |
+| Drag DP1 | Moves a fixed load |
 
-`node tests.mjs` extrait les blocs `smith-core` et `smith-chart` d'`index.html` et les exécute tels quels :
-le code testé est le code livré. 106 tests couvrent :
+**Read the chart.** The readout panel gives Z, Y, Γ, VSWR, return loss, mismatch loss, Q, the normalized
+values and the equivalent components, for the cursor, a hovered point, a sweep sample or, by default,
+the network input. Wheel: zoom; drag the background: pan; double-click or `0`: fit.
 
-- les 8 vecteurs du cours, la chaîne de la slide 17 (valeurs affichées par Smith V3.10) et les exemples 1,
-  4, 9, 10, 11 et 13 de Dellsperger ;
-- chaque formule par une voie indépendante : réduction série/parallèle, équation tanh fermée, matrices
-  ABCD, solveur nodal pour la netlist LTspice, formules de gain et de bruit évaluées sur les cercles ;
-- chaque réseau synthétisé, réinjecté dans le moteur direct ;
-- les cas limites (court-circuit, circuit ouvert, f = 0, |Γ| = 1, r < 0, valeurs nulles ou infinies) ;
-- la géométrie SVG (drapeaux d'arc, densité de grille, étiquettes).
+**Inspector panels** (collapsible): automatic matching, preferred values E12/E24/E96, frequency sweep,
+VSWR and Q circles, amplifier (stability, gain, noise), files and exports.
 
-L'interface a été validée à la main dans un navigateur Chromium : slides 16 et 17 refaites de bout en
-bout, exemple 13 de Dellsperger reproduit, imports, exports et lien vérifiés.
+**Keyboard.** `Ctrl+Z` / `Ctrl+Y` undo and redo; `Ctrl+S` save the project; `Ctrl+O` open;
+`Del` delete the selected element; `Esc` deselect; ← → arrows in the schematic;
+`+` `−` `0` and arrows on the chart.
 
-**Incohérence du cours à connaître.** La slide 17 ne résout pas l'énoncé de la slide 16 : Smith V3.10 y
-part d'une charge (2 + j10) Ω, soit 1,83 nH, et non de 92 nH + 2 Ω. Les deux cas sont dans les exemples :
-slide 16 → Zin = 0,0018 − j157,19 Ω ; slide 17 → Zin = 88,74 − j115,54 Ω.
+**Share.** The project is encoded in the page address: "Copy link" is enough. "Save" produces a JSON
+file.
 
-## Limitations connues
+## RF conventions
 
-Calcul
-- L'impédance caractéristique d'une ligne à pertes reste réelle (approximation faibles pertes).
-- La résistance série d'un composant à Q fini ne varie pas avec la fréquence.
-- La synthèse d'adaptation suppose des éléments sans pertes et des lignes dans l'air (εr = 1) ; elle
-  adapte à f0 uniquement. Double stub : les deux stubs sont du même type. π et T : deux solutions.
-- L'arrondi aux séries E prend la valeur la plus proche ; les lignes ne sont pas arrondies.
-- Amplificateur : une seule fréquence à la fois ; pas de facteur de mérite unilatéral.
+- ω = 2πf; Z_L = jωL; Z_C = 1/(jωC); Γ = (Z − Z0)/(Z + Z0), Z0 real.
+- VSWR = (1 + |Γ|)/(1 − |Γ|); return loss = −20·log|Γ| (positive); mismatch loss = −10·log(1 − |Γ|²).
+- Q of a point = |X|/R.
+- Series element: motion along an r circle. Shunt element: motion along a g circle.
+- **Lines.** The electrical length is defined at a reference frequency; the line keeps its physical
+  length when the frequency varies. Physical length = electrical length / √εr_eff. Loss α in dB per
+  metre of physical length, α·√(f/f_ref) by default (conductor) or constant.
+- Open stub: Y = tanh(γl)/Zc. Short-circuited stub: Y = coth(γl)/Zc.
+- **Ideal transformer** of ratio n: Zin = n²·Z, n = turns on the source side / turns on the load side.
+- **Finite Q**: series resistance constant in frequency, given directly or derived from a Q at one
+  frequency.
+- **Load during a sweep**: a fixed impedance stays fixed (as in Smith); an R-L-C circuit varies; a table
+  is interpolated linearly on Γ, without extrapolation.
+- **π and T at imposed Q**: Q is the highest node Q inside the network (virtual resistance
+  Rhigh/(Q² + 1) for the π, Rlow·(Q² + 1) for the T).
+- **Bandwidth of a solution**: range around f0 where the return loss with respect to the target stays
+  above the threshold, measured on the real network with the project's load model.
+- **Amplifier**: the source seen by the transistor is the network input. Start from 50 Ω as the "load"
+  and build towards the transistor (method 2 of Dellsperger's example 14).
 
-Fichiers
-- Touchstone 1.x à 1 ou 2 ports seulement ; pas de version 2.0, ni de paramètres H ou G, ni de Z ou Y à
-  2 ports. Les tables CSV n'acceptent pas la virgule décimale.
-- La netlist LTspice est vérifiée par un solveur indépendant, **pas par LTspice lui-même**. Une charge fixe
-  ou tabulée y est remplacée par son équivalent série à f0 ; les pertes d'une ligne y sont constantes.
-- Netlist au format Smith : le sens du transformateur n'est pas documenté par Dellsperger, et les
-  résistances série des composants n'y figurent pas.
-- Les projets `.xmlsc` de Smith et les fichiers CITI ne sont pas lus.
-- Un lien est limité à environ 6000 caractères : une charge tabulée volumineuse passe par le fichier JSON.
-- Le mode d'affichage (Z / Y, graduations, thème) et l'historique d'annulation ne sont pas enregistrés.
+## Verification
+
+`node tests.mjs` extracts the `smith-core` and `smith-chart` blocks of `index.html` and runs them as
+they are: the tested code is the shipped code. Over 100 tests cover:
+
+- the 8 course vectors, the slide 17 chain (values displayed by Smith V3.10) and Dellsperger's examples
+  1, 4, 9, 10, 11 and 13;
+- every formula through an independent path: series/parallel reduction, closed tanh equation, ABCD
+  matrices, nodal solver for the LTspice netlist, gain and noise formulas evaluated on the circles;
+- every synthesized network, fed back into the forward engine;
+- edge cases (short circuit, open circuit, f = 0, |Γ| = 1, r < 0, zero or infinite values);
+- the SVG geometry (arc flags, grid density, labels).
+
+The interface was validated by hand in a Chromium browser: slides 16 and 17 redone from start to finish,
+Dellsperger's example 13 reproduced, imports, exports and link checked.
+
+**A course inconsistency to know about.** Slide 17 does not solve the statement of slide 16: Smith V3.10
+starts from a (2 + j10) Ω load, i.e. 1.83 nH, and not from 92 nH + 2 Ω. Both cases are in the examples:
+slide 16 → Zin = 0.0018 − j157.19 Ω; slide 17 → Zin = 88.74 − j115.54 Ω.
+
+## Known limitations
+
+Calculation
+- The characteristic impedance of a lossy line stays real (low-loss approximation).
+- The series resistance of a finite-Q component does not vary with frequency.
+- Matching synthesis assumes lossless elements and air-filled lines (εr = 1); it matches at f0 only.
+  Double stub: both stubs are of the same type. π and T: two solutions.
+- E-series rounding takes the nearest value; lines are not rounded.
+- Amplifier: one frequency at a time; no unilateral figure of merit.
+
+Files
+- Touchstone 1.x with 1 or 2 ports only; no version 2.0, no H or G parameters, no Z or Y for 2 ports.
+  CSV tables do not accept the decimal comma.
+- The LTspice netlist is checked by an independent solver, **not by LTspice itself**. A fixed or
+  tabulated load is replaced there by its series equivalent at f0; line losses are constant.
+- Smith-format netlist: the transformer direction is not documented by Dellsperger, and the series
+  resistances of components are not written.
+- Smith `.xmlsc` projects and CITI files are not read.
+- A link is limited to about 6000 characters: a large tabulated load goes through the JSON file.
+- The display mode (Z / Y, graduations, theme) and the undo history are not saved.
 
 Interface
-- Pas de grille hors du disque (|Γ| > 1) : les points actifs y sont seulement placés et signalés.
-- Une étiquette de grille peut être masquée par une trajectoire.
-- Le sweep trace l'entrée du réseau uniquement ; l'axe du VSWR est limité à 10.
-- En mode cours, une résistance n'affiche pas de cercle (elle suit un arc x ou b).
-- Seule l'image de l'abaque se copie dans le presse-papiers ; le schéma s'exporte en SVG.
-- Glisser un point demande une souris ou un écran tactile ; au clavier, on règle la valeur dans son champ.
-- Non vérifié : Firefox et Safari, les écrans tactiles, l'impression papier, et l'ouverture directe en
-  `file://` (les essais ont été faits à travers un serveur local ; aucune ressource externe n'est chargée).
+- No grid outside the disc (|Γ| > 1): active points are only placed there and flagged.
+- A grid label may be hidden by a trajectory.
+- The sweep plots the network input only; the VSWR axis is capped at 10.
+- In course mode, a resistor shows no circle (it follows an x or b arc).
+- Only the chart image can be copied to the clipboard; the schematic is exported as SVG.
+- Dragging a point needs a mouse or a touch screen; with the keyboard, edit the value in its field.
+- Not verified: Firefox and Safari, touch screens, paper printing, and opening directly from `file://`
+  (tests were done through a local server; no external resource is loaded).
+- The German, Italian and Spanish translations were produced without review by native speakers.
+
+## Development
+
+```bash
+node tests.mjs          # engine tests
+node i18n-check.mjs     # every UI string translated in every language
+npm install && npm start  # run the desktop wrapper locally (optional)
+```
+
+User-visible strings are written in English in the code and looked up in the dictionaries of the
+`smith-i18n-data` script: a new string needs a translation in each language, which `i18n-check.mjs`
+verifies.
+
+### Releasing
+
+Push a version tag; GitHub Actions builds the Windows and macOS apps and attaches them to the release:
+
+```bash
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+The asset names contain no version number, so the download links above always point to the latest
+release and never need editing.
+
+## License
+
+[MIT](LICENSE)

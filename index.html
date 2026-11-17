@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Abaque de Smith</title>
+<title>Smith Chart</title>
 <style>
 /* ---------------------------------------------------------------- tokens */
 :root {
@@ -363,155 +363,1471 @@ details.card > summary small { color: var(--muted); font-weight: 400; letter-spa
 <body>
 <div class="app">
   <header class="topbar">
-    <h1>Abaque de Smith</h1>
-    <label class="field"><span>Z<sub>0</sub></span> <input id="in-z0" autocomplete="off" spellcheck="false" aria-label="Impédance de référence Z0"></label>
-    <label class="field"><span>f<sub>0</sub></span> <input id="in-f0" autocomplete="off" spellcheck="false" aria-label="Fréquence de conception"></label>
-    <div class="seg" id="seg-mode" role="group" aria-label="Plans affichés">
+    <h1>Smith Chart</h1>
+    <label class="field"><span>Z<sub>0</sub></span> <input id="in-z0" autocomplete="off" spellcheck="false" aria-label="Reference impedance Z0"></label>
+    <label class="field"><span>f<sub>0</sub></span> <input id="in-f0" autocomplete="off" spellcheck="false" aria-label="Design frequency"></label>
+    <div class="seg" id="seg-mode" role="group" aria-label="Displayed planes">
       <button type="button" data-mode="z">Z</button>
       <button type="button" data-mode="y">Y</button>
       <button type="button" data-mode="zy">Z + Y</button>
     </div>
-    <div class="seg" id="seg-units" role="group" aria-label="Graduations de l'abaque">
-      <button type="button" data-units="norm" title="Graduations normalisées">z, y</button>
-      <button type="button" data-units="abs" title="Graduations en ohms et en siemens">Ω, mS</button>
+    <div class="seg" id="seg-units" role="group" aria-label="Chart graduations">
+      <button type="button" data-units="norm" title="Normalized graduations">z, y</button>
+      <button type="button" data-units="abs" title="Graduations in ohms and siemens">Ω, mS</button>
     </div>
-    <label class="field">Exemple <select id="sel-preset" aria-label="Exemples du cours"></select></label>
+    <label class="field">Example <select id="sel-preset" aria-label="Course examples"></select></label>
+    <label class="field">Language <select id="sel-lang" aria-label="Language"></select></label>
     <span class="spacer"></span>
-    <button type="button" class="btn" id="btn-course" aria-pressed="false" title="Affiche le cercle r ou g suivi par chaque élément, son Δx ou Δb, et la symétrie impédance / admittance">Mode cours</button>
-    <button type="button" class="btn" id="btn-undo" title="Annuler (Ctrl+Z)">Annuler</button>
-    <button type="button" class="btn" id="btn-redo" title="Rétablir (Ctrl+Y)">Rétablir</button>
-    <button type="button" class="btn" id="btn-plots" aria-pressed="true" title="Afficher ou masquer les graphes en fréquence">Graphes</button>
-    <button type="button" class="btn" id="btn-theme" aria-label="Basculer entre thème clair et thème sombre">Thème</button>
+    <button type="button" class="btn" id="btn-course" aria-pressed="false" title="Shows the r or g circle followed by each element, its Δx or Δb, and the impedance / admittance symmetry">Course mode</button>
+    <button type="button" class="btn" id="btn-undo" title="Undo (Ctrl+Z)">Undo</button>
+    <button type="button" class="btn" id="btn-redo" title="Redo (Ctrl+Y)">Redo</button>
+    <button type="button" class="btn" id="btn-plots" aria-pressed="true" title="Show or hide the frequency plots">Plots</button>
+    <button type="button" class="btn" id="btn-theme" aria-label="Switch between light and dark theme">Theme</button>
   </header>
 
   <main class="work">
-    <section class="strip" aria-label="Réseau">
-      <div class="schem-scroll"><svg id="schem" role="group" aria-label="Schéma du réseau"></svg></div>
+    <section class="strip" aria-label="Network">
+      <div class="schem-scroll"><svg id="schem" data-i18n-skip role="group" aria-label="Network schematic"></svg></div>
       <div class="palette" id="palette">
-        <span class="convention" title="Le premier élément touche la charge ; l'impédance d'entrée est vue après le dernier élément. Un nouvel élément s'insère après l'élément sélectionné, côté source.">Construction : charge → source</span>
-        <span class="grp" role="group" aria-label="Ajouter un élément en série">Série
-          <button type="button" class="btn sm" data-add="R:series" title="Résistance série">R</button>
-          <button type="button" class="btn sm" data-add="L:series" title="Inductance série">L</button>
-          <button type="button" class="btn sm" data-add="C:series" title="Capacité série">C</button>
-          <button type="button" class="btn sm" data-add="TL:series" title="Ligne de transmission série">Ligne</button>
-          <button type="button" class="btn sm" data-add="XFMR:series" title="Transformateur idéal">Transfo</button>
-          <button type="button" class="btn sm" data-add="RLC:series" title="R-L-C parallèle inséré en série">RLC</button>
+        <span class="convention" title="The first element touches the load; the input impedance is seen after the last element. A new element is inserted after the selected element, on the source side.">Build order: load → source</span>
+        <span class="grp" role="group" aria-label="Add a series element">Series
+          <button type="button" class="btn sm" data-add="R:series" title="Series resistor">R</button>
+          <button type="button" class="btn sm" data-add="L:series" title="Series inductor">L</button>
+          <button type="button" class="btn sm" data-add="C:series" title="Series capacitor">C</button>
+          <button type="button" class="btn sm" data-add="TL:series" title="Series transmission line">Line</button>
+          <button type="button" class="btn sm" data-add="XFMR:series" title="Ideal transformer">Transformer</button>
+          <button type="button" class="btn sm" data-add="RLC:series" title="Parallel R-L-C inserted in series">RLC</button>
         </span>
-        <span class="grp" role="group" aria-label="Ajouter un élément en parallèle">Parallèle
-          <button type="button" class="btn sm" data-add="R:shunt" title="Résistance parallèle">R</button>
-          <button type="button" class="btn sm" data-add="L:shunt" title="Inductance parallèle">L</button>
-          <button type="button" class="btn sm" data-add="C:shunt" title="Capacité parallèle">C</button>
-          <button type="button" class="btn sm" data-add="STUB:open" title="Stub parallèle en circuit ouvert">Stub ouvert</button>
-          <button type="button" class="btn sm" data-add="STUB:short" title="Stub parallèle court-circuité">Stub c-c</button>
-          <button type="button" class="btn sm" data-add="RLC:shunt" title="R-L-C série inséré en parallèle">RLC</button>
+        <span class="grp" role="group" aria-label="Add a shunt element">Shunt
+          <button type="button" class="btn sm" data-add="R:shunt" title="Shunt resistor">R</button>
+          <button type="button" class="btn sm" data-add="L:shunt" title="Shunt inductor">L</button>
+          <button type="button" class="btn sm" data-add="C:shunt" title="Shunt capacitor">C</button>
+          <button type="button" class="btn sm" data-add="STUB:open" title="Shunt open-circuit stub">Open stub</button>
+          <button type="button" class="btn sm" data-add="STUB:short" title="Shunt short-circuit stub">Short stub</button>
+          <button type="button" class="btn sm" data-add="RLC:shunt" title="Series R-L-C inserted in shunt">RLC</button>
         </span>
-        <button type="button" class="btn sm" id="btn-flip" title="Charge à droite (comme la slide 16) ou à gauche (comme Smith V3.10)">Inverser le schéma</button>
+        <button type="button" class="btn sm" id="btn-flip" title="Load on the right (as on slide 16) or on the left (as in Smith V3.10)">Flip schematic</button>
       </div>
     </section>
     <section class="chart-box">
-      <svg id="chart" tabindex="0" role="application" aria-label="Abaque de Smith. Molette pour zoomer, glisser le fond pour déplacer, glisser un point pour régler son élément, touches plus, moins, zéro et flèches.">
-        <g id="l-grid-z"></g>
-        <g id="l-grid-y"></g>
-        <g id="l-rim"></g>
-        <g id="l-labels"></g>
-        <g id="l-rings"></g>
-        <g id="l-course"></g>
-        <g id="l-amp"></g>
-        <g id="l-sweep"></g>
-        <g id="l-traj"></g>
-        <g id="l-preview"></g>
-        <g id="l-points"></g>
-        <g id="l-cursor"></g>
+      <svg id="chart" tabindex="0" role="application" aria-label="Smith chart. Mouse wheel to zoom, drag the background to pan, drag a point to tune its element, keys plus, minus, zero and arrows.">
+        <g id="l-grid-z" data-i18n-skip></g>
+        <g id="l-grid-y" data-i18n-skip></g>
+        <g id="l-rim" data-i18n-skip></g>
+        <g id="l-labels" data-i18n-skip></g>
+        <g id="l-rings" data-i18n-skip></g>
+        <g id="l-course" data-i18n-skip></g>
+        <g id="l-amp" data-i18n-skip></g>
+        <g id="l-sweep" data-i18n-skip></g>
+        <g id="l-traj" data-i18n-skip></g>
+        <g id="l-preview" data-i18n-skip></g>
+        <g id="l-points" data-i18n-skip></g>
+        <g id="l-cursor" data-i18n-skip></g>
       </svg>
       <div class="zoom" role="group" aria-label="Zoom">
-        <button type="button" class="btn" id="btn-zin" aria-label="Zoom avant">+</button>
-        <button type="button" class="btn" id="btn-zout" aria-label="Zoom arrière">−</button>
-        <button type="button" class="btn" id="btn-zfit">Ajuster</button>
+        <button type="button" class="btn" id="btn-zin" aria-label="Zoom in">+</button>
+        <button type="button" class="btn" id="btn-zout" aria-label="Zoom out">−</button>
+        <button type="button" class="btn" id="btn-zfit">Fit</button>
       </div>
-      <div class="hint">Molette : zoom · glisser le fond : déplacer · glisser un point : régler · double-clic : ajuster</div>
+      <div class="hint">Wheel: zoom · drag background: pan · drag a point: tune · double-click: fit</div>
     </section>
-    <section class="plots" id="plots" aria-label="Graphes en fréquence">
-      <div class="plot"><svg id="plot-s11" role="img" aria-label="Module de S11 en décibels en fonction de la fréquence"></svg></div>
-      <div class="plot"><svg id="plot-vswr" role="img" aria-label="VSWR en fonction de la fréquence"></svg></div>
-      <div class="plot"><svg id="plot-phase" role="img" aria-label="Phase du coefficient de réflexion en fonction de la fréquence"></svg></div>
-      <div class="plots-empty" id="plots-empty">Activez le sweep (panneau de droite) pour tracer |S11|, le VSWR et la phase en fonction de la fréquence.</div>
+    <section class="plots" id="plots" aria-label="Frequency plots">
+      <div class="plot"><svg id="plot-s11" data-i18n-skip role="img" aria-label="Magnitude of S11 in decibels versus frequency"></svg></div>
+      <div class="plot"><svg id="plot-vswr" data-i18n-skip role="img" aria-label="VSWR versus frequency"></svg></div>
+      <div class="plot"><svg id="plot-phase" data-i18n-skip role="img" aria-label="Phase of the reflection coefficient versus frequency"></svg></div>
+      <div class="plots-empty" id="plots-empty">Turn on the sweep (right panel) to plot |S11|, VSWR and phase versus frequency.</div>
     </section>
   </main>
 
-  <aside class="inspector" aria-label="Inspecteur">
+  <aside class="inspector" aria-label="Inspector">
     <details class="card ed" open>
-      <summary><span id="editor-title">Élément</span></summary>
-      <div id="editor"></div>
+      <summary><span id="editor-title" data-i18n-skip>Element</span></summary>
+      <div id="editor" data-i18n-skip></div>
     </details>
     <details class="card" open>
-      <summary><span id="cursor-title">Curseur</span></summary>
-      <dl class="kv" id="cursor-list"></dl>
-      <div id="cursor-flag"></div>
+      <summary><span id="cursor-title" data-i18n-skip>Cursor</span></summary>
+      <dl class="kv" id="cursor-list" data-i18n-skip></dl>
+      <div id="cursor-flag" data-i18n-skip></div>
     </details>
     <details class="card" open>
-      <summary>Points <small id="points-freq"></small></summary>
+      <summary>Points <small id="points-freq" data-i18n-skip></small></summary>
       <table>
         <thead><tr><th>Point</th><th class="num">Z (Ω)</th><th class="num">Q</th></tr></thead>
-        <tbody id="tbl-points"></tbody>
+        <tbody id="tbl-points" data-i18n-skip></tbody>
       </table>
     </details>
     <details class="card ed" id="card-match">
-      <summary>Adaptation automatique</summary>
-      <div id="match-form"></div>
-      <div id="match-results"></div>
+      <summary>Automatic matching</summary>
+      <div id="match-form" data-i18n-skip></div>
+      <div id="match-results" data-i18n-skip></div>
     </details>
     <details class="card ed" id="card-eseries">
-      <summary>Valeurs normalisées</summary>
-      <div id="eseries-box"></div>
+      <summary>Preferred values</summary>
+      <div id="eseries-box" data-i18n-skip></div>
     </details>
     <details class="card ed">
-      <summary>Sweep en fréquence</summary>
-      <div id="sweep-box"></div>
+      <summary>Frequency sweep</summary>
+      <div id="sweep-box" data-i18n-skip></div>
     </details>
     <details class="card">
-      <summary>Cercles</summary>
-      <div class="row"><label for="in-vswr">VSWR</label><input class="mini-input" id="in-vswr" placeholder="2" autocomplete="off"><div class="chips" id="chips-vswr"></div></div>
-      <div class="row"><label for="in-q">Q</label><input class="mini-input" id="in-q" placeholder="1" autocomplete="off"><div class="chips" id="chips-q"></div></div>
+      <summary>Circles</summary>
+      <div class="row"><label for="in-vswr">VSWR</label><input class="mini-input" id="in-vswr" placeholder="2" autocomplete="off"><div class="chips" id="chips-vswr" data-i18n-skip></div></div>
+      <div class="row"><label for="in-q">Q</label><input class="mini-input" id="in-q" placeholder="1" autocomplete="off"><div class="chips" id="chips-q" data-i18n-skip></div></div>
     </details>
     <details class="card ed" id="card-amp">
-      <summary>Amplificateur (paramètres S)</summary>
-      <div id="amp-box"></div>
+      <summary>Amplifier (S-parameters)</summary>
+      <div id="amp-box" data-i18n-skip></div>
     </details>
     <details class="card ed" id="card-files">
-      <summary>Fichiers et exports</summary>
+      <summary>Files and exports</summary>
       <div id="files-box">
-        <div class="sub-head">Projet</div>
+        <div class="sub-head">Project</div>
         <div class="file-group">
-          <button type="button" class="btn sm" data-file="f-open">Ouvrir…</button>
-          <button type="button" class="btn sm" data-file="f-save">Enregistrer</button>
-          <button type="button" class="btn sm" data-file="f-link">Copier le lien</button>
+          <button type="button" class="btn sm" data-file="f-open">Open…</button>
+          <button type="button" class="btn sm" data-file="f-save">Save</button>
+          <button type="button" class="btn sm" data-file="f-link">Copy link</button>
         </div>
-        <div class="sub-head">Charge mesurée</div>
+        <div class="sub-head">Measured load</div>
         <div class="file-group">
-          <button type="button" class="btn sm" data-file="f-import">Importer .s1p, .s2p ou CSV…</button>
-          <select id="sel-port" class="narrow" aria-label="Paramètre utilisé pour un fichier à deux ports">
-            <option value="1">S11 du .s2p</option>
-            <option value="2">S22 du .s2p</option>
+          <button type="button" class="btn sm" data-file="f-import">Import .s1p, .s2p or CSV…</button>
+          <select id="sel-port" class="narrow" aria-label="Parameter used for a two-port file">
+            <option value="1">S11 of the .s2p</option>
+            <option value="2">S22 of the .s2p</option>
           </select>
         </div>
-        <div class="sub-head">Exporter</div>
+        <div class="sub-head">Export</div>
         <div class="file-group">
-          <button type="button" class="btn sm" data-file="f-svg">Abaque SVG</button>
-          <button type="button" class="btn sm" data-file="f-png">Abaque PNG</button>
-          <button type="button" class="btn sm" data-file="f-copy">Copier l'image</button>
-          <button type="button" class="btn sm" data-file="f-schem">Schéma SVG</button>
+          <button type="button" class="btn sm" data-file="f-svg">Chart SVG</button>
+          <button type="button" class="btn sm" data-file="f-png">Chart PNG</button>
+          <button type="button" class="btn sm" data-file="f-copy">Copy image</button>
+          <button type="button" class="btn sm" data-file="f-schem">Schematic SVG</button>
           <button type="button" class="btn sm" data-file="f-points">Points CSV</button>
           <button type="button" class="btn sm" data-file="f-sweep">Sweep CSV</button>
-          <button type="button" class="btn sm" data-file="f-cir">Netlist LTspice</button>
-          <button type="button" class="btn sm" data-file="f-ckt">Netlist Smith</button>
+          <button type="button" class="btn sm" data-file="f-cir">LTspice netlist</button>
+          <button type="button" class="btn sm" data-file="f-ckt">Smith netlist</button>
         </div>
-        <p id="status" class="info" role="status" aria-live="polite"></p>
+        <p id="status" data-i18n-skip class="info" role="status" aria-live="polite"></p>
         <input type="file" id="file-project" accept=".json,application/json" hidden>
         <input type="file" id="file-data" accept=".s1p,.s2p,.csv,.txt" hidden>
       </div>
     </details>
   </aside>
 </div>
+
+<script id="smith-i18n">
+/* ============================================================================
+ * smith-i18n — tiny translation layer.
+ *
+ * English is the source language: every user-visible string is written in
+ * English in the page and in the code, and looked up here as-is. A locale is a
+ * plain { "English text": "translation" } object registered by the
+ * "smith-i18n-data" script. A missing key falls back to the English text.
+ *
+ *   t('Zero or infinite impedance.')             -> translated string
+ *   t('{0} points', n)                           -> {0}, {1}... are replaced by the arguments
+ *   applyStatic(root)                            -> translates the static HTML (text nodes,
+ *                                                   title / aria-label / placeholder attributes)
+ * ========================================================================== */
+const SmithI18n = (() => {
+  'use strict';
+  const LANGS = [['en', 'English'], ['fr', 'Français'], ['de', 'Deutsch'], ['it', 'Italiano'], ['es', 'Español']];
+  const dicts = {};
+  let lang = 'en';
+  const format = (s, args) => (args.length ? s.replace(/\{(\d+)\}/g, (m, i) => (i < args.length ? String(args[i]) : m)) : s);
+  const t = (key, ...args) => {
+    const d = dicts[lang];
+    return format(d && Object.prototype.hasOwnProperty.call(d, key) ? d[key] : key, args);
+  };
+  const register = (code, dict) => { dicts[code] = Object.assign(dicts[code] || {}, dict); };
+  const supported = (code) => LANGS.some(([c]) => c === code);
+  const detect = () => {
+    const wanted = (typeof navigator !== 'undefined' && (navigator.languages || [navigator.language])) || [];
+    for (const l of wanted) { const c = String(l || '').slice(0, 2).toLowerCase(); if (supported(c)) return c; }
+    return 'en';
+  };
+  const setLang = (code) => { lang = supported(code) ? code : 'en'; return lang; };
+
+  // Static HTML: remember the English original of each node the first time it is seen.
+  const ATTRS = ['title', 'aria-label', 'placeholder'];
+  const originals = new WeakMap();
+  const applyStatic = (root) => {
+    // Containers filled by the page's own code (already translated by t()) carry data-i18n-skip.
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
+      acceptNode: (n) => (n.nodeType === 1 && n.hasAttribute('data-i18n-skip') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+    });
+    for (let n = walker.currentNode; n; n = walker.nextNode()) {
+      if (n.nodeType === 3) {
+        const key = n.textContent.trim();
+        if (!key) continue;
+        let o = originals.get(n);
+        if (!o) { o = { key, lead: /^\s*/.exec(n.textContent)[0], trail: /\s*$/.exec(n.textContent)[0] }; originals.set(n, o); }
+        n.textContent = o.lead + t(o.key) + o.trail;
+      } else if (n.nodeType === 1 && !/^(SCRIPT|STYLE)$/.test(n.tagName)) {
+        let o = originals.get(n);
+        for (const a of ATTRS) {
+          if (!n.hasAttribute(a)) continue;
+          if (!o) { o = {}; originals.set(n, o); }
+          if (!(a in o)) o[a] = n.getAttribute(a);
+          n.setAttribute(a, t(o[a]));
+        }
+      }
+    }
+  };
+  return { LANGS, dicts, t, register, supported, detect, setLang, applyStatic, get lang() { return lang; } };
+})();
+</script>
+
+<script id="smith-i18n-data">
+/* ============================================================================
+ * smith-i18n-data — translations. One block per language: { "English text": "translation" }.
+ * Keys are the exact English strings used by t() / tr() and by the static HTML.
+ * Placeholders ({0}, {1}) must be kept. i18n-check.mjs verifies completeness.
+ * ========================================================================== */
+
+// français
+SmithI18n.register('fr', {
+  'Smith Chart': 'Abaque de Smith',
+  'Reference impedance Z0': 'Impédance de référence Z0',
+  'Design frequency': 'Fréquence de conception',
+  'Displayed planes': 'Plans affichés',
+  'Chart graduations': 'Graduations de l\'abaque',
+  'Normalized graduations': 'Graduations normalisées',
+  'Graduations in ohms and siemens': 'Graduations en ohms et en siemens',
+  'Example': 'Exemple',
+  'Course examples': 'Exemples du cours',
+  'Shows the r or g circle followed by each element, its Δx or Δb, and the impedance / admittance symmetry': 'Affiche le cercle r ou g suivi par chaque élément, son Δx ou Δb, et la symétrie impédance / admittance',
+  'Course mode': 'Mode cours',
+  'Undo (Ctrl+Z)': 'Annuler (Ctrl+Z)',
+  'Undo': 'Annuler',
+  'Redo (Ctrl+Y)': 'Rétablir (Ctrl+Y)',
+  'Redo': 'Rétablir',
+  'Show or hide the frequency plots': 'Afficher ou masquer les graphes en fréquence',
+  'Plots': 'Graphes',
+  'Switch between light and dark theme': 'Basculer entre thème clair et thème sombre',
+  'Theme': 'Thème',
+  'Network': 'Réseau',
+  'Network schematic': 'Schéma du réseau',
+  'The first element touches the load; the input impedance is seen after the last element. A new element is inserted after the selected element, on the source side.': 'Le premier élément touche la charge ; l\'impédance d\'entrée est vue après le dernier élément. Un nouvel élément s\'insère après l\'élément sélectionné, côté source.',
+  'Build order: load → source': 'Construction : charge → source',
+  'Add a series element': 'Ajouter un élément en série',
+  'Series': 'Série',
+  'Series resistor': 'Résistance série',
+  'Series inductor': 'Inductance série',
+  'Series capacitor': 'Capacité série',
+  'Series transmission line': 'Ligne de transmission série',
+  'Line': 'Ligne',
+  'Ideal transformer': 'Transformateur idéal',
+  'Transformer': 'Transfo',
+  'Parallel R-L-C inserted in series': 'R-L-C parallèle inséré en série',
+  'Add a shunt element': 'Ajouter un élément en parallèle',
+  'Shunt': 'Parallèle',
+  'Shunt resistor': 'Résistance parallèle',
+  'Shunt inductor': 'Inductance parallèle',
+  'Shunt capacitor': 'Capacité parallèle',
+  'Shunt open-circuit stub': 'Stub parallèle en circuit ouvert',
+  'Open stub': 'Stub ouvert',
+  'Shunt short-circuit stub': 'Stub parallèle court-circuité',
+  'Short stub': 'Stub c-c',
+  'Series R-L-C inserted in shunt': 'R-L-C série inséré en parallèle',
+  'Load on the right (as on slide 16) or on the left (as in Smith V3.10)': 'Charge à droite (comme la slide 16) ou à gauche (comme Smith V3.10)',
+  'Flip schematic': 'Inverser le schéma',
+  'Smith chart. Mouse wheel to zoom, drag the background to pan, drag a point to tune its element, keys plus, minus, zero and arrows.': 'Abaque de Smith. Molette pour zoomer, glisser le fond pour déplacer, glisser un point pour régler son élément, touches plus, moins, zéro et flèches.',
+  'Zoom': 'Zoom',
+  'Zoom in': 'Zoom avant',
+  'Zoom out': 'Zoom arrière',
+  'Fit': 'Ajuster',
+  'Wheel: zoom · drag background: pan · drag a point: tune · double-click: fit': 'Molette : zoom · glisser le fond : déplacer · glisser un point : régler · double-clic : ajuster',
+  'Frequency plots': 'Graphes en fréquence',
+  'Magnitude of S11 in decibels versus frequency': 'Module de S11 en décibels en fonction de la fréquence',
+  'VSWR versus frequency': 'VSWR en fonction de la fréquence',
+  'Phase of the reflection coefficient versus frequency': 'Phase du coefficient de réflexion en fonction de la fréquence',
+  'Turn on the sweep (right panel) to plot |S11|, VSWR and phase versus frequency.': 'Activez le sweep (panneau de droite) pour tracer |S11|, le VSWR et la phase en fonction de la fréquence.',
+  'Inspector': 'Inspecteur',
+  'Element': 'Élément',
+  'Cursor': 'Curseur',
+  'Points': 'Points',
+  'Point': 'Point',
+  'Automatic matching': 'Adaptation automatique',
+  'Preferred values': 'Valeurs normalisées',
+  'Frequency sweep': 'Sweep en fréquence',
+  'Circles': 'Cercles',
+  'Amplifier (S-parameters)': 'Amplificateur (paramètres S)',
+  'Files and exports': 'Fichiers et exports',
+  'Project': 'Projet',
+  'Open…': 'Ouvrir…',
+  'Save': 'Enregistrer',
+  'Copy link': 'Copier le lien',
+  'Measured load': 'Charge mesurée',
+  'Import .s1p, .s2p or CSV…': 'Importer .s1p, .s2p ou CSV…',
+  'Parameter used for a two-port file': 'Paramètre utilisé pour un fichier à deux ports',
+  'S11 of the .s2p': 'S11 du .s2p',
+  'S22 of the .s2p': 'S22 du .s2p',
+  'Export': 'Exporter',
+  'Chart SVG': 'Abaque SVG',
+  'Chart PNG': 'Abaque PNG',
+  'Copy image': 'Copier l\'image',
+  'Schematic SVG': 'Schéma SVG',
+  'Points CSV': 'Points CSV',
+  'Sweep CSV': 'Sweep CSV',
+  'LTspice netlist': 'Netlist LTspice',
+  'Smith netlist': 'Netlist Smith',
+  'Zero or infinite impedance: no L network.': 'Impédance nulle ou infinie : pas de réseau en L.',
+  'Already matched: no element needed.': 'Déjà adapté : aucun élément nécessaire.',
+  'Negative or zero real part: no lossless L network.': 'Partie réelle négative ou nulle : pas de réseau en L sans pertes.',
+  'Zero or infinite impedance.': 'Impédance nulle ou infinie.',
+  'Negative or zero real part.': 'Partie réelle négative ou nulle.',
+  'Q too low: it must exceed {0} (that of the L network).': 'Q trop faible : il doit dépasser {0} (celui du réseau en L).',
+  'No line length brings the load onto the target conductance circle.': 'Aucune longueur de ligne n\'amène la charge sur le cercle de conductance visé.',
+  'Forbidden region: with this spacing, no setting of the first stub brings the load onto the target circle. Change the spacing or add a line before the first stub.': 'Zone interdite : avec cet écartement, aucun réglage du premier stub n\'amène la charge sur le cercle visé. Changez l\'écartement ou ajoutez une ligne avant le premier stub.',
+  'The quarter-wave transformer needs a real target.': 'Le transformateur quart d\'onde demande une cible réelle.',
+  'No line length is suitable.': 'Aucune longueur de ligne ne convient.',
+  'Touchstone 2.0 is not supported: export the file as version 1.x.': 'Touchstone 2.0 n\'est pas pris en charge : exportez le fichier au format 1.x.',
+  'Unreadable line in the Touchstone file: "{0}"': 'Ligne illisible dans le fichier Touchstone : « {0} »',
+  'Invalid reference impedance in the Touchstone file.': 'Impédance de référence invalide dans le fichier Touchstone.',
+  'No data in the Touchstone file.': 'Aucune donnée dans le fichier Touchstone.',
+  'Only 1-port and 2-port files (.s1p, .s2p) are supported.': 'Seuls les fichiers à 1 ou 2 ports (.s1p, .s2p) sont pris en charge.',
+  '{0} parameters are not supported for a {1}-port file.': 'Paramètres {0} non pris en charge pour un fichier à {1} port(s).',
+  'Unexpected number of values on a line of the Touchstone file.': 'Nombre de valeurs inattendu sur une ligne du fichier Touchstone.',
+  'No "frequency, R, X" line found.': 'Aucune ligne « fréquence, R, X » trouvée.',
+  'No usable "frequency, R, X" line.': 'Aucune ligne « fréquence, R, X » exploitable.',
+  'This file does not contain a project.': 'Ce fichier ne contient pas de projet.',
+  'Unreadable file: it is not JSON.': 'Fichier illisible : ce n\'est pas du JSON.',
+  'Unknown family.': 'Famille inconnue.',
+  'Unreadable link.': 'Lien illisible.',
+  'R series {0}': 'R série {0}',
+  'L series {0}': 'L série {0}',
+  'C series {0}': 'C série {0}',
+  'Parallel R-L-C, in shunt': 'R-L-C parallèle, en parallèle',
+  'Parallel R-L-C, in series': 'R-L-C parallèle, en série',
+  'Series R-L-C, in shunt': 'R-L-C série, en parallèle',
+  'Series R-L-C, in series': 'R-L-C série, en série',
+  'Line {0} Ω, {1}°': 'Ligne {0} Ω, {1}°',
+  'Short-circuit stub {0} Ω, {1}°': 'Stub court-circuité {0} Ω, {1}°',
+  'Open stub {0} Ω, {1}°': 'Stub ouvert {0} Ω, {1}°',
+  'Transformer n = {0}': 'Transformateur n = {0}',
+  'shunt resistor': 'résistance parallèle',
+  'series resistor': 'résistance série',
+  'shunt inductor': 'inductance parallèle',
+  'series inductor': 'inductance série',
+  'shunt capacitor': 'capacité parallèle',
+  'series capacitor': 'capacité série',
+  'R-L-C in shunt': 'R-L-C en parallèle',
+  'R-L-C in series': 'R-L-C en série',
+  'series line': 'ligne série',
+  'short-circuit stub': 'stub court-circuité',
+  'open stub': 'stub ouvert',
+  'transformer': 'transformateur',
+  'Load {0}': 'Charge {0}',
+  'Tabulated load ({0} points)': 'Charge tabulée ({0} points)',
+  'Slide 17 — ladder network, load 2 + j10 Ω': 'Slide 17 — réseau en échelle, charge 2 + j10 Ω',
+  'Slide 16 — same network, load 92 nH + 2 Ω': 'Slide 16 — même réseau, charge 92 nH + 2 Ω',
+  'Slide 6 — placing impedances': 'Slide 6 — placement d\'impédances',
+  'z = 1.2 − j1.4': 'z = 1,2 − j1,4',
+  'Slide 7 — series C, Δ = −j1.1': 'Slide 7 — C série, Δ = −j1,1',
+  'Slide 8 — series L, Δ = +j1.8': 'Slide 8 — L série, Δ = +j1,8',
+  'Slide 9 — series R-L-C, Q = 1': 'Slide 9 — R-L-C série, Q = 1',
+  'Slide 10 — impedance and admittance': 'Slide 10 — impédance et admittance',
+  'y = 0.26 − j0.6': 'y = 0,26 − j0,6',
+  'Slide 13 — shunt C, Δ = +j1.4': 'Slide 13 — C parallèle, Δ = +j1,4',
+  'Slide 14 — shunt L, Δ = −j1.4': 'Slide 14 — L parallèle, Δ = −j1,4',
+  'Slide 15 — frequency variation': 'Slide 15 — variation de fréquence',
+  'Empty project — 50 Ω load': 'Projet vide — charge 50 Ω',
+  'f increasing': 'f croissant',
+  'input': 'entrée',
+  'DP1 · load': 'DP1 · charge',
+  'Z(f), {0} points': 'Z(f), {0} points',
+  'Adjustment': 'Réglage',
+  'Fine adjustment of the value': 'Réglage fin de la valeur',
+  'Adjustment range': 'Plage du réglage',
+  'Losses': 'Pertes',
+  'Ideal': 'Idéal',
+  'Series resistance': 'Résistance série',
+  'Q at one frequency': 'Q à une fréquence',
+  'at frequency': 'à la fréquence',
+  'Length θ': 'Longueur θ',
+  'in λ': 'en λ',
+  'electrical': 'électrique',
+  'physical': 'physique',
+  'Effective εr': 'εr effectif',
+  'Velocity factor': 'Facteur de vélocité',
+  'Loss α': 'Pertes α',
+  'Loss law': 'Loi des pertes',
+  'α · √(f / f₀), conductor': 'α · √(f / f₀), conducteur',
+  'constant α': 'α constant',
+  '{0} present': '{0} présent',
+  'absent': 'absent',
+  'normalized z': 'z normalisée',
+  'normalized y': 'y normalisée',
+  'Γ magnitude ∠ phase': 'Γ module ∠ phase',
+  'S11 in dB ∠ phase': 'S11 en dB ∠ phase',
+  'Phase': 'Phase',
+  'Type': 'Type',
+  'Fixed impedance': 'Impédance fixe',
+  'R-L-C circuit': 'Circuit R-L-C',
+  'Z(f) table': 'Table Z(f)',
+  'Input': 'Saisie',
+  'The DP1 point can also be dragged directly on the chart. The load stays fixed when the frequency varies.': 'Le point DP1 se glisse aussi directement sur l\'abaque. La charge reste fixe quand la fréquence varie.',
+  'Connection': 'Montage',
+  'Parallel': 'Parallèle',
+  'One line per point: frequency, R, X (in ohms). Linear interpolation on Γ, no extrapolation.': 'Une ligne par point : fréquence, R, X (en ohms). Interpolation linéaire sur Γ, sans extrapolation.',
+  'Load points': 'Points de la charge',
+  'Value': 'Valeur',
+  'Normalize': 'Normaliser',
+  'Circuit': 'Circuit',
+  'Series R-L-C': 'R-L-C série',
+  'Parallel R-L-C': 'R-L-C parallèle',
+  'End': 'Extrémité',
+  'Open': 'Ouverte',
+  'Short circuit': 'Court-circuit',
+  'Ratio n': 'Rapport n',
+  'Ideal transformer: Z<sub>in</sub> = n² · Z (n = turns on the source side / turns on the load side).': 'Transformateur idéal : Z<sub>in</sub> = n² · Z (n = spires côté source / spires côté charge).',
+  'Branch admittance at f₀: <b>{0}</b>': 'Admittance de la branche à f₀ : <b>{0}</b>',
+  'Branch impedance at f₀: <b>{0}</b>': 'Impédance de la branche à f₀ : <b>{0}</b>',
+  'Circle r = {0}, Δx = <b>{1}</b>': 'Cercle r = {0}, Δx = <b>{1}</b>',
+  'Circle g = {0}, Δb = <b>{1}</b>': 'Cercle g = {0}, Δb = <b>{1}</b>',
+  'Circle |Γ| = {0}, rotation of <b>{1}°</b>': 'Cercle |Γ| = {0}, rotation de <b>{1}°</b>',
+  'Toward load': 'Vers la charge',
+  'Toward source': 'Vers la source',
+  'Duplicate': 'Dupliquer',
+  'Re-enable': 'Réactiver',
+  'Disable': 'Désactiver',
+  'Delete': 'Supprimer',
+  'Select the load or an element (schematic, chart or points table) to edit it. The "Series" and "Shunt" buttons add an element after the selection, on the source side.': 'Sélectionnez la charge ou un élément (schéma, abaque ou tableau des points) pour le modifier. Les boutons « Série » et « Parallèle » ajoutent un élément après la sélection, côté source.',
+  'Sweep · {0}': 'Sweep · {0}',
+  '{0} · load': '{0} · charge',
+  '{0} · input': '{0} · entrée',
+  'Return loss': 'Perte de retour',
+  'Mismatch loss': 'Perte de désadaptation',
+  'Series equivalent': 'Équivalent série',
+  'Parallel equivalent': 'Équivalent parallèle',
+  '▲ Active / unstable: |Γ| > 1': '▲ Actif / instable : |Γ| > 1',
+  'Start': 'Début',
+  'Stop': 'Fin',
+  'Plot': 'Tracer',
+  'plots at the network input': 'trace à l\'entrée du réseau',
+  'Scale': 'Échelle',
+  'Linear': 'Linéaire',
+  'Logarithmic': 'Logarithmique',
+  'at {0}': 'à {0}',
+  'Remove {0}': 'Retirer {0}',
+  'Phase of Γ (°)': 'Phase de Γ (°)',
+  'L network': 'Réseau en L',
+  'π network, specified Q': 'Réseau en π, Q imposé',
+  'T network, specified Q': 'Réseau en T, Q imposé',
+  'Line + stub': 'Ligne + stub',
+  'Double stub': 'Double stub',
+  'Quarter-wave': 'Quart d\'onde',
+  'Line + reactance': 'Ligne + réactance',
+  'low-pass': 'passe-bas',
+  'high-pass': 'passe-haut',
+  'mixed': 'mixte',
+  'lines': 'lignes',
+  'Target R': 'Cible R',
+  'Target X': 'Cible X',
+  'Specified Q': 'Q imposé',
+  'Line Zc': 'Zc de la ligne',
+  'Stub Zc': 'Zc des stubs',
+  'Spacing': 'Écartement',
+  'Band at RL ≥': 'Bande à RL ≥',
+  'Sort by': 'Classer par',
+  'bandwidth': 'bande passante',
+  'lowest Q': 'Q le plus faible',
+  'From the current input ({0}): <b>{1}</b>. The network found is added on the source side.': 'Depuis l\'entrée actuelle ({0}) : <b>{1}</b>. Le réseau trouvé s\'ajoute côté source.',
+  'No solution.': 'Aucune solution.',
+  '{0} · Q {1} · band {2}': '{0} · Q {1} · bande {2}',
+  'Apply': 'Appliquer',
+  'All R, L and C of the network are already in this series.': 'Tous les R, L et C du réseau sont déjà dans cette série.',
+  '|Γ| at f₀': '|Γ| à f₀',
+  'Apply rounding': 'Appliquer l\'arrondi',
+  'Available gain (source plane)': 'Gain disponible (plan source)',
+  'Operating power gain (load plane)': 'Gain en puissance (plan charge)',
+  'Unilateral, source side': 'Unilatéral, côté source',
+  'Unilateral, load side': 'Unilatéral, côté charge',
+  'Stability, gain and noise figure circles of a two-port (transistor) described by its S parameters.': 'Cercles de stabilité, de gain et de facteur de bruit d\'un quadripôle (transistor) décrit par ses paramètres S.',
+  'Example: BFG33G at 2 GHz': 'Exemple : BFG33G à 2 GHz',
+  'From the imported .s2p, at f₀': 'Depuis le .s2p importé, à f₀',
+  '{0}, magnitude': '{0}, module',
+  '{0}, phase': '{0}, phase',
+  'S parameters (magnitude, phase)': 'Paramètres S (module, phase)',
+  'μ load / source': 'μ charge / source',
+  'Maximum gain (MAG)': 'Gain maximal (MAG)',
+  'Maximum stable gain (MSG)': 'Gain stable maximal (MSG)',
+  '— for ΓS = network input —': '— pour ΓS = entrée du réseau —',
+  'Output Γ': 'Γ de sortie',
+  'Output Z': 'Z de sortie',
+  'Available gain': 'Gain disponible',
+  'Noise figure': 'Facteur de bruit',
+  'Unconditionally stable.': 'Inconditionnellement stable.',
+  '▲ Conditionally stable: keep the terminations on the stable side of the circles.': '▲ Conditionnellement stable : gardez les terminaisons du côté stable des cercles.',
+  'Stability, source plane': 'Stabilité, plan de la source',
+  'Stability, load plane': 'Stabilité, plan de la charge',
+  'Gain circle type': 'Type de cercle de gain',
+  'Circle gain, in dB': 'Gain du cercle, en dB',
+  'Noise': 'Bruit',
+  'Noise data': 'Données de bruit',
+  'Minimum NF': 'NF minimal',
+  'Optimal Γ': 'Γ optimal',
+  'NF circle': 'Cercle NF',
+  'Remove amplifier': 'Retirer l\'amplificateur',
+  'Source stability: stable inside': 'Stabilité source : stable dedans',
+  'Source stability: stable outside': 'Stabilité source : stable dehors',
+  'Load stability: stable inside': 'Stabilité charge : stable dedans',
+  'Load stability: stable outside': 'Stabilité charge : stable dehors',
+  '{0}: y = {1}': '{0} : y = {1}',
+  '{0}: z = {1}': '{0} : z = {1}',
+  'rotation of {0}°': 'rotation de {0}°',
+  'symmetric: y = {0}': 'symétrique : y = {0}',
+  'File "{0}" saved.': 'Fichier « {0} » enregistré.',
+  'Cannot read the file.': 'Lecture du fichier impossible.',
+  'Project "{0}" opened.': 'Projet « {0} » ouvert.',
+  'S{0} of the file, other port terminated on {1} Ω': 'S{0} du fichier, autre port fermé sur {1} Ω',
+  'one-port file': 'fichier à un port',
+  'frequencies read in {0}': 'fréquences lues en {0}',
+  '"{0}": {1} points imported as load ({2}).': '« {0} » : {1} points importés comme charge ({2}).',
+  'Project too large to fit in a link: save the file instead.': 'Projet trop volumineux pour tenir dans un lien : enregistrez plutôt le fichier.',
+  'Link copied to the clipboard.': 'Lien copié dans le presse-papiers.',
+  'Copy failed: the link is in the address bar.': 'Copie impossible : le lien est dans la barre d\'adresse.',
+  'PNG export is not possible in this browser.': 'Export PNG impossible dans ce navigateur.',
+  'Chart image copied to the clipboard.': 'Image de l\'abaque copiée dans le presse-papiers.',
+  'Image copy refused by the browser: use the PNG export.': 'Copie d\'image refusée par le navigateur : utilisez l\'export PNG.',
+  'Turn on the frequency sweep first.': 'Activez d\'abord le sweep en fréquence.',
+  'Project loaded from the link.': 'Projet chargé depuis le lien.',
+  'Language': 'Langue',
+});
+
+// Deutsch
+SmithI18n.register('de', {
+  'Smith Chart': 'Smith-Diagramm',
+  'Reference impedance Z0': 'Bezugsimpedanz Z0',
+  'Design frequency': 'Entwurfsfrequenz',
+  'Displayed planes': 'Angezeigte Ebenen',
+  'Chart graduations': 'Skalenteilung des Diagramms',
+  'Normalized graduations': 'Normierte Skalenteilung',
+  'Graduations in ohms and siemens': 'Skalenteilung in Ohm und Siemens',
+  'Example': 'Beispiel',
+  'Course examples': 'Beispiele aus der Vorlesung',
+  'Shows the r or g circle followed by each element, its Δx or Δb, and the impedance / admittance symmetry': 'Zeigt den r- oder g-Kreis, dem jedes Element folgt, dessen Δx oder Δb sowie die Impedanz-/Admittanz-Symmetrie',
+  'Course mode': 'Vorlesungsmodus',
+  'Undo (Ctrl+Z)': 'Rückgängig (Strg+Z)',
+  'Undo': 'Rückgängig',
+  'Redo (Ctrl+Y)': 'Wiederholen (Strg+Y)',
+  'Redo': 'Wiederholen',
+  'Show or hide the frequency plots': 'Frequenzdiagramme ein- oder ausblenden',
+  'Plots': 'Diagramme',
+  'Switch between light and dark theme': 'Zwischen hellem und dunklem Design wechseln',
+  'Theme': 'Design',
+  'Network': 'Netzwerk',
+  'Network schematic': 'Netzwerkschaltplan',
+  'The first element touches the load; the input impedance is seen after the last element. A new element is inserted after the selected element, on the source side.': 'Das erste Element liegt an der Last; die Eingangsimpedanz wird nach dem letzten Element gesehen. Ein neues Element wird hinter dem gewählten Element auf der Quellenseite eingefügt.',
+  'Build order: load → source': 'Aufbau: Last → Quelle',
+  'Add a series element': 'Serienelement hinzufügen',
+  'Series': 'Reihe',
+  'Series resistor': 'Reihenwiderstand',
+  'Series inductor': 'Reiheninduktivität',
+  'Series capacitor': 'Reihenkapazität',
+  'Series transmission line': 'Leitung in Reihe',
+  'Line': 'Leitung',
+  'Ideal transformer': 'Idealer Transformator',
+  'Transformer': 'Transformator',
+  'Parallel R-L-C inserted in series': 'Parallel-R-L-C in Reihe eingefügt',
+  'Add a shunt element': 'Parallelelement hinzufügen',
+  'Shunt': 'Parallel',
+  'Shunt resistor': 'Parallelwiderstand',
+  'Shunt inductor': 'Parallelinduktivität',
+  'Shunt capacitor': 'Parallelkapazität',
+  'Shunt open-circuit stub': 'Paralleler Leerlauf-Stub',
+  'Open stub': 'Leerlauf-Stub',
+  'Shunt short-circuit stub': 'Paralleler Kurzschluss-Stub',
+  'Short stub': 'Kurzschluss-Stub',
+  'Series R-L-C inserted in shunt': 'Serien-R-L-C parallel eingefügt',
+  'Load on the right (as on slide 16) or on the left (as in Smith V3.10)': 'Last rechts (wie auf Folie 16) oder links (wie in Smith V3.10)',
+  'Flip schematic': 'Schaltplan spiegeln',
+  'Smith chart. Mouse wheel to zoom, drag the background to pan, drag a point to tune its element, keys plus, minus, zero and arrows.': 'Smith-Diagramm. Mausrad zum Zoomen, Hintergrund ziehen zum Verschieben, Punkt ziehen, um sein Element abzustimmen, Tasten Plus, Minus, Null und Pfeile.',
+  'Zoom': 'Zoom',
+  'Zoom in': 'Vergrößern',
+  'Zoom out': 'Verkleinern',
+  'Fit': 'Anpassen',
+  'Wheel: zoom · drag background: pan · drag a point: tune · double-click: fit': 'Mausrad: Zoom · Hintergrund ziehen: verschieben · Punkt ziehen: abstimmen · Doppelklick: anpassen',
+  'Frequency plots': 'Frequenzdiagramme',
+  'Magnitude of S11 in decibels versus frequency': 'Betrag von S11 in Dezibel über der Frequenz',
+  'VSWR versus frequency': 'VSWR über der Frequenz',
+  'Phase of the reflection coefficient versus frequency': 'Phase des Reflexionsfaktors über der Frequenz',
+  'Turn on the sweep (right panel) to plot |S11|, VSWR and phase versus frequency.': 'Frequenzdurchlauf (rechtes Feld) einschalten, um |S11|, VSWR und Phase über der Frequenz darzustellen.',
+  'Inspector': 'Inspektor',
+  'Element': 'Element',
+  'Cursor': 'Cursor',
+  'Points': 'Punkte',
+  'Point': 'Punkt',
+  'Automatic matching': 'Automatische Anpassung',
+  'Preferred values': 'Normwerte',
+  'Frequency sweep': 'Frequenzdurchlauf',
+  'Circles': 'Kreise',
+  'Amplifier (S-parameters)': 'Verstärker (S-Parameter)',
+  'Files and exports': 'Dateien und Exporte',
+  'Project': 'Projekt',
+  'Open…': 'Öffnen…',
+  'Save': 'Speichern',
+  'Copy link': 'Link kopieren',
+  'Measured load': 'Gemessene Last',
+  'Import .s1p, .s2p or CSV…': '.s1p, .s2p oder CSV importieren…',
+  'Parameter used for a two-port file': 'Für eine Zweitor-Datei verwendeter Parameter',
+  'S11 of the .s2p': 'S11 der .s2p',
+  'S22 of the .s2p': 'S22 der .s2p',
+  'Export': 'Exportieren',
+  'Chart SVG': 'Diagramm als SVG',
+  'Chart PNG': 'Diagramm als PNG',
+  'Copy image': 'Bild kopieren',
+  'Schematic SVG': 'Schaltplan als SVG',
+  'Points CSV': 'Punkte als CSV',
+  'Sweep CSV': 'Durchlauf als CSV',
+  'LTspice netlist': 'LTspice-Netzliste',
+  'Smith netlist': 'Smith-Netzliste',
+  'Zero or infinite impedance: no L network.': 'Impedanz null oder unendlich: kein L-Netzwerk möglich.',
+  'Already matched: no element needed.': 'Bereits angepasst: kein Element nötig.',
+  'Negative or zero real part: no lossless L network.': 'Realteil negativ oder null: kein verlustfreies L-Netzwerk möglich.',
+  'Zero or infinite impedance.': 'Impedanz null oder unendlich.',
+  'Negative or zero real part.': 'Realteil negativ oder null.',
+  'Q too low: it must exceed {0} (that of the L network).': 'Q zu klein: er muss {0} überschreiten (den Wert des L-Netzwerks).',
+  'No line length brings the load onto the target conductance circle.': 'Keine Leitungslänge bringt die Last auf den Ziel-Konduktanzkreis.',
+  'Forbidden region: with this spacing, no setting of the first stub brings the load onto the target circle. Change the spacing or add a line before the first stub.': 'Verbotener Bereich: Mit diesem Abstand bringt keine Einstellung des ersten Stubs die Last auf den Zielkreis. Abstand ändern oder eine Leitung vor dem ersten Stub einfügen.',
+  'The quarter-wave transformer needs a real target.': 'Der Viertelwellentransformator benötigt ein reelles Ziel.',
+  'No line length is suitable.': 'Keine Leitungslänge ist geeignet.',
+  'Touchstone 2.0 is not supported: export the file as version 1.x.': 'Touchstone 2.0 wird nicht unterstützt: Datei im Format 1.x exportieren.',
+  'Unreadable line in the Touchstone file: "{0}"': 'Unlesbare Zeile in der Touchstone-Datei: „{0}“',
+  'Invalid reference impedance in the Touchstone file.': 'Ungültige Bezugsimpedanz in der Touchstone-Datei.',
+  'No data in the Touchstone file.': 'Keine Daten in der Touchstone-Datei.',
+  'Only 1-port and 2-port files (.s1p, .s2p) are supported.': 'Nur Ein- und Zweitor-Dateien (.s1p, .s2p) werden unterstützt.',
+  '{0} parameters are not supported for a {1}-port file.': '{0}-Parameter werden für eine {1}-Tor-Datei nicht unterstützt.',
+  'Unexpected number of values on a line of the Touchstone file.': 'Unerwartete Anzahl von Werten in einer Zeile der Touchstone-Datei.',
+  'No "frequency, R, X" line found.': 'Keine Zeile „Frequenz, R, X“ gefunden.',
+  'No usable "frequency, R, X" line.': 'Keine verwendbare Zeile „Frequenz, R, X“.',
+  'This file does not contain a project.': 'Diese Datei enthält kein Projekt.',
+  'Unreadable file: it is not JSON.': 'Datei nicht lesbar: kein JSON.',
+  'Unknown family.': 'Unbekannte Familie.',
+  'Unreadable link.': 'Link nicht lesbar.',
+  'R series {0}': 'R in Reihe {0}',
+  'L series {0}': 'L in Reihe {0}',
+  'C series {0}': 'C in Reihe {0}',
+  'Parallel R-L-C, in shunt': 'Parallel-R-L-C, parallel geschaltet',
+  'Parallel R-L-C, in series': 'Parallel-R-L-C, in Reihe geschaltet',
+  'Series R-L-C, in shunt': 'Serien-R-L-C, parallel geschaltet',
+  'Series R-L-C, in series': 'Serien-R-L-C, in Reihe geschaltet',
+  'Line {0} Ω, {1}°': 'Leitung {0} Ω, {1}°',
+  'Short-circuit stub {0} Ω, {1}°': 'Kurzschluss-Stub {0} Ω, {1}°',
+  'Open stub {0} Ω, {1}°': 'Leerlauf-Stub {0} Ω, {1}°',
+  'Transformer n = {0}': 'Transformator n = {0}',
+  'shunt resistor': 'Parallelwiderstand',
+  'series resistor': 'Reihenwiderstand',
+  'shunt inductor': 'Parallelinduktivität',
+  'series inductor': 'Reiheninduktivität',
+  'shunt capacitor': 'Parallelkapazität',
+  'series capacitor': 'Reihenkapazität',
+  'R-L-C in shunt': 'R-L-C parallel',
+  'R-L-C in series': 'R-L-C in Reihe',
+  'series line': 'Leitung in Reihe',
+  'short-circuit stub': 'Kurzschluss-Stub',
+  'open stub': 'Leerlauf-Stub',
+  'transformer': 'Transformator',
+  'Load {0}': 'Last {0}',
+  'Tabulated load ({0} points)': 'Tabellierte Last ({0} Punkte)',
+  'Slide 17 — ladder network, load 2 + j10 Ω': 'Folie 17 — Abzweignetzwerk, Last 2 + j10 Ω',
+  'Slide 16 — same network, load 92 nH + 2 Ω': 'Folie 16 — gleiches Netzwerk, Last 92 nH + 2 Ω',
+  'Slide 6 — placing impedances': 'Folie 6 — Impedanzen eintragen',
+  'z = 1.2 − j1.4': 'z = 1,2 − j1,4',
+  'Slide 7 — series C, Δ = −j1.1': 'Folie 7 — C in Reihe, Δ = −j1,1',
+  'Slide 8 — series L, Δ = +j1.8': 'Folie 8 — L in Reihe, Δ = +j1,8',
+  'Slide 9 — series R-L-C, Q = 1': 'Folie 9 — Serien-R-L-C, Q = 1',
+  'Slide 10 — impedance and admittance': 'Folie 10 — Impedanz und Admittanz',
+  'y = 0.26 − j0.6': 'y = 0,26 − j0,6',
+  'Slide 13 — shunt C, Δ = +j1.4': 'Folie 13 — C parallel, Δ = +j1,4',
+  'Slide 14 — shunt L, Δ = −j1.4': 'Folie 14 — L parallel, Δ = −j1,4',
+  'Slide 15 — frequency variation': 'Folie 15 — Frequenzänderung',
+  'Empty project — 50 Ω load': 'Leeres Projekt — Last 50 Ω',
+  'f increasing': 'f steigend',
+  'input': 'Eingang',
+  'DP1 · load': 'DP1 · Last',
+  'Z(f), {0} points': 'Z(f), {0} Punkte',
+  'Adjustment': 'Einstellung',
+  'Fine adjustment of the value': 'Feineinstellung des Werts',
+  'Adjustment range': 'Einstellbereich',
+  'Losses': 'Verluste',
+  'Ideal': 'Ideal',
+  'Series resistance': 'Serienwiderstand',
+  'Q at one frequency': 'Q bei einer Frequenz',
+  'at frequency': 'bei Frequenz',
+  'Length θ': 'Länge θ',
+  'in λ': 'in λ',
+  'electrical': 'elektrisch',
+  'physical': 'physikalisch',
+  'Effective εr': 'Effektives εr',
+  'Velocity factor': 'Verkürzungsfaktor',
+  'Loss α': 'Dämpfung α',
+  'Loss law': 'Verlustgesetz',
+  'α · √(f / f₀), conductor': 'α · √(f / f₀), Leiter',
+  'constant α': 'konstantes α',
+  '{0} present': '{0} vorhanden',
+  'absent': 'nicht vorhanden',
+  'normalized z': 'normiertes z',
+  'normalized y': 'normiertes y',
+  'Γ magnitude ∠ phase': 'Γ Betrag ∠ Phase',
+  'S11 in dB ∠ phase': 'S11 in dB ∠ Phase',
+  'Phase': 'Phase',
+  'Type': 'Typ',
+  'Fixed impedance': 'Feste Impedanz',
+  'R-L-C circuit': 'R-L-C-Schaltung',
+  'Z(f) table': 'Tabelle Z(f)',
+  'Input': 'Eingabe',
+  'The DP1 point can also be dragged directly on the chart. The load stays fixed when the frequency varies.': 'Der Punkt DP1 kann auch direkt im Diagramm verschoben werden. Die Last bleibt bei Frequenzänderung konstant.',
+  'Connection': 'Schaltung',
+  'Parallel': 'Parallel',
+  'One line per point: frequency, R, X (in ohms). Linear interpolation on Γ, no extrapolation.': 'Eine Zeile pro Punkt: Frequenz, R, X (in Ohm). Lineare Interpolation auf Γ, keine Extrapolation.',
+  'Load points': 'Lastpunkte',
+  'Value': 'Wert',
+  'Normalize': 'Auf Normwert',
+  'Circuit': 'Schaltung',
+  'Series R-L-C': 'Serien-R-L-C',
+  'Parallel R-L-C': 'Parallel-R-L-C',
+  'End': 'Abschluss',
+  'Open': 'Offen',
+  'Short circuit': 'Kurzschluss',
+  'Ratio n': 'Verhältnis n',
+  'Ideal transformer: Z<sub>in</sub> = n² · Z (n = turns on the source side / turns on the load side).': 'Idealer Transformator: Z<sub>in</sub> = n² · Z (n = Windungen auf der Quellenseite / Windungen auf der Lastseite).',
+  'Branch admittance at f₀: <b>{0}</b>': 'Admittanz des Zweigs bei f₀: <b>{0}</b>',
+  'Branch impedance at f₀: <b>{0}</b>': 'Impedanz des Zweigs bei f₀: <b>{0}</b>',
+  'Circle r = {0}, Δx = <b>{1}</b>': 'Kreis r = {0}, Δx = <b>{1}</b>',
+  'Circle g = {0}, Δb = <b>{1}</b>': 'Kreis g = {0}, Δb = <b>{1}</b>',
+  'Circle |Γ| = {0}, rotation of <b>{1}°</b>': 'Kreis |Γ| = {0}, Drehung um <b>{1}°</b>',
+  'Toward load': 'Zur Last',
+  'Toward source': 'Zur Quelle',
+  'Duplicate': 'Duplizieren',
+  'Re-enable': 'Wieder aktivieren',
+  'Disable': 'Deaktivieren',
+  'Delete': 'Löschen',
+  'Select the load or an element (schematic, chart or points table) to edit it. The "Series" and "Shunt" buttons add an element after the selection, on the source side.': 'Last oder ein Element (Schaltplan, Diagramm oder Punktetabelle) zum Bearbeiten auswählen. Die Schaltflächen „Reihe“ und „Parallel“ fügen ein Element hinter der Auswahl auf der Quellenseite ein.',
+  'Sweep · {0}': 'Sweep · {0}',
+  '{0} · load': '{0} · Last',
+  '{0} · input': '{0} · Eingang',
+  'Return loss': 'Rückflussdämpfung',
+  'Mismatch loss': 'Fehlanpassungsdämpfung',
+  'Series equivalent': 'Serienersatzschaltung',
+  'Parallel equivalent': 'Parallelersatzschaltung',
+  '▲ Active / unstable: |Γ| > 1': '▲ Aktiv / instabil: |Γ| > 1',
+  'Start': 'Start',
+  'Stop': 'Stopp',
+  'Plot': 'Darstellen',
+  'plots at the network input': 'zeichnet am Netzwerkeingang',
+  'Scale': 'Skala',
+  'Linear': 'Linear',
+  'Logarithmic': 'Logarithmisch',
+  'at {0}': 'bei {0}',
+  'Remove {0}': '{0} entfernen',
+  'Phase of Γ (°)': 'Phase von Γ (°)',
+  'L network': 'L-Netzwerk',
+  'π network, specified Q': 'π-Netzwerk, vorgegebenes Q',
+  'T network, specified Q': 'T-Netzwerk, vorgegebenes Q',
+  'Line + stub': 'Leitung + Stub',
+  'Double stub': 'Doppelstub',
+  'Quarter-wave': 'Viertelwelle',
+  'Line + reactance': 'Leitung + Blindwiderstand',
+  'low-pass': 'Tiefpass',
+  'high-pass': 'Hochpass',
+  'mixed': 'gemischt',
+  'lines': 'Leitungen',
+  'Target R': 'Ziel-R',
+  'Target X': 'Ziel-X',
+  'Specified Q': 'Vorgegebenes Q',
+  'Line Zc': 'Zc der Leitung',
+  'Stub Zc': 'Zc der Stubs',
+  'Spacing': 'Abstand',
+  'Band at RL ≥': 'Band bei RL ≥',
+  'Sort by': 'Sortieren nach',
+  'bandwidth': 'Bandbreite',
+  'lowest Q': 'kleinstes Q',
+  'From the current input ({0}): <b>{1}</b>. The network found is added on the source side.': 'Vom aktuellen Eingang ({0}): <b>{1}</b>. Das gefundene Netzwerk wird auf der Quellenseite hinzugefügt.',
+  'No solution.': 'Keine Lösung.',
+  '{0} · Q {1} · band {2}': '{0} · Q {1} · Band {2}',
+  'Apply': 'Anwenden',
+  'All R, L and C of the network are already in this series.': 'Alle R, L und C des Netzwerks liegen bereits in dieser Reihe.',
+  '|Γ| at f₀': '|Γ| bei f₀',
+  'Apply rounding': 'Rundung anwenden',
+  'Available gain (source plane)': 'Verfügbare Verstärkung (Quellenebene)',
+  'Operating power gain (load plane)': 'Leistungsverstärkung (Lastebene)',
+  'Unilateral, source side': 'Unilateral, Quellenseite',
+  'Unilateral, load side': 'Unilateral, Lastseite',
+  'Stability, gain and noise figure circles of a two-port (transistor) described by its S parameters.': 'Stabilitäts-, Verstärkungs- und Rauschzahlkreise eines Zweitors (Transistor), beschrieben durch seine S-Parameter.',
+  'Example: BFG33G at 2 GHz': 'Beispiel: BFG33G bei 2 GHz',
+  'From the imported .s2p, at f₀': 'Aus der importierten .s2p, bei f₀',
+  '{0}, magnitude': '{0}, Betrag',
+  '{0}, phase': '{0}, Phase',
+  'S parameters (magnitude, phase)': 'S-Parameter (Betrag, Phase)',
+  'μ load / source': 'μ Last / Quelle',
+  'Maximum gain (MAG)': 'Maximale Verstärkung (MAG)',
+  'Maximum stable gain (MSG)': 'Maximale stabile Verstärkung (MSG)',
+  '— for ΓS = network input —': '— für ΓS = Netzwerkeingang —',
+  'Output Γ': 'Ausgangs-Γ',
+  'Output Z': 'Ausgangs-Z',
+  'Available gain': 'Verfügbare Verstärkung',
+  'Noise figure': 'Rauschzahl',
+  'Unconditionally stable.': 'Unbedingt stabil.',
+  '▲ Conditionally stable: keep the terminations on the stable side of the circles.': '▲ Bedingt stabil: Abschlüsse auf der stabilen Seite der Kreise halten.',
+  'Stability, source plane': 'Stabilität, Quellenebene',
+  'Stability, load plane': 'Stabilität, Lastebene',
+  'Gain circle type': 'Typ des Verstärkungskreises',
+  'Circle gain, in dB': 'Verstärkung des Kreises, in dB',
+  'Noise': 'Rauschen',
+  'Noise data': 'Rauschdaten',
+  'Minimum NF': 'Minimale NF',
+  'Optimal Γ': 'Optimales Γ',
+  'NF circle': 'NF-Kreis',
+  'Remove amplifier': 'Verstärker entfernen',
+  'Source stability: stable inside': 'Quellenstabilität: innen stabil',
+  'Source stability: stable outside': 'Quellenstabilität: außen stabil',
+  'Load stability: stable inside': 'Laststabilität: innen stabil',
+  'Load stability: stable outside': 'Laststabilität: außen stabil',
+  '{0}: y = {1}': '{0}: y = {1}',
+  '{0}: z = {1}': '{0}: z = {1}',
+  'rotation of {0}°': 'Drehung um {0}°',
+  'symmetric: y = {0}': 'symmetrisch: y = {0}',
+  'File "{0}" saved.': 'Datei „{0}“ gespeichert.',
+  'Cannot read the file.': 'Die Datei kann nicht gelesen werden.',
+  'Project "{0}" opened.': 'Projekt „{0}“ geöffnet.',
+  'S{0} of the file, other port terminated on {1} Ω': 'S{0} der Datei, anderes Tor abgeschlossen mit {1} Ω',
+  'one-port file': 'Eintor-Datei',
+  'frequencies read in {0}': 'Frequenzen gelesen in {0}',
+  '"{0}": {1} points imported as load ({2}).': '„{0}“: {1} Punkte als Last importiert ({2}).',
+  'Project too large to fit in a link: save the file instead.': 'Projekt zu groß für einen Link: stattdessen die Datei speichern.',
+  'Link copied to the clipboard.': 'Link in die Zwischenablage kopiert.',
+  'Copy failed: the link is in the address bar.': 'Kopieren nicht möglich: Der Link steht in der Adressleiste.',
+  'PNG export is not possible in this browser.': 'PNG-Export ist in diesem Browser nicht möglich.',
+  'Chart image copied to the clipboard.': 'Diagrammbild in die Zwischenablage kopiert.',
+  'Image copy refused by the browser: use the PNG export.': 'Bildkopie vom Browser abgelehnt: PNG-Export verwenden.',
+  'Turn on the frequency sweep first.': 'Zuerst den Frequenz-Sweep einschalten.',
+  'Project loaded from the link.': 'Projekt aus dem Link geladen.',
+  'Language': 'Sprache',
+});
+
+// italiano
+SmithI18n.register('it', {
+  'Smith Chart': 'Carta di Smith',
+  'Reference impedance Z0': 'Impedenza di riferimento Z0',
+  'Design frequency': 'Frequenza di progetto',
+  'Displayed planes': 'Piani visualizzati',
+  'Chart graduations': 'Graduazioni della carta',
+  'Normalized graduations': 'Graduazioni normalizzate',
+  'Graduations in ohms and siemens': 'Graduazioni in ohm e siemens',
+  'Example': 'Esempio',
+  'Course examples': 'Esempi del corso',
+  'Shows the r or g circle followed by each element, its Δx or Δb, and the impedance / admittance symmetry': 'Mostra il cerchio r o g seguito da ogni elemento, il suo Δx o Δb e la simmetria impedenza / ammettenza',
+  'Course mode': 'Modalità corso',
+  'Undo (Ctrl+Z)': 'Annulla (Ctrl+Z)',
+  'Undo': 'Annulla',
+  'Redo (Ctrl+Y)': 'Ripeti (Ctrl+Y)',
+  'Redo': 'Ripeti',
+  'Show or hide the frequency plots': 'Mostra o nasconde i grafici in frequenza',
+  'Plots': 'Grafici',
+  'Switch between light and dark theme': 'Passa dal tema chiaro al tema scuro',
+  'Theme': 'Tema',
+  'Network': 'Rete',
+  'Network schematic': 'Schema della rete',
+  'The first element touches the load; the input impedance is seen after the last element. A new element is inserted after the selected element, on the source side.': 'Il primo elemento è collegato al carico; l\'impedenza d\'ingresso si vede dopo l\'ultimo elemento. Un nuovo elemento viene inserito dopo l\'elemento selezionato, lato sorgente.',
+  'Build order: load → source': 'Ordine di costruzione: carico → sorgente',
+  'Add a series element': 'Aggiungi un elemento in serie',
+  'Series': 'Serie',
+  'Series resistor': 'Resistenza serie',
+  'Series inductor': 'Induttanza serie',
+  'Series capacitor': 'Capacità serie',
+  'Series transmission line': 'Linea di trasmissione serie',
+  'Line': 'Linea',
+  'Ideal transformer': 'Trasformatore ideale',
+  'Transformer': 'Trasformatore',
+  'Parallel R-L-C inserted in series': 'R-L-C parallelo inserito in serie',
+  'Add a shunt element': 'Aggiungi un elemento in parallelo',
+  'Shunt': 'Parallelo',
+  'Shunt resistor': 'Resistenza parallelo',
+  'Shunt inductor': 'Induttanza parallelo',
+  'Shunt capacitor': 'Capacità parallelo',
+  'Shunt open-circuit stub': 'Stub in parallelo a circuito aperto',
+  'Open stub': 'Stub aperto',
+  'Shunt short-circuit stub': 'Stub in parallelo in cortocircuito',
+  'Short stub': 'Stub in corto',
+  'Series R-L-C inserted in shunt': 'R-L-C serie inserito in parallelo',
+  'Load on the right (as on slide 16) or on the left (as in Smith V3.10)': 'Carico a destra (come nella diapositiva 16) o a sinistra (come in Smith V3.10)',
+  'Flip schematic': 'Inverti lo schema',
+  'Smith chart. Mouse wheel to zoom, drag the background to pan, drag a point to tune its element, keys plus, minus, zero and arrows.': 'Carta di Smith. Rotellina per zoomare, trascina lo sfondo per spostare, trascina un punto per regolare il suo elemento, tasti più, meno, zero e frecce.',
+  'Zoom': 'Zoom',
+  'Zoom in': 'Ingrandisci',
+  'Zoom out': 'Riduci',
+  'Fit': 'Adatta',
+  'Wheel: zoom · drag background: pan · drag a point: tune · double-click: fit': 'Rotellina: zoom · trascina lo sfondo: sposta · trascina un punto: regola · doppio clic: adatta',
+  'Frequency plots': 'Grafici in frequenza',
+  'Magnitude of S11 in decibels versus frequency': 'Modulo di S11 in decibel in funzione della frequenza',
+  'VSWR versus frequency': 'VSWR in funzione della frequenza',
+  'Phase of the reflection coefficient versus frequency': 'Fase del coefficiente di riflessione in funzione della frequenza',
+  'Turn on the sweep (right panel) to plot |S11|, VSWR and phase versus frequency.': 'Attiva lo sweep (pannello di destra) per tracciare |S11|, VSWR e fase in funzione della frequenza.',
+  'Inspector': 'Ispettore',
+  'Element': 'Elemento',
+  'Cursor': 'Cursore',
+  'Points': 'Punti',
+  'Point': 'Punto',
+  'Automatic matching': 'Adattamento automatico',
+  'Preferred values': 'Valori normalizzati',
+  'Frequency sweep': 'Sweep in frequenza',
+  'Circles': 'Cerchi',
+  'Amplifier (S-parameters)': 'Amplificatore (parametri S)',
+  'Files and exports': 'File ed esportazioni',
+  'Project': 'Progetto',
+  'Open…': 'Apri…',
+  'Save': 'Salva',
+  'Copy link': 'Copia il link',
+  'Measured load': 'Carico misurato',
+  'Import .s1p, .s2p or CSV…': 'Importa .s1p, .s2p o CSV…',
+  'Parameter used for a two-port file': 'Parametro usato per un file a due porte',
+  'S11 of the .s2p': 'S11 del .s2p',
+  'S22 of the .s2p': 'S22 del .s2p',
+  'Export': 'Esporta',
+  'Chart SVG': 'Carta SVG',
+  'Chart PNG': 'Carta PNG',
+  'Copy image': 'Copia l\'immagine',
+  'Schematic SVG': 'Schema SVG',
+  'Points CSV': 'Punti CSV',
+  'Sweep CSV': 'Sweep CSV',
+  'LTspice netlist': 'Netlist LTspice',
+  'Smith netlist': 'Netlist Smith',
+  'Zero or infinite impedance: no L network.': 'Impedenza nulla o infinita: nessuna rete ad L.',
+  'Already matched: no element needed.': 'Già adattato: nessun elemento necessario.',
+  'Negative or zero real part: no lossless L network.': 'Parte reale negativa o nulla: nessuna rete ad L senza perdite.',
+  'Zero or infinite impedance.': 'Impedenza nulla o infinita.',
+  'Negative or zero real part.': 'Parte reale negativa o nulla.',
+  'Q too low: it must exceed {0} (that of the L network).': 'Q troppo basso: deve superare {0} (quello della rete ad L).',
+  'No line length brings the load onto the target conductance circle.': 'Nessuna lunghezza di linea porta il carico sul cerchio di conduttanza desiderato.',
+  'Forbidden region: with this spacing, no setting of the first stub brings the load onto the target circle. Change the spacing or add a line before the first stub.': 'Zona proibita: con questa spaziatura nessuna regolazione del primo stub porta il carico sul cerchio desiderato. Cambia la spaziatura o aggiungi una linea prima del primo stub.',
+  'The quarter-wave transformer needs a real target.': 'Il trasformatore a quarto d\'onda richiede un obiettivo reale.',
+  'No line length is suitable.': 'Nessuna lunghezza di linea è adatta.',
+  'Touchstone 2.0 is not supported: export the file as version 1.x.': 'Touchstone 2.0 non è supportato: esporta il file nel formato 1.x.',
+  'Unreadable line in the Touchstone file: "{0}"': 'Riga illeggibile nel file Touchstone: «{0}»',
+  'Invalid reference impedance in the Touchstone file.': 'Impedenza di riferimento non valida nel file Touchstone.',
+  'No data in the Touchstone file.': 'Nessun dato nel file Touchstone.',
+  'Only 1-port and 2-port files (.s1p, .s2p) are supported.': 'Sono supportati solo file a 1 o 2 porte (.s1p, .s2p).',
+  '{0} parameters are not supported for a {1}-port file.': 'I parametri {0} non sono supportati per un file a {1} porte.',
+  'Unexpected number of values on a line of the Touchstone file.': 'Numero di valori inatteso in una riga del file Touchstone.',
+  'No "frequency, R, X" line found.': 'Nessuna riga «frequenza, R, X» trovata.',
+  'No usable "frequency, R, X" line.': 'Nessuna riga «frequenza, R, X» utilizzabile.',
+  'This file does not contain a project.': 'Questo file non contiene un progetto.',
+  'Unreadable file: it is not JSON.': 'File illeggibile: non è JSON.',
+  'Unknown family.': 'Famiglia sconosciuta.',
+  'Unreadable link.': 'Link illeggibile.',
+  'R series {0}': 'R serie {0}',
+  'L series {0}': 'L serie {0}',
+  'C series {0}': 'C serie {0}',
+  'Parallel R-L-C, in shunt': 'R-L-C parallelo, in parallelo',
+  'Parallel R-L-C, in series': 'R-L-C parallelo, in serie',
+  'Series R-L-C, in shunt': 'R-L-C serie, in parallelo',
+  'Series R-L-C, in series': 'R-L-C serie, in serie',
+  'Line {0} Ω, {1}°': 'Linea {0} Ω, {1}°',
+  'Short-circuit stub {0} Ω, {1}°': 'Stub in cortocircuito {0} Ω, {1}°',
+  'Open stub {0} Ω, {1}°': 'Stub aperto {0} Ω, {1}°',
+  'Transformer n = {0}': 'Trasformatore n = {0}',
+  'shunt resistor': 'resistenza in parallelo',
+  'series resistor': 'resistenza in serie',
+  'shunt inductor': 'induttanza in parallelo',
+  'series inductor': 'induttanza in serie',
+  'shunt capacitor': 'capacità in parallelo',
+  'series capacitor': 'capacità in serie',
+  'R-L-C in shunt': 'R-L-C in parallelo',
+  'R-L-C in series': 'R-L-C in serie',
+  'series line': 'linea in serie',
+  'short-circuit stub': 'stub in cortocircuito',
+  'open stub': 'stub aperto',
+  'transformer': 'trasformatore',
+  'Load {0}': 'Carico {0}',
+  'Tabulated load ({0} points)': 'Carico tabulato ({0} punti)',
+  'Slide 17 — ladder network, load 2 + j10 Ω': 'Diapositiva 17 — rete a scala, carico 2 + j10 Ω',
+  'Slide 16 — same network, load 92 nH + 2 Ω': 'Diapositiva 16 — stessa rete, carico 92 nH + 2 Ω',
+  'Slide 6 — placing impedances': 'Diapositiva 6 — posizionamento delle impedenze',
+  'z = 1.2 − j1.4': 'z = 1,2 − j1,4',
+  'Slide 7 — series C, Δ = −j1.1': 'Diapositiva 7 — C in serie, Δ = −j1,1',
+  'Slide 8 — series L, Δ = +j1.8': 'Diapositiva 8 — L in serie, Δ = +j1,8',
+  'Slide 9 — series R-L-C, Q = 1': 'Diapositiva 9 — R-L-C serie, Q = 1',
+  'Slide 10 — impedance and admittance': 'Diapositiva 10 — impedenza e ammettenza',
+  'y = 0.26 − j0.6': 'y = 0,26 − j0,6',
+  'Slide 13 — shunt C, Δ = +j1.4': 'Diapositiva 13 — C in parallelo, Δ = +j1,4',
+  'Slide 14 — shunt L, Δ = −j1.4': 'Diapositiva 14 — L in parallelo, Δ = −j1,4',
+  'Slide 15 — frequency variation': 'Diapositiva 15 — variazione di frequenza',
+  'Empty project — 50 Ω load': 'Progetto vuoto — carico 50 Ω',
+  'f increasing': 'f crescente',
+  'input': 'ingresso',
+  'DP1 · load': 'DP1 · carico',
+  'Z(f), {0} points': 'Z(f), {0} punti',
+  'Adjustment': 'Regolazione',
+  'Fine adjustment of the value': 'Regolazione fine del valore',
+  'Adjustment range': 'Intervallo di regolazione',
+  'Losses': 'Perdite',
+  'Ideal': 'Ideale',
+  'Series resistance': 'Resistenza serie',
+  'Q at one frequency': 'Q a una frequenza',
+  'at frequency': 'alla frequenza',
+  'Length θ': 'Lunghezza θ',
+  'in λ': 'in λ',
+  'electrical': 'elettrica',
+  'physical': 'fisica',
+  'Effective εr': 'εr effettivo',
+  'Velocity factor': 'Fattore di velocità',
+  'Loss α': 'Perdite α',
+  'Loss law': 'Legge delle perdite',
+  'α · √(f / f₀), conductor': 'α · √(f / f₀), conduttore',
+  'constant α': 'α costante',
+  '{0} present': '{0} presente',
+  'absent': 'assente',
+  'normalized z': 'z normalizzata',
+  'normalized y': 'y normalizzata',
+  'Γ magnitude ∠ phase': 'Γ modulo ∠ fase',
+  'S11 in dB ∠ phase': 'S11 in dB ∠ fase',
+  'Phase': 'Fase',
+  'Type': 'Tipo',
+  'Fixed impedance': 'Impedenza fissa',
+  'R-L-C circuit': 'Circuito R-L-C',
+  'Z(f) table': 'Tabella Z(f)',
+  'Input': 'Inserimento',
+  'The DP1 point can also be dragged directly on the chart. The load stays fixed when the frequency varies.': 'Il punto DP1 si può anche trascinare direttamente sulla carta. Il carico resta fisso al variare della frequenza.',
+  'Connection': 'Collegamento',
+  'Parallel': 'Parallelo',
+  'One line per point: frequency, R, X (in ohms). Linear interpolation on Γ, no extrapolation.': 'Una riga per punto: frequenza, R, X (in ohm). Interpolazione lineare su Γ, senza estrapolazione.',
+  'Load points': 'Punti del carico',
+  'Value': 'Valore',
+  'Normalize': 'Normalizza',
+  'Circuit': 'Circuito',
+  'Series R-L-C': 'R-L-C serie',
+  'Parallel R-L-C': 'R-L-C parallelo',
+  'End': 'Terminazione',
+  'Open': 'Aperta',
+  'Short circuit': 'Cortocircuito',
+  'Ratio n': 'Rapporto n',
+  'Ideal transformer: Z<sub>in</sub> = n² · Z (n = turns on the source side / turns on the load side).': 'Trasformatore ideale: Z<sub>in</sub> = n² · Z (n = spire lato sorgente / spire lato carico).',
+  'Branch admittance at f₀: <b>{0}</b>': 'Ammettenza del ramo a f₀: <b>{0}</b>',
+  'Branch impedance at f₀: <b>{0}</b>': 'Impedenza del ramo a f₀: <b>{0}</b>',
+  'Circle r = {0}, Δx = <b>{1}</b>': 'Cerchio r = {0}, Δx = <b>{1}</b>',
+  'Circle g = {0}, Δb = <b>{1}</b>': 'Cerchio g = {0}, Δb = <b>{1}</b>',
+  'Circle |Γ| = {0}, rotation of <b>{1}°</b>': 'Cerchio |Γ| = {0}, rotazione di <b>{1}°</b>',
+  'Toward load': 'Verso il carico',
+  'Toward source': 'Verso la sorgente',
+  'Duplicate': 'Duplica',
+  'Re-enable': 'Riattiva',
+  'Disable': 'Disattiva',
+  'Delete': 'Elimina',
+  'Select the load or an element (schematic, chart or points table) to edit it. The "Series" and "Shunt" buttons add an element after the selection, on the source side.': 'Seleziona il carico o un elemento (schema, carta o tabella dei punti) per modificarlo. I pulsanti «Serie» e «Parallelo» aggiungono un elemento dopo la selezione, lato sorgente.',
+  'Sweep · {0}': 'Sweep · {0}',
+  '{0} · load': '{0} · carico',
+  '{0} · input': '{0} · ingresso',
+  'Return loss': 'Perdita di ritorno',
+  'Mismatch loss': 'Perdita di disadattamento',
+  'Series equivalent': 'Equivalente serie',
+  'Parallel equivalent': 'Equivalente parallelo',
+  '▲ Active / unstable: |Γ| > 1': '▲ Attivo / instabile: |Γ| > 1',
+  'Start': 'Inizio',
+  'Stop': 'Fine',
+  'Plot': 'Traccia',
+  'plots at the network input': 'traccia all\'ingresso della rete',
+  'Scale': 'Scala',
+  'Linear': 'Lineare',
+  'Logarithmic': 'Logaritmica',
+  'at {0}': 'a {0}',
+  'Remove {0}': 'Rimuovi {0}',
+  'Phase of Γ (°)': 'Fase di Γ (°)',
+  'L network': 'Rete ad L',
+  'π network, specified Q': 'Rete a π, Q imposto',
+  'T network, specified Q': 'Rete a T, Q imposto',
+  'Line + stub': 'Linea + stub',
+  'Double stub': 'Doppio stub',
+  'Quarter-wave': 'Quarto d\'onda',
+  'Line + reactance': 'Linea + reattanza',
+  'low-pass': 'passa-basso',
+  'high-pass': 'passa-alto',
+  'mixed': 'misto',
+  'lines': 'linee',
+  'Target R': 'R obiettivo',
+  'Target X': 'X obiettivo',
+  'Specified Q': 'Q imposto',
+  'Line Zc': 'Zc della linea',
+  'Stub Zc': 'Zc degli stub',
+  'Spacing': 'Spaziatura',
+  'Band at RL ≥': 'Banda con RL ≥',
+  'Sort by': 'Ordina per',
+  'bandwidth': 'larghezza di banda',
+  'lowest Q': 'Q più basso',
+  'From the current input ({0}): <b>{1}</b>. The network found is added on the source side.': 'Dall\'ingresso attuale ({0}): <b>{1}</b>. La rete trovata si aggiunge lato sorgente.',
+  'No solution.': 'Nessuna soluzione.',
+  '{0} · Q {1} · band {2}': '{0} · Q {1} · banda {2}',
+  'Apply': 'Applica',
+  'All R, L and C of the network are already in this series.': 'Tutti gli R, L e C della rete sono già in questa serie.',
+  '|Γ| at f₀': '|Γ| a f₀',
+  'Apply rounding': 'Applica l\'arrotondamento',
+  'Available gain (source plane)': 'Guadagno disponibile (piano sorgente)',
+  'Operating power gain (load plane)': 'Guadagno di potenza operativo (piano carico)',
+  'Unilateral, source side': 'Unilaterale, lato sorgente',
+  'Unilateral, load side': 'Unilaterale, lato carico',
+  'Stability, gain and noise figure circles of a two-port (transistor) described by its S parameters.': 'Cerchi di stabilità, di guadagno e di cifra di rumore di un doppio bipolo (transistor) descritto dai suoi parametri S.',
+  'Example: BFG33G at 2 GHz': 'Esempio: BFG33G a 2 GHz',
+  'From the imported .s2p, at f₀': 'Dal .s2p importato, a f₀',
+  '{0}, magnitude': '{0}, modulo',
+  '{0}, phase': '{0}, fase',
+  'S parameters (magnitude, phase)': 'Parametri S (modulo, fase)',
+  'μ load / source': 'μ carico / sorgente',
+  'Maximum gain (MAG)': 'Guadagno massimo (MAG)',
+  'Maximum stable gain (MSG)': 'Guadagno stabile massimo (MSG)',
+  '— for ΓS = network input —': '— per ΓS = ingresso della rete —',
+  'Output Γ': 'Γ di uscita',
+  'Output Z': 'Z di uscita',
+  'Available gain': 'Guadagno disponibile',
+  'Noise figure': 'Cifra di rumore',
+  'Unconditionally stable.': 'Incondizionatamente stabile.',
+  '▲ Conditionally stable: keep the terminations on the stable side of the circles.': '▲ Condizionatamente stabile: mantieni le terminazioni sul lato stabile dei cerchi.',
+  'Stability, source plane': 'Stabilità, piano sorgente',
+  'Stability, load plane': 'Stabilità, piano carico',
+  'Gain circle type': 'Tipo di cerchio di guadagno',
+  'Circle gain, in dB': 'Guadagno del cerchio, in dB',
+  'Noise': 'Rumore',
+  'Noise data': 'Dati di rumore',
+  'Minimum NF': 'NF minimo',
+  'Optimal Γ': 'Γ ottimo',
+  'NF circle': 'Cerchio NF',
+  'Remove amplifier': 'Rimuovi l\'amplificatore',
+  'Source stability: stable inside': 'Stabilità sorgente: stabile all\'interno',
+  'Source stability: stable outside': 'Stabilità sorgente: stabile all\'esterno',
+  'Load stability: stable inside': 'Stabilità carico: stabile all\'interno',
+  'Load stability: stable outside': 'Stabilità carico: stabile all\'esterno',
+  '{0}: y = {1}': '{0}: y = {1}',
+  '{0}: z = {1}': '{0}: z = {1}',
+  'rotation of {0}°': 'rotazione di {0}°',
+  'symmetric: y = {0}': 'simmetrico: y = {0}',
+  'File "{0}" saved.': 'File «{0}» salvato.',
+  'Cannot read the file.': 'Impossibile leggere il file.',
+  'Project "{0}" opened.': 'Progetto «{0}» aperto.',
+  'S{0} of the file, other port terminated on {1} Ω': 'S{0} del file, altra porta chiusa su {1} Ω',
+  'one-port file': 'file a una porta',
+  'frequencies read in {0}': 'frequenze lette in {0}',
+  '"{0}": {1} points imported as load ({2}).': '«{0}»: {1} punti importati come carico ({2}).',
+  'Project too large to fit in a link: save the file instead.': 'Progetto troppo grande per stare in un link: salva piuttosto il file.',
+  'Link copied to the clipboard.': 'Link copiato negli appunti.',
+  'Copy failed: the link is in the address bar.': 'Copia impossibile: il link è nella barra degli indirizzi.',
+  'PNG export is not possible in this browser.': 'Esportazione PNG impossibile in questo browser.',
+  'Chart image copied to the clipboard.': 'Immagine della carta copiata negli appunti.',
+  'Image copy refused by the browser: use the PNG export.': 'Copia dell\'immagine rifiutata dal browser: usa l\'esportazione PNG.',
+  'Turn on the frequency sweep first.': 'Attiva prima lo sweep in frequenza.',
+  'Project loaded from the link.': 'Progetto caricato dal link.',
+  'Language': 'Lingua',
+});
+
+// español
+SmithI18n.register('es', {
+  'Smith Chart': 'Carta de Smith',
+  'Reference impedance Z0': 'Impedancia de referencia Z0',
+  'Design frequency': 'Frecuencia de diseño',
+  'Displayed planes': 'Planos mostrados',
+  'Chart graduations': 'Graduaciones de la carta',
+  'Normalized graduations': 'Graduaciones normalizadas',
+  'Graduations in ohms and siemens': 'Graduaciones en ohmios y siemens',
+  'Example': 'Ejemplo',
+  'Course examples': 'Ejemplos del curso',
+  'Shows the r or g circle followed by each element, its Δx or Δb, and the impedance / admittance symmetry': 'Muestra el círculo r o g seguido por cada elemento, su Δx o Δb y la simetría impedancia / admitancia',
+  'Course mode': 'Modo curso',
+  'Undo (Ctrl+Z)': 'Deshacer (Ctrl+Z)',
+  'Undo': 'Deshacer',
+  'Redo (Ctrl+Y)': 'Rehacer (Ctrl+Y)',
+  'Redo': 'Rehacer',
+  'Show or hide the frequency plots': 'Mostrar u ocultar los gráficos en frecuencia',
+  'Plots': 'Gráficos',
+  'Switch between light and dark theme': 'Cambiar entre tema claro y oscuro',
+  'Theme': 'Tema',
+  'Network': 'Red',
+  'Network schematic': 'Esquema de la red',
+  'The first element touches the load; the input impedance is seen after the last element. A new element is inserted after the selected element, on the source side.': 'El primer elemento toca la carga; la impedancia de entrada se ve después del último elemento. Un elemento nuevo se inserta después del elemento seleccionado, del lado de la fuente.',
+  'Build order: load → source': 'Orden de construcción: carga → fuente',
+  'Add a series element': 'Añadir un elemento en serie',
+  'Series': 'Serie',
+  'Series resistor': 'Resistencia serie',
+  'Series inductor': 'Inductancia serie',
+  'Series capacitor': 'Capacidad serie',
+  'Series transmission line': 'Línea de transmisión serie',
+  'Line': 'Línea',
+  'Ideal transformer': 'Transformador ideal',
+  'Transformer': 'Transformador',
+  'Parallel R-L-C inserted in series': 'R-L-C paralelo insertado en serie',
+  'Add a shunt element': 'Añadir un elemento en paralelo',
+  'Shunt': 'Paralelo',
+  'Shunt resistor': 'Resistencia paralelo',
+  'Shunt inductor': 'Inductancia paralelo',
+  'Shunt capacitor': 'Capacidad paralelo',
+  'Shunt open-circuit stub': 'Stub en paralelo en circuito abierto',
+  'Open stub': 'Stub abierto',
+  'Shunt short-circuit stub': 'Stub en paralelo en cortocircuito',
+  'Short stub': 'Stub en corto',
+  'Series R-L-C inserted in shunt': 'R-L-C serie insertado en paralelo',
+  'Load on the right (as on slide 16) or on the left (as in Smith V3.10)': 'Carga a la derecha (como en la diapositiva 16) o a la izquierda (como en Smith V3.10)',
+  'Flip schematic': 'Invertir el esquema',
+  'Smith chart. Mouse wheel to zoom, drag the background to pan, drag a point to tune its element, keys plus, minus, zero and arrows.': 'Carta de Smith. Rueda del ratón para ampliar, arrastre el fondo para desplazar, arrastre un punto para ajustar su elemento, teclas más, menos, cero y flechas.',
+  'Zoom': 'Zoom',
+  'Zoom in': 'Acercar',
+  'Zoom out': 'Alejar',
+  'Fit': 'Ajustar',
+  'Wheel: zoom · drag background: pan · drag a point: tune · double-click: fit': 'Rueda: zoom · arrastrar el fondo: desplazar · arrastrar un punto: ajustar · doble clic: ajustar',
+  'Frequency plots': 'Gráficos en frecuencia',
+  'Magnitude of S11 in decibels versus frequency': 'Módulo de S11 en decibelios en función de la frecuencia',
+  'VSWR versus frequency': 'VSWR en función de la frecuencia',
+  'Phase of the reflection coefficient versus frequency': 'Fase del coeficiente de reflexión en función de la frecuencia',
+  'Turn on the sweep (right panel) to plot |S11|, VSWR and phase versus frequency.': 'Active el barrido (panel derecho) para trazar |S11|, VSWR y fase en función de la frecuencia.',
+  'Inspector': 'Inspector',
+  'Element': 'Elemento',
+  'Cursor': 'Cursor',
+  'Points': 'Puntos',
+  'Point': 'Punto',
+  'Automatic matching': 'Adaptación automática',
+  'Preferred values': 'Valores normalizados',
+  'Frequency sweep': 'Barrido en frecuencia',
+  'Circles': 'Círculos',
+  'Amplifier (S-parameters)': 'Amplificador (parámetros S)',
+  'Files and exports': 'Archivos y exportaciones',
+  'Project': 'Proyecto',
+  'Open…': 'Abrir…',
+  'Save': 'Guardar',
+  'Copy link': 'Copiar el enlace',
+  'Measured load': 'Carga medida',
+  'Import .s1p, .s2p or CSV…': 'Importar .s1p, .s2p o CSV…',
+  'Parameter used for a two-port file': 'Parámetro usado para un archivo de dos puertos',
+  'S11 of the .s2p': 'S11 del .s2p',
+  'S22 of the .s2p': 'S22 del .s2p',
+  'Export': 'Exportar',
+  'Chart SVG': 'Carta SVG',
+  'Chart PNG': 'Carta PNG',
+  'Copy image': 'Copiar la imagen',
+  'Schematic SVG': 'Esquema SVG',
+  'Points CSV': 'Puntos CSV',
+  'Sweep CSV': 'Barrido CSV',
+  'LTspice netlist': 'Netlist de LTspice',
+  'Smith netlist': 'Netlist de Smith',
+  'Zero or infinite impedance: no L network.': 'Impedancia nula o infinita: no hay red en L.',
+  'Already matched: no element needed.': 'Ya adaptado: no se necesita ningún elemento.',
+  'Negative or zero real part: no lossless L network.': 'Parte real negativa o nula: no hay red en L sin pérdidas.',
+  'Zero or infinite impedance.': 'Impedancia nula o infinita.',
+  'Negative or zero real part.': 'Parte real negativa o nula.',
+  'Q too low: it must exceed {0} (that of the L network).': 'Q demasiado bajo: debe superar {0} (el de la red en L).',
+  'No line length brings the load onto the target conductance circle.': 'Ninguna longitud de línea lleva la carga al círculo de conductancia buscado.',
+  'Forbidden region: with this spacing, no setting of the first stub brings the load onto the target circle. Change the spacing or add a line before the first stub.': 'Zona prohibida: con esta separación, ningún ajuste del primer stub lleva la carga al círculo buscado. Cambie la separación o añada una línea antes del primer stub.',
+  'The quarter-wave transformer needs a real target.': 'El transformador de cuarto de onda necesita un objetivo real.',
+  'No line length is suitable.': 'Ninguna longitud de línea es adecuada.',
+  'Touchstone 2.0 is not supported: export the file as version 1.x.': 'Touchstone 2.0 no es compatible: exporte el archivo en formato 1.x.',
+  'Unreadable line in the Touchstone file: "{0}"': 'Línea ilegible en el archivo Touchstone: «{0}»',
+  'Invalid reference impedance in the Touchstone file.': 'Impedancia de referencia no válida en el archivo Touchstone.',
+  'No data in the Touchstone file.': 'No hay datos en el archivo Touchstone.',
+  'Only 1-port and 2-port files (.s1p, .s2p) are supported.': 'Solo se admiten archivos de 1 o 2 puertos (.s1p, .s2p).',
+  '{0} parameters are not supported for a {1}-port file.': 'Los parámetros {0} no son compatibles con un archivo de {1} puertos.',
+  'Unexpected number of values on a line of the Touchstone file.': 'Número inesperado de valores en una línea del archivo Touchstone.',
+  'No "frequency, R, X" line found.': 'No se encontró ninguna línea «frecuencia, R, X».',
+  'No usable "frequency, R, X" line.': 'Ninguna línea «frecuencia, R, X» utilizable.',
+  'This file does not contain a project.': 'Este archivo no contiene ningún proyecto.',
+  'Unreadable file: it is not JSON.': 'Archivo ilegible: no es JSON.',
+  'Unknown family.': 'Familia desconocida.',
+  'Unreadable link.': 'Enlace ilegible.',
+  'R series {0}': 'R serie {0}',
+  'L series {0}': 'L serie {0}',
+  'C series {0}': 'C serie {0}',
+  'Parallel R-L-C, in shunt': 'R-L-C paralelo, en paralelo',
+  'Parallel R-L-C, in series': 'R-L-C paralelo, en serie',
+  'Series R-L-C, in shunt': 'R-L-C serie, en paralelo',
+  'Series R-L-C, in series': 'R-L-C serie, en serie',
+  'Line {0} Ω, {1}°': 'Línea {0} Ω, {1}°',
+  'Short-circuit stub {0} Ω, {1}°': 'Stub en cortocircuito {0} Ω, {1}°',
+  'Open stub {0} Ω, {1}°': 'Stub abierto {0} Ω, {1}°',
+  'Transformer n = {0}': 'Transformador n = {0}',
+  'shunt resistor': 'resistencia en paralelo',
+  'series resistor': 'resistencia en serie',
+  'shunt inductor': 'inductancia en paralelo',
+  'series inductor': 'inductancia en serie',
+  'shunt capacitor': 'capacidad en paralelo',
+  'series capacitor': 'capacidad en serie',
+  'R-L-C in shunt': 'R-L-C en paralelo',
+  'R-L-C in series': 'R-L-C en serie',
+  'series line': 'línea en serie',
+  'short-circuit stub': 'stub en cortocircuito',
+  'open stub': 'stub abierto',
+  'transformer': 'transformador',
+  'Load {0}': 'Carga {0}',
+  'Tabulated load ({0} points)': 'Carga tabulada ({0} puntos)',
+  'Slide 17 — ladder network, load 2 + j10 Ω': 'Diapositiva 17 — red en escalera, carga 2 + j10 Ω',
+  'Slide 16 — same network, load 92 nH + 2 Ω': 'Diapositiva 16 — misma red, carga 92 nH + 2 Ω',
+  'Slide 6 — placing impedances': 'Diapositiva 6 — colocación de impedancias',
+  'z = 1.2 − j1.4': 'z = 1,2 − j1,4',
+  'Slide 7 — series C, Δ = −j1.1': 'Diapositiva 7 — C en serie, Δ = −j1,1',
+  'Slide 8 — series L, Δ = +j1.8': 'Diapositiva 8 — L en serie, Δ = +j1,8',
+  'Slide 9 — series R-L-C, Q = 1': 'Diapositiva 9 — R-L-C serie, Q = 1',
+  'Slide 10 — impedance and admittance': 'Diapositiva 10 — impedancia y admitancia',
+  'y = 0.26 − j0.6': 'y = 0,26 − j0,6',
+  'Slide 13 — shunt C, Δ = +j1.4': 'Diapositiva 13 — C en paralelo, Δ = +j1,4',
+  'Slide 14 — shunt L, Δ = −j1.4': 'Diapositiva 14 — L en paralelo, Δ = −j1,4',
+  'Slide 15 — frequency variation': 'Diapositiva 15 — variación de frecuencia',
+  'Empty project — 50 Ω load': 'Proyecto vacío — carga 50 Ω',
+  'f increasing': 'f creciente',
+  'input': 'entrada',
+  'DP1 · load': 'DP1 · carga',
+  'Z(f), {0} points': 'Z(f), {0} puntos',
+  'Adjustment': 'Ajuste',
+  'Fine adjustment of the value': 'Ajuste fino del valor',
+  'Adjustment range': 'Rango del ajuste',
+  'Losses': 'Pérdidas',
+  'Ideal': 'Ideal',
+  'Series resistance': 'Resistencia serie',
+  'Q at one frequency': 'Q a una frecuencia',
+  'at frequency': 'a la frecuencia',
+  'Length θ': 'Longitud θ',
+  'in λ': 'en λ',
+  'electrical': 'eléctrica',
+  'physical': 'física',
+  'Effective εr': 'εr efectivo',
+  'Velocity factor': 'Factor de velocidad',
+  'Loss α': 'Pérdidas α',
+  'Loss law': 'Ley de pérdidas',
+  'α · √(f / f₀), conductor': 'α · √(f / f₀), conductor',
+  'constant α': 'α constante',
+  '{0} present': '{0} presente',
+  'absent': 'ausente',
+  'normalized z': 'z normalizada',
+  'normalized y': 'y normalizada',
+  'Γ magnitude ∠ phase': 'Γ módulo ∠ fase',
+  'S11 in dB ∠ phase': 'S11 en dB ∠ fase',
+  'Phase': 'Fase',
+  'Type': 'Tipo',
+  'Fixed impedance': 'Impedancia fija',
+  'R-L-C circuit': 'Circuito R-L-C',
+  'Z(f) table': 'Tabla Z(f)',
+  'Input': 'Entrada',
+  'The DP1 point can also be dragged directly on the chart. The load stays fixed when the frequency varies.': 'El punto DP1 también se puede arrastrar directamente sobre la carta. La carga permanece fija cuando varía la frecuencia.',
+  'Connection': 'Conexión',
+  'Parallel': 'Paralelo',
+  'One line per point: frequency, R, X (in ohms). Linear interpolation on Γ, no extrapolation.': 'Una línea por punto: frecuencia, R, X (en ohmios). Interpolación lineal sobre Γ, sin extrapolación.',
+  'Load points': 'Puntos de la carga',
+  'Value': 'Valor',
+  'Normalize': 'Normalizar',
+  'Circuit': 'Circuito',
+  'Series R-L-C': 'R-L-C serie',
+  'Parallel R-L-C': 'R-L-C paralelo',
+  'End': 'Terminación',
+  'Open': 'Abierta',
+  'Short circuit': 'Cortocircuito',
+  'Ratio n': 'Relación n',
+  'Ideal transformer: Z<sub>in</sub> = n² · Z (n = turns on the source side / turns on the load side).': 'Transformador ideal: Z<sub>in</sub> = n² · Z (n = espiras del lado de la fuente / espiras del lado de la carga).',
+  'Branch admittance at f₀: <b>{0}</b>': 'Admitancia de la rama a f₀: <b>{0}</b>',
+  'Branch impedance at f₀: <b>{0}</b>': 'Impedancia de la rama a f₀: <b>{0}</b>',
+  'Circle r = {0}, Δx = <b>{1}</b>': 'Círculo r = {0}, Δx = <b>{1}</b>',
+  'Circle g = {0}, Δb = <b>{1}</b>': 'Círculo g = {0}, Δb = <b>{1}</b>',
+  'Circle |Γ| = {0}, rotation of <b>{1}°</b>': 'Círculo |Γ| = {0}, rotación de <b>{1}°</b>',
+  'Toward load': 'Hacia la carga',
+  'Toward source': 'Hacia la fuente',
+  'Duplicate': 'Duplicar',
+  'Re-enable': 'Reactivar',
+  'Disable': 'Desactivar',
+  'Delete': 'Eliminar',
+  'Select the load or an element (schematic, chart or points table) to edit it. The "Series" and "Shunt" buttons add an element after the selection, on the source side.': 'Seleccione la carga o un elemento (esquema, carta o tabla de puntos) para editarlo. Los botones «Serie» y «Paralelo» añaden un elemento después de la selección, del lado de la fuente.',
+  'Sweep · {0}': 'Sweep · {0}',
+  '{0} · load': '{0} · carga',
+  '{0} · input': '{0} · entrada',
+  'Return loss': 'Pérdida de retorno',
+  'Mismatch loss': 'Pérdida por desadaptación',
+  'Series equivalent': 'Equivalente serie',
+  'Parallel equivalent': 'Equivalente paralelo',
+  '▲ Active / unstable: |Γ| > 1': '▲ Activo / inestable: |Γ| > 1',
+  'Start': 'Inicio',
+  'Stop': 'Fin',
+  'Plot': 'Trazar',
+  'plots at the network input': 'traza en la entrada de la red',
+  'Scale': 'Escala',
+  'Linear': 'Lineal',
+  'Logarithmic': 'Logarítmica',
+  'at {0}': 'a {0}',
+  'Remove {0}': 'Quitar {0}',
+  'Phase of Γ (°)': 'Fase de Γ (°)',
+  'L network': 'Red en L',
+  'π network, specified Q': 'Red en π, Q impuesto',
+  'T network, specified Q': 'Red en T, Q impuesto',
+  'Line + stub': 'Línea + stub',
+  'Double stub': 'Doble stub',
+  'Quarter-wave': 'Cuarto de onda',
+  'Line + reactance': 'Línea + reactancia',
+  'low-pass': 'paso bajo',
+  'high-pass': 'paso alto',
+  'mixed': 'mixto',
+  'lines': 'líneas',
+  'Target R': 'R objetivo',
+  'Target X': 'X objetivo',
+  'Specified Q': 'Q impuesto',
+  'Line Zc': 'Zc de la línea',
+  'Stub Zc': 'Zc de los stubs',
+  'Spacing': 'Separación',
+  'Band at RL ≥': 'Banda con RL ≥',
+  'Sort by': 'Ordenar por',
+  'bandwidth': 'ancho de banda',
+  'lowest Q': 'Q más bajo',
+  'From the current input ({0}): <b>{1}</b>. The network found is added on the source side.': 'Desde la entrada actual ({0}): <b>{1}</b>. La red encontrada se añade del lado de la fuente.',
+  'No solution.': 'Ninguna solución.',
+  '{0} · Q {1} · band {2}': '{0} · Q {1} · banda {2}',
+  'Apply': 'Aplicar',
+  'All R, L and C of the network are already in this series.': 'Todos los R, L y C de la red ya están en esta serie.',
+  '|Γ| at f₀': '|Γ| a f₀',
+  'Apply rounding': 'Aplicar el redondeo',
+  'Available gain (source plane)': 'Ganancia disponible (plano de la fuente)',
+  'Operating power gain (load plane)': 'Ganancia de potencia operativa (plano de la carga)',
+  'Unilateral, source side': 'Unilateral, lado de la fuente',
+  'Unilateral, load side': 'Unilateral, lado de la carga',
+  'Stability, gain and noise figure circles of a two-port (transistor) described by its S parameters.': 'Círculos de estabilidad, de ganancia y de figura de ruido de un cuadripolo (transistor) descrito por sus parámetros S.',
+  'Example: BFG33G at 2 GHz': 'Ejemplo: BFG33G a 2 GHz',
+  'From the imported .s2p, at f₀': 'Del .s2p importado, a f₀',
+  '{0}, magnitude': '{0}, módulo',
+  '{0}, phase': '{0}, fase',
+  'S parameters (magnitude, phase)': 'Parámetros S (módulo, fase)',
+  'μ load / source': 'μ carga / fuente',
+  'Maximum gain (MAG)': 'Ganancia máxima (MAG)',
+  'Maximum stable gain (MSG)': 'Ganancia estable máxima (MSG)',
+  '— for ΓS = network input —': '— para ΓS = entrada de la red —',
+  'Output Γ': 'Γ de salida',
+  'Output Z': 'Z de salida',
+  'Available gain': 'Ganancia disponible',
+  'Noise figure': 'Figura de ruido',
+  'Unconditionally stable.': 'Incondicionalmente estable.',
+  '▲ Conditionally stable: keep the terminations on the stable side of the circles.': '▲ Condicionalmente estable: mantenga las terminaciones del lado estable de los círculos.',
+  'Stability, source plane': 'Estabilidad, plano de la fuente',
+  'Stability, load plane': 'Estabilidad, plano de la carga',
+  'Gain circle type': 'Tipo de círculo de ganancia',
+  'Circle gain, in dB': 'Ganancia del círculo, en dB',
+  'Noise': 'Ruido',
+  'Noise data': 'Datos de ruido',
+  'Minimum NF': 'NF mínimo',
+  'Optimal Γ': 'Γ óptimo',
+  'NF circle': 'Círculo NF',
+  'Remove amplifier': 'Quitar el amplificador',
+  'Source stability: stable inside': 'Estabilidad de la fuente: estable dentro',
+  'Source stability: stable outside': 'Estabilidad de la fuente: estable fuera',
+  'Load stability: stable inside': 'Estabilidad de la carga: estable dentro',
+  'Load stability: stable outside': 'Estabilidad de la carga: estable fuera',
+  '{0}: y = {1}': '{0}: y = {1}',
+  '{0}: z = {1}': '{0}: z = {1}',
+  'rotation of {0}°': 'rotación de {0}°',
+  'symmetric: y = {0}': 'simétrico: y = {0}',
+  'File "{0}" saved.': 'Archivo «{0}» guardado.',
+  'Cannot read the file.': 'No se puede leer el archivo.',
+  'Project "{0}" opened.': 'Proyecto «{0}» abierto.',
+  'S{0} of the file, other port terminated on {1} Ω': 'S{0} del archivo, otro puerto cerrado sobre {1} Ω',
+  'one-port file': 'archivo de un puerto',
+  'frequencies read in {0}': 'frecuencias leídas en {0}',
+  '"{0}": {1} points imported as load ({2}).': '«{0}»: {1} puntos importados como carga ({2}).',
+  'Project too large to fit in a link: save the file instead.': 'Proyecto demasiado grande para caber en un enlace: guarde mejor el archivo.',
+  'Link copied to the clipboard.': 'Enlace copiado al portapapeles.',
+  'Copy failed: the link is in the address bar.': 'No se pudo copiar: el enlace está en la barra de direcciones.',
+  'PNG export is not possible in this browser.': 'La exportación PNG no es posible en este navegador.',
+  'Chart image copied to the clipboard.': 'Imagen de la carta copiada al portapapeles.',
+  'Image copy refused by the browser: use the PNG export.': 'Copia de imagen rechazada por el navegador: use la exportación PNG.',
+  'Turn on the frequency sweep first.': 'Active primero el barrido en frecuencia.',
+  'Project loaded from the link.': 'Proyecto cargado desde el enlace.',
+  'Language': 'Idioma',
+});
+</script>
 
 <script id="smith-core">
 /* ============================================================================
@@ -528,6 +1844,8 @@ details.card > summary small { color: var(--muted); font-weight: 400; letter-spa
  * touches the load; the input impedance is seen after the last element.
  * ========================================================================== */
 const SmithCore = (() => {
+  // Messages go through the page's translator when there is one; the bare engine (tests) falls back to English.
+  const t = typeof SmithI18n !== 'undefined' ? SmithI18n.t : (s, ...a) => s.replace(/\{(\d+)\}/g, (m, i) => a[i]);
   'use strict';
 
   /* ==========================================================================
@@ -1302,7 +2620,7 @@ const SmithCore = (() => {
 
   /** L network: up to four solutions (two topologies, two signs). */
   const matchL = ({ zl, zt, f }) => {
-    if (!usable(zl) || !usable(zt)) return fail('Impédance nulle ou infinie : pas de réseau en L.');
+    if (!usable(zl) || !usable(zt)) return fail(t('Zero or infinite impedance: no L network.'));
     const yl = inv(zl);
     const yt = inv(zt);
     const scale = abs(zt);
@@ -1322,20 +2640,20 @@ const SmithCore = (() => {
       }
     }
     const solutions = unique(out);
-    return solutions.length ? { solutions } : fail(zl.re > 0 && zt.re > 0 ? 'Déjà adapté : aucun élément nécessaire.' : 'Partie réelle négative ou nulle : pas de réseau en L sans pertes.');
+    return solutions.length ? { solutions } : fail(zl.re > 0 && zt.re > 0 ? t('Already matched: no element needed.') : t('Negative or zero real part: no lossless L network.'));
   };
 
   /** Pi network (shunt, series, shunt) with the loaded Q imposed: two L sections
    *  back to back through a virtual resistance rv = Rhigh / (Q² + 1). */
   const matchPi = ({ zl, zt, f, q }) => {
-    if (!usable(zl) || !usable(zt)) return fail('Impédance nulle ou infinie.');
+    if (!usable(zl) || !usable(zt)) return fail(t('Zero or infinite impedance.'));
     const yl = inv(zl);
     const yt = inv(zt);
-    if (!(yl.re > 0 && yt.re > 0)) return fail('Partie réelle négative ou nulle.');
+    if (!(yl.re > 0 && yt.re > 0)) return fail(t('Negative or zero real part.'));
     const rpl = 1 / yl.re;
     const rpt = 1 / yt.re;
     const qMin = Math.sqrt(Math.max(rpl, rpt) / Math.min(rpl, rpt) - 1);
-    if (!(q > qMin)) return { solutions: [], reason: `Q trop faible : il doit dépasser ${Number(qMin.toPrecision(4))} (celui du réseau en L).`, qMin };
+    if (!(q > qMin)) return { solutions: [], reason: t('Q too low: it must exceed {0} (that of the L network).', Number(qMin.toPrecision(4))), qMin };
     const rv = Math.max(rpl, rpt) / (q * q + 1);
     const scale = abs(zt);
     const out = [];
@@ -1354,10 +2672,10 @@ const SmithCore = (() => {
   /** T network (series, shunt, series) with the loaded Q imposed, through a
    *  virtual resistance rv = Rlow · (Q² + 1). */
   const matchT = ({ zl, zt, f, q }) => {
-    if (!usable(zl) || !usable(zt)) return fail('Impédance nulle ou infinie.');
-    if (!(zl.re > 0 && zt.re > 0)) return fail('Partie réelle négative ou nulle.');
+    if (!usable(zl) || !usable(zt)) return fail(t('Zero or infinite impedance.'));
+    if (!(zl.re > 0 && zt.re > 0)) return fail(t('Negative or zero real part.'));
     const qMin = Math.sqrt(Math.max(zl.re, zt.re) / Math.min(zl.re, zt.re) - 1);
-    if (!(q > qMin)) return { solutions: [], reason: `Q trop faible : il doit dépasser ${Number(qMin.toPrecision(4))} (celui du réseau en L).`, qMin };
+    if (!(q > qMin)) return { solutions: [], reason: t('Q too low: it must exceed {0} (that of the L network).', Number(qMin.toPrecision(4))), qMin };
     const rv = Math.min(zl.re, zt.re) * (q * q + 1);
     const scale = abs(zt);
     const out = [];
@@ -1375,7 +2693,7 @@ const SmithCore = (() => {
 
   /** Single stub: a series line up to the conductance wanted, then a shunt stub. */
   const matchStub = ({ zl, zt, f, zcLine, zcStub }) => {
-    if (!usable(zl) || !usable(zt)) return fail('Impédance nulle ou infinie.');
+    if (!usable(zl) || !usable(zt)) return fail(t('Zero or infinite impedance.'));
     const yt = inv(zt);
     const yAt = (deg) => inv(throughLine(zl, zcLine, deg));
     const out = [];
@@ -1386,12 +2704,12 @@ const SmithCore = (() => {
       }
     }
     const solutions = unique(out);
-    return solutions.length ? { solutions } : fail('Aucune longueur de ligne n\'amène la charge sur le cercle de conductance visé.');
+    return solutions.length ? { solutions } : fail(t('No line length brings the load onto the target conductance circle.'));
   };
 
   /** Double stub: a stub at the load, a line of fixed length, a second stub. */
   const matchDoubleStub = ({ zl, zt, f, zcLine, zcStub, spacing }) => {
-    if (!usable(zl) || !usable(zt)) return fail('Impédance nulle ou infinie.');
+    if (!usable(zl) || !usable(zt)) return fail(t('Zero or infinite impedance.'));
     const yl = inv(zl);
     const yt = inv(zt);
     const after = (phi) => inv(throughLine(inv(cx(yl.re, yl.im + Math.tan(phi * DEG) / zcStub)), zcLine, spacing));
@@ -1404,16 +2722,16 @@ const SmithCore = (() => {
       }
     }
     const solutions = unique(out);
-    return solutions.length ? { solutions } : fail('Zone interdite : avec cet écartement, aucun réglage du premier stub n\'amène la charge sur le cercle visé. Changez l\'écartement ou ajoutez une ligne avant le premier stub.');
+    return solutions.length ? { solutions } : fail(t('Forbidden region: with this spacing, no setting of the first stub brings the load onto the target circle. Change the spacing or add a line before the first stub.'));
   };
 
   /** Quarter-wave transformer (real target). A complex load is first brought
    *  to the real axis by a line; a single line of computed impedance is offered
    *  too when it exists. */
   const matchQuarter = ({ zl, zt, f, zcLine }) => {
-    if (!usable(zl) || !usable(zt)) return fail('Impédance nulle ou infinie.');
-    if (Math.abs(zt.im) > 1e-9 * Math.abs(zt.re) || !(zt.re > 0)) return fail('Le transformateur quart d\'onde demande une cible réelle.');
-    if (!(zl.re > 0)) return fail('Partie réelle négative ou nulle.');
+    if (!usable(zl) || !usable(zt)) return fail(t('Zero or infinite impedance.'));
+    if (Math.abs(zt.im) > 1e-9 * Math.abs(zt.re) || !(zt.re > 0)) return fail(t('The quarter-wave transformer needs a real target.'));
+    if (!(zl.re > 0)) return fail(t('Negative or zero real part.'));
     const rt = zt.re;
     const out = [];
     if (Math.abs(zl.im) <= 1e-9 * abs(zl)) {
@@ -1437,7 +2755,7 @@ const SmithCore = (() => {
 
   /** A series line, then one reactive element (shunt or series). */
   const matchLineReactive = ({ zl, zt, f, zcLine }) => {
-    if (!usable(zl) || !usable(zt)) return fail('Impédance nulle ou infinie.');
+    if (!usable(zl) || !usable(zt)) return fail(t('Zero or infinite impedance.'));
     const yt = inv(zt);
     const scale = abs(zt);
     const out = [];
@@ -1448,12 +2766,12 @@ const SmithCore = (() => {
       out.push({ type: 'line+series', elements: compact([lineEl(zcLine, deg, f), seriesEl(zt.im - throughLine(zl, zcLine, deg).im, f, scale)]) });
     }
     const solutions = unique(out);
-    return solutions.length ? { solutions } : fail('Aucune longueur de ligne ne convient.');
+    return solutions.length ? { solutions } : fail(t('No line length is suitable.'));
   };
 
   const MATCHERS = { L: matchL, pi: matchPi, T: matchT, stub: matchStub, stub2: matchDoubleStub, quarter: matchQuarter, line: matchLineReactive };
   /** Matching networks of one family. opts: { zl, zt, f, q, zcLine, zcStub, spacing }. */
-  const synthesize = (family, opts) => (MATCHERS[family] ? MATCHERS[family](opts) : fail('Famille inconnue.'));
+  const synthesize = (family, opts) => (MATCHERS[family] ? MATCHERS[family](opts) : fail(t('Unknown family.')));
 
   /** 'lowpass' | 'highpass' | 'mixed' | 'lines' for a list of elements. */
   const character = (elements) => {
@@ -1576,7 +2894,7 @@ const SmithCore = (() => {
     for (const raw of String(text).split(/\r?\n/)) {
       const line = raw.split('!')[0].trim();
       if (!line) continue;
-      if (line[0] === '[') throw new Error('Touchstone 2.0 n\'est pas pris en charge : exportez le fichier au format 1.x.');
+      if (line[0] === '[') throw new Error(t('Touchstone 2.0 is not supported: export the file as version 1.x.'));
       if (line[0] === '#') {
         if (sawOptions) continue;
         sawOptions = true;
@@ -1590,15 +2908,15 @@ const SmithCore = (() => {
         continue;
       }
       const nums = line.split(/[\s,]+/).filter(Boolean).map(Number);
-      if (nums.some((v) => Number.isNaN(v))) throw new Error(`Ligne illisible dans le fichier Touchstone : « ${line.slice(0, 40)} »`);
+      if (nums.some((v) => Number.isNaN(v))) throw new Error(t('Unreadable line in the Touchstone file: "{0}"', line.slice(0, 40)));
       rows.push(nums);
     }
-    if (!(z0 > 0)) throw new Error('Impédance de référence invalide dans le fichier Touchstone.');
-    if (!rows.length) throw new Error('Aucune donnée dans le fichier Touchstone.');
+    if (!(z0 > 0)) throw new Error(t('Invalid reference impedance in the Touchstone file.'));
+    if (!rows.length) throw new Error(t('No data in the Touchstone file.'));
     const width = rows[0].length;
-    if (width !== 3 && width !== 9) throw new Error('Seuls les fichiers à 1 ou 2 ports (.s1p, .s2p) sont pris en charge.');
+    if (width !== 3 && width !== 9) throw new Error(t('Only 1-port and 2-port files (.s1p, .s2p) are supported.'));
     const ports = width === 3 ? 1 : 2;
-    if (param === 'H' || param === 'G' || (ports === 2 && param !== 'S')) throw new Error(`Paramètres ${param} non pris en charge pour un fichier à ${ports} port${ports > 1 ? 's' : ''}.`);
+    if (param === 'H' || param === 'G' || (ports === 2 && param !== 'S')) throw new Error(t('{0} parameters are not supported for a {1}-port file.', param, ports));
     const pair = (a, b) => {
       if (format === 'RI') return cx(a, b);
       return polar(format === 'DB' ? 10 ** (a / 20) : a, b);
@@ -1620,7 +2938,7 @@ const SmithCore = (() => {
       } else if (ports === 2 && r.length === 5) {
         noise.push({ f: r[0] * unit, nfmin: r[1], gopt: polar(r[2], r[3]), rn: r[4] });   // rn normalised to z0
       } else {
-        throw new Error('Nombre de valeurs inattendu sur une ligne du fichier Touchstone.');
+        throw new Error(t('Unexpected number of values on a line of the Touchstone file.'));
       }
     }
     points.sort((a, b) => a.f - b.f);
@@ -1667,13 +2985,13 @@ const SmithCore = (() => {
       if (m && unit == null) unit = UNIT_HZ[m[1].toUpperCase()];
       if (head.includes('src')) cols = [0, 2, 3];              // EZNEC: Freq MHz, Src #, R, X, ...
     }
-    if (!data.length) throw new Error('Aucune ligne « fréquence, R, X » trouvée.');
+    if (!data.length) throw new Error(t('No "frequency, R, X" line found.'));
     if (unit == null) unit = Math.max(...data.map((r) => r[cols[0]])) < 1e5 ? 1e6 : 1;
     const points = data
       .filter((r) => r.length > cols[2] && r[cols[0]] > 0)
       .map((r) => ({ f: r[cols[0]] * unit, z: { re: r[cols[1]], im: r[cols[2]] } }))
       .sort((a, b) => a.f - b.f);
-    if (!points.length) throw new Error('Aucune ligne « fréquence, R, X » exploitable.');
+    if (!points.length) throw new Error(t('No usable "frequency, R, X" line.'));
     return { points, unit };
   };
 
@@ -1820,7 +3138,7 @@ const SmithCore = (() => {
   const toCir = (project) => {
     const { z0, f0 } = project;
     const out = [
-      '* Abaque de Smith - reseau construit de la charge vers la source',
+      '* Smith chart - network built from the load towards the source',
       `* f0 = ${sp(f0)} Hz, Z0 = ${sp(z0)} ohm`,
       '* Zin = V(in) / I(Rs) ;  S11 = (Zin - Z0) / (Zin + Z0)',
       'V1 src 0 AC 1',
@@ -1859,7 +3177,7 @@ const SmithCore = (() => {
         const model = name('LTRA');
         out.push(`${name('O')} ${a} 0 ${b} 0 ${model}`);
         models.push(`.model ${model} LTRA(len=${sp(len.phys)} R=${sp(2 * el.zc * el.alpha * NP_PER_DB)} L=${sp(el.zc / v)} C=${sp(1 / (el.zc * v))})`);
-        if (el.alphaLaw !== 'const') out.push('* pertes de la ligne ci-dessus : valeur a la frequence de reference, constante dans LTspice');
+        if (el.alphaLaw !== 'const') out.push('* loss of the line above: value at the reference frequency, constant in LTspice');
       } else {
         out.push(`${name('T')} ${a} 0 ${b} 0 Td=${sp(len.delay)} Z0=${sp(el.zc)}`);
       }
@@ -1889,7 +3207,7 @@ const SmithCore = (() => {
         const b = `n${next}`;
         const mid = fresh();
         const sense = name('Vx');
-        out.push(`* transformateur ideal, Zin = n^2 * Z, n = ${sp(el.n)}`, `${sense} ${node} ${mid} 0`, `${name('Ex')} ${mid} 0 ${b} 0 ${sp(el.n)}`, `${name('Fx')} 0 ${b} ${sense} ${sp(el.n)}`);
+        out.push(`* ideal transformer, Zin = n^2 * Z, n = ${sp(el.n)}`, `${sense} ${node} ${mid} 0`, `${name('Ex')} ${mid} 0 ${b} 0 ${sp(el.n)}`, `${name('Fx')} 0 ${b} ${sense} ${sp(el.n)}`);
         node = b;
       } else if (isShunt(el)) {
         emit(el, node, '0');
@@ -1900,11 +3218,11 @@ const SmithCore = (() => {
 
     const { load } = project;
     if (load.kind === 'rlc') {
-      out.push('* charge');
+      out.push('* load');
       emitRLC(load, node, '0');
     } else {
       const z = stZ(loadState(load, f0, z0));
-      out.push(`* charge${load.kind === 'table' ? ' tabulee' : ''} : equivalent serie a f0`);
+      out.push(`* load${load.kind === 'table' ? ' (tabulated)' : ''}: series equivalent at f0`);
       if (!isFiniteCx(z)) out.push(`${name('R')} ${node} 0 1e12`);
       else {
         const react = componentForReactance(z.im, f0);
@@ -1927,8 +3245,8 @@ const SmithCore = (() => {
    *  network, node 1 on the load side. Units: MHz, ohm, nH, pF, mm. */
   const toCkt = (project) => {
     const out = [
-      '! Abaque de Smith - netlist au format de Smith (Dellsperger)',
-      '! noeud 1 = cote charge ; la charge elle-meme n\'est pas dans le circuit',
+      '! Smith chart - netlist in the Smith (Dellsperger) format',
+      '! node 1 = load side; the load itself is not in the circuit',
       'DIM FREQ=1e6 RES=1e0 IND=1e-9 CAP=1e-12 LNG=1e-3',
       '!',
       'CKT',
@@ -1947,7 +3265,7 @@ const SmithCore = (() => {
       else if (el.kind === 'TL') out.push(`TLINP ${node} ${b} 0 ${line(el)}`);
       else if (el.kind === 'STUB') out.push(`TLINP ${node} ${el.term === 'short' ? 0 : 99} 0 ${line(el)}`);
       else if (el.kind === 'XFMR') out.push(`TRF ${b} ${node} 0 0 N=${sp(el.n)} R1=0`);
-      if ((el.kind === 'L' || el.kind === 'C') && esrOf(el) > 0) out.push(`! ESR de ${sp(esrOf(el))} ohm non representee ci-dessus`);
+      if ((el.kind === 'L' || el.kind === 'C') && esrOf(el) > 0) out.push(`! ESR of ${sp(esrOf(el))} ohm not represented above`);
       if (!shunt) node += 1;
     }
     out.push(`DEF2P 1 ${node} A`, '!', 'FREQ', `FIXED ${sp(project.f0 / 1e6)}`, '');
@@ -2026,7 +3344,7 @@ const SmithCore = (() => {
    *  input is not a project at all. */
   const normalizeProject = (raw) => {
     const src = raw && typeof raw === 'object' && raw.project && typeof raw.project === 'object' ? raw.project : raw;
-    if (!src || typeof src !== 'object' || Array.isArray(src)) throw new Error('Ce fichier ne contient pas de projet.');
+    if (!src || typeof src !== 'object' || Array.isArray(src)) throw new Error(t('This file does not contain a project.'));
     const z0 = posNum(src.z0, 50);
     const f0 = posNum(src.f0, 1e9);
     const sw = src.sweep && typeof src.sweep === 'object' ? src.sweep : {};
@@ -2056,7 +3374,7 @@ const SmithCore = (() => {
   const exportProject = (project) => stringify({ app: FILE_TAG, version: 1, project }, 2);
   const importProject = (text) => {
     let raw;
-    try { raw = parseJson(text); } catch (err) { throw new Error('Fichier illisible : ce n\'est pas du JSON.'); }
+    try { raw = parseJson(text); } catch (err) { throw new Error(t('Unreadable file: it is not JSON.')); }
     return normalizeProject(raw);
   };
 
@@ -2086,7 +3404,7 @@ const SmithCore = (() => {
     let bits = 0;
     for (const ch of text) {
       const v = B64.indexOf(ch);
-      if (v < 0) throw new Error('Lien illisible.');
+      if (v < 0) throw new Error(t('Unreadable link.'));
       acc = (acc << 6) | v;
       bits += 6;
       if (bits >= 8) { bits -= 8; bytes.push((acc >> bits) & 255); acc &= (1 << bits) - 1; }
@@ -2098,9 +3416,9 @@ const SmithCore = (() => {
   const encodeLink = (project) => `p1.${toBase64Url(utf8Bytes(stringify(project)))}`;
   const decodeLink = (fragment) => {
     const m = /^#?p1\.([A-Za-z0-9_-]+)$/.exec(String(fragment).trim());
-    if (!m) throw new Error('Lien illisible.');
+    if (!m) throw new Error(t('Unreadable link.'));
     let raw;
-    try { raw = parseJson(utf8Text(fromBase64Url(m[1]))); } catch (err) { throw new Error('Lien illisible.'); }
+    try { raw = parseJson(utf8Text(fromBase64Url(m[1]))); } catch (err) { throw new Error(t('Unreadable link.')); }
     return normalizeProject(raw);
   };
 
@@ -2439,6 +3757,7 @@ const SmithChart = (() => {
   const { cx: K, rf, eng, net, io, match, eseries, amp } = SmithCore;
   const CR = SmithChart;
   const $ = (id) => document.getElementById(id);
+  const tr = SmithI18n.t;
   const esc = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
 
   /* --- Formatting ---------------------------------------------------------------- */
@@ -2454,17 +3773,18 @@ const SmithChart = (() => {
   const fmtDb = (v) => (v == null ? '—' : `${sig(v)} dB`);
   const fmtJ = (x, unit) => `${x < 0 ? '−' : '+'}j${eng.format(Math.abs(x), unit)}`;
 
-  const CONN = { series: 'série', shunt: '//' };
   const degAt = (el, f0) => (el.fref > 0 ? el.deg * f0 / el.fref : el.deg);
   const describe = (el, f0) => {
     switch (el.kind) {
-      case 'R': return `R ${CONN[el.conn]} ${eng.format(el.value, 'Ω')}`;
-      case 'L': return `L ${CONN[el.conn]} ${eng.format(el.value, 'H')}`;
-      case 'C': return `C ${CONN[el.conn]} ${eng.format(el.value, 'F')}`;
-      case 'RLC': return `R-L-C ${el.topology === 'parallel' ? 'parallèle' : 'série'}, en ${el.conn === 'shunt' ? 'parallèle' : 'série'}`;
-      case 'TL': return `Ligne ${sig(el.zc)} Ω, ${sig(degAt(el, f0))}°`;
-      case 'STUB': return `Stub ${el.term === 'short' ? 'court-circuité' : 'ouvert'} ${sig(el.zc)} Ω, ${sig(degAt(el, f0))}°`;
-      case 'XFMR': return `Transformateur n = ${sig(el.n)}`;
+      case 'R': return el.conn === 'shunt' ? `R // ${eng.format(el.value, 'Ω')}` : tr('R series {0}', eng.format(el.value, 'Ω'));
+      case 'L': return el.conn === 'shunt' ? `L // ${eng.format(el.value, 'H')}` : tr('L series {0}', eng.format(el.value, 'H'));
+      case 'C': return el.conn === 'shunt' ? `C // ${eng.format(el.value, 'F')}` : tr('C series {0}', eng.format(el.value, 'F'));
+      case 'RLC':
+        if (el.topology === 'parallel') return el.conn === 'shunt' ? tr('Parallel R-L-C, in shunt') : tr('Parallel R-L-C, in series');
+        return el.conn === 'shunt' ? tr('Series R-L-C, in shunt') : tr('Series R-L-C, in series');
+      case 'TL': return tr('Line {0} Ω, {1}°', sig(el.zc), sig(degAt(el, f0)));
+      case 'STUB': return el.term === 'short' ? tr('Short-circuit stub {0} Ω, {1}°', sig(el.zc), sig(degAt(el, f0))) : tr('Open stub {0} Ω, {1}°', sig(el.zc), sig(degAt(el, f0)));
+      case 'XFMR': return tr('Transformer n = {0}', sig(el.n));
       default: return '?';
     }
   };
@@ -2482,13 +3802,13 @@ const SmithChart = (() => {
   };
   const kindName = (el) => {
     switch (el.kind) {
-      case 'R': return `résistance ${el.conn === 'shunt' ? 'parallèle' : 'série'}`;
-      case 'L': return `inductance ${el.conn === 'shunt' ? 'parallèle' : 'série'}`;
-      case 'C': return `capacité ${el.conn === 'shunt' ? 'parallèle' : 'série'}`;
-      case 'RLC': return `R-L-C en ${el.conn === 'shunt' ? 'parallèle' : 'série'}`;
-      case 'TL': return 'ligne série';
-      case 'STUB': return `stub ${el.term === 'short' ? 'court-circuité' : 'ouvert'}`;
-      case 'XFMR': return 'transformateur';
+      case 'R': return el.conn === 'shunt' ? tr('shunt resistor') : tr('series resistor');
+      case 'L': return el.conn === 'shunt' ? tr('shunt inductor') : tr('series inductor');
+      case 'C': return el.conn === 'shunt' ? tr('shunt capacitor') : tr('series capacitor');
+      case 'RLC': return el.conn === 'shunt' ? tr('R-L-C in shunt') : tr('R-L-C in series');
+      case 'TL': return tr('series line');
+      case 'STUB': return el.term === 'short' ? tr('short-circuit stub') : tr('open stub');
+      case 'XFMR': return tr('transformer');
       default: return '';
     }
   };
@@ -2500,9 +3820,9 @@ const SmithChart = (() => {
     return parts.join(o.topology === 'parallel' ? ' // ' : ' + ');
   };
   const describeLoad = (load) => {
-    if (load.kind === 'z') return `Charge ${fmtZ(load.z)}`;
-    if (load.kind === 'rlc') return `Charge ${rlcParts(load)}`;
-    return `Charge tabulée (${load.points.length} points)`;
+    if (load.kind === 'z') return tr('Load {0}', fmtZ(load.z));
+    if (load.kind === 'rlc') return tr('Load {0}', rlcParts(load));
+    return tr('Tabulated load ({0} points)', load.points.length);
   };
   const nodeName = (i) => (i === 0 ? 'DP1' : `TP${i + 1}`);
 
@@ -2524,17 +3844,17 @@ const SmithChart = (() => {
     ...extra,
   });
   const PRESETS = [
-    { name: 'Slide 17 — réseau en échelle, charge 2 + j10 Ω', make: () => base({ f0: 869e6, load: { kind: 'z', z: { re: 2, im: 10 } }, elements: ladder(), sweep: { on: false, start: 700e6, stop: 1000e6, points: 201, scale: 'lin' } }) },
-    { name: 'Slide 16 — même réseau, charge 92 nH + 2 Ω', make: () => base({ f0: 869e6, load: { kind: 'rlc', topology: 'series', r: 2, l: 92e-9, c: null }, elements: ladder(), sweep: { on: false, start: 700e6, stop: 1000e6, points: 201, scale: 'lin' } }) },
-    { name: 'Slide 6 — placement d\'impédances', make: () => base({ load: { kind: 'z', z: zn(0.6, 0.8) }, markers: [{ label: 'z = 1', z: zn(1, 0) }, { label: 'z = 1,2 − j1,4', z: zn(1.2, -1.4) }] }) },
-    { name: 'Slide 7 — C série, Δ = −j1,1', make: () => base({ load: { kind: 'z', z: zn(0.6, 0.8) }, elements: [seriesX(-1.1)] }) },
-    { name: 'Slide 8 — L série, Δ = +j1,8', make: () => base({ load: { kind: 'z', z: zn(1.2, -1.4) }, elements: [seriesX(1.8)] }) },
-    { name: 'Slide 9 — R-L-C série, Q = 1', make: () => base({ f0: rf.rlcResonance({ r: 30, l: 5.5e-9, c: 6.11e-12 }).f0, load: { kind: 'rlc', topology: 'series', r: 30, l: 5.5e-9, c: 6.11e-12 }, circles: { vswr: [], q: [1] }, sweep: { on: true, start: 300e6, stop: 2500e6, points: 201, scale: 'log' } }) },
-    { name: 'Slide 10 — impédance et admittance', make: () => base({ load: { kind: 'z', z: zn(0.6, 1.4) }, markers: [{ label: 'y = 0,26 − j0,6', z: K.scale(rf.invZ(K.make(0.6, 1.4)), 50) }] }) },
-    { name: 'Slide 13 — C parallèle, Δ = +j1,4', make: () => base({ load: { kind: 'z', z: yn(1.2, -0.4) }, elements: [shuntB(1.4)] }) },
-    { name: 'Slide 14 — L parallèle, Δ = −j1,4', make: () => base({ load: { kind: 'z', z: yn(1.2, 1.0) }, elements: [shuntB(-1.4)] }) },
-    { name: 'Slide 15 — variation de fréquence', make: () => base({ load: { kind: 'rlc', topology: 'series', r: 25, l: 8e-9, c: 3e-12 }, sweep: { on: true, start: 200e6, stop: 3e9, points: 201, scale: 'log' } }) },
-    { name: 'Projet vide — charge 50 Ω', make: () => base({}) },
+    { name: 'Slide 17 — ladder network, load 2 + j10 Ω', make: () => base({ f0: 869e6, load: { kind: 'z', z: { re: 2, im: 10 } }, elements: ladder(), sweep: { on: false, start: 700e6, stop: 1000e6, points: 201, scale: 'lin' } }) },
+    { name: 'Slide 16 — same network, load 92 nH + 2 Ω', make: () => base({ f0: 869e6, load: { kind: 'rlc', topology: 'series', r: 2, l: 92e-9, c: null }, elements: ladder(), sweep: { on: false, start: 700e6, stop: 1000e6, points: 201, scale: 'lin' } }) },
+    { name: 'Slide 6 — placing impedances', make: () => base({ load: { kind: 'z', z: zn(0.6, 0.8) }, markers: [{ label: 'z = 1', z: zn(1, 0) }, { label: tr('z = 1.2 − j1.4'), z: zn(1.2, -1.4) }] }) },
+    { name: 'Slide 7 — series C, Δ = −j1.1', make: () => base({ load: { kind: 'z', z: zn(0.6, 0.8) }, elements: [seriesX(-1.1)] }) },
+    { name: 'Slide 8 — series L, Δ = +j1.8', make: () => base({ load: { kind: 'z', z: zn(1.2, -1.4) }, elements: [seriesX(1.8)] }) },
+    { name: 'Slide 9 — series R-L-C, Q = 1', make: () => base({ f0: rf.rlcResonance({ r: 30, l: 5.5e-9, c: 6.11e-12 }).f0, load: { kind: 'rlc', topology: 'series', r: 30, l: 5.5e-9, c: 6.11e-12 }, circles: { vswr: [], q: [1] }, sweep: { on: true, start: 300e6, stop: 2500e6, points: 201, scale: 'log' } }) },
+    { name: 'Slide 10 — impedance and admittance', make: () => base({ load: { kind: 'z', z: zn(0.6, 1.4) }, markers: [{ label: tr('y = 0.26 − j0.6'), z: K.scale(rf.invZ(K.make(0.6, 1.4)), 50) }] }) },
+    { name: 'Slide 13 — shunt C, Δ = +j1.4', make: () => base({ load: { kind: 'z', z: yn(1.2, -0.4) }, elements: [shuntB(1.4)] }) },
+    { name: 'Slide 14 — shunt L, Δ = −j1.4', make: () => base({ load: { kind: 'z', z: yn(1.2, 1.0) }, elements: [shuntB(-1.4)] }) },
+    { name: 'Slide 15 — frequency variation', make: () => base({ load: { kind: 'rlc', topology: 'series', r: 25, l: 8e-9, c: 3e-12 }, sweep: { on: true, start: 200e6, stop: 3e9, points: 201, scale: 'log' } }) },
+    { name: 'Empty project — 50 Ω load', make: () => base({}) },
   ];
 
   /* --- State and history ---------------------------------------------------------------- */
@@ -2681,7 +4001,7 @@ const SmithChart = (() => {
       sweep = `<path class="sweep" d="${CR.polyD(v, gammas)}"/>`;
       const at = CR.pointAlong(v, gammas, 0.8);
       if (at && at.length > 30) {
-        sweep += `<path class="sweep-head" d="${CR.arrowD(at, 11)}"/><text class="ring-label" x="${(at.x + 10).toFixed(1)}" y="${(at.y - 8).toFixed(1)}">f croissant</text>`;
+        sweep += `<path class="sweep-head" d="${CR.arrowD(at, 11)}"/><text class="ring-label" x="${(at.x + 10).toFixed(1)}" y="${(at.y - 8).toFixed(1)}">${tr('f increasing')}</text>`;
       }
     }
     $('l-sweep').innerHTML = sweep;
@@ -2806,10 +4126,10 @@ const SmithChart = (() => {
 
     // load: an impedance box between the rails
     hit(0, xLoad - LOADW / 2 + 2, LOADW - 4, `DP1, ${describeLoad(p.load)}`);
-    const loadText = p.load.kind === 'z' ? fmtZ(p.load.z) : p.load.kind === 'rlc' ? rlcParts(p.load) : `Z(f), ${p.load.points.length} points`;
+    const loadText = p.load.kind === 'z' ? fmtZ(p.load.z) : p.load.kind === 'rlc' ? rlcParts(p.load) : tr('Z(f), {0} points', p.load.points.length);
     body += `<path class="s-wire" d="M${xLoad} ${TOP}V${TOP + 12}M${xLoad} ${BOT - 12}V${BOT}"/><rect class="s-sym" x="${xLoad - 8}" y="${TOP + 12}" width="16" height="${BOT - TOP - 24}"/>`;
     body += `<text class="s-val" x="${xLoad + (flip ? -14 : 14)}" y="${MID + 4}" text-anchor="${flip ? 'end' : 'start'}">Z<tspan font-size="8" dy="3">L</tspan></text>`;
-    body += `<text class="s-val" x="${xLoad}" y="${BOT + 18}" text-anchor="middle">${esc(loadText)}</text><text class="s-name" x="${xLoad}" y="${TOP - 10}" text-anchor="middle">DP1 · charge</text>`;
+    body += `<text class="s-val" x="${xLoad}" y="${BOT + 18}" text-anchor="middle">${esc(loadText)}</text><text class="s-name" x="${xLoad}" y="${TOP - 10}" text-anchor="middle">${tr('DP1 · load')}</text>`;
 
     // rails, with gaps where series elements sit
     const x0 = Math.min(xPort, xLoad);
@@ -2822,7 +4142,7 @@ const SmithChart = (() => {
     body = `<path class="s-wire" d="${rail}"/>${body}`;
     body += `<circle class="s-port" cx="${xPort}" cy="${TOP}" r="3.2"/><circle class="s-port" cx="${xPort}" cy="${BOT}" r="3.2"/>`;
     body += `<text class="s-val" x="${xPort}" y="${MID + 4}" text-anchor="middle">${flip ? '← Z' : 'Z'}<tspan font-size="8" dy="3">in</tspan><tspan dy="-3">${flip ? '' : ' →'}</tspan></text>`;
-    body += `<text class="s-name" x="${xPort}" y="${TOP - 10}" text-anchor="middle">entrée</text>`;
+    body += `<text class="s-name" x="${xPort}" y="${TOP - 10}" text-anchor="middle">${tr('input')}</text>`;
 
     const el = $('schem');
     el.setAttribute('width', total);
@@ -2886,12 +4206,12 @@ const SmithChart = (() => {
     const opts = additive
       ? [[10, '± 10°'], [45, '± 45°'], [180, '± 180°']].map(([v, t]) => `<option value="${v}"${v === s.span ? ' selected' : ''}>${t}</option>`).join('')
       : [[1.2, '± 20 %'], [2, '÷ 2 … × 2'], [10, '÷ 10 … × 10']].map(([v, t]) => `<option value="${v}"${v === s.ratio ? ' selected' : ''}>${t}</option>`).join('');
-    return `<div class="row"><label for="slider">Réglage</label><input type="range" id="slider" min="-1" max="1" step="0.002" value="0" aria-label="Réglage fin de la valeur"><select class="narrow" data-act="slider-range" aria-label="Plage du réglage">${opts}</select></div>`;
+    return `<div class="row"><label for="slider">${tr('Adjustment')}</label><input type="range" id="slider" min="-1" max="1" step="0.002" value="0" aria-label="${esc(tr('Fine adjustment of the value'))}"><select class="narrow" data-act="slider-range" aria-label="${esc(tr('Adjustment range'))}">${opts}</select></div>`;
   };
 
   const lossRows = (E, kind) => {
     const mode = E().loss ? E().loss.mode : 'none';
-    let out = selectRow('loss-mode', 'Pertes', [['none', 'Idéal'], ['esr', 'Résistance série'], ['q', 'Q à une fréquence']], mode, (value) => change((p) => {
+    let out = selectRow('loss-mode', tr('Losses'), [['none', tr('Ideal')], ['esr', tr('Series resistance')], ['q', tr('Q at one frequency')]], mode, (value) => change((p) => {
       const el = E();
       if (value === 'none') delete el.loss;
       else if (value === 'esr') el.loss = { mode: 'esr', esr: 0.5 };
@@ -2900,7 +4220,7 @@ const SmithChart = (() => {
     if (mode === 'esr') out += fieldRow('loss-esr', 'ESR', { unit: 'Ω', get: () => E().loss.esr, set: (v) => { E().loss.esr = v; }, ok: (v) => v >= 0 && Number.isFinite(v), scope: 'esr' });
     if (mode === 'q') {
       out += fieldRow('loss-q', 'Q', { unit: '', get: () => E().loss.q, set: (v) => { E().loss.q = v; }, scope: 'q' });
-      out += fieldRow('loss-f', 'à la fréquence', { unit: 'Hz', get: () => E().loss.f, set: (v) => { E().loss.f = v; }, scope: 'qf' });
+      out += fieldRow('loss-f', tr('at frequency'), { unit: 'Hz', get: () => E().loss.f, set: (v) => { E().loss.f = v; }, scope: 'qf' });
     }
     return out;
   };
@@ -2913,15 +4233,15 @@ const SmithChart = (() => {
     const degText = (v) => `${sig(v, 5).replace('−', '-')}°`;
     let out = fieldRow('tl-zc', 'Zc', { unit: 'Ω', get: () => E().zc, set: (v) => { E().zc = v; }, scope: 'zc' });
     const degDef = { unit: '°', get: () => at0().deg, set: setDeg, ok: (v) => v >= 0 && Number.isFinite(v), text: degText, step: stepAdd(1), scope: 'deg' };
-    out += fieldRow('tl-deg', 'Longueur θ', degDef);
+    out += fieldRow('tl-deg', tr('Length θ'), degDef);
     out += sliderRow(degDef, true);
-    out += fieldRow('tl-lambda', 'en λ', { unit: 'λ', get: () => at0().deg / 360, set: (v) => setDeg(360 * v), ok: (v) => v >= 0 && Number.isFinite(v), text: (v) => `${sig(v, 5)} λ`, step: stepAdd(0.005), scope: 'deg' });
-    out += fieldRow('tl-elec', 'électrique', { unit: 'm', get: () => at0().deg / 360 * wave(), set: (v) => setDeg(360 * v / wave()), ok: (v) => v >= 0 && Number.isFinite(v), scope: 'deg' });
-    out += fieldRow('tl-phys', 'physique', { unit: 'm', get: () => rf.lineLengths(E()).phys, set: (v) => setDeg(360 * v * Math.sqrt(E().er || 1) / wave()), ok: (v) => v >= 0 && Number.isFinite(v), scope: 'deg' });
-    out += fieldRow('tl-er', 'εr effectif', { unit: '', get: () => E().er || 1, set: (v) => { E().er = v; }, ok: (v) => v >= 1 && Number.isFinite(v), scope: 'er' });
-    out += fieldRow('tl-vf', 'Facteur de vélocité', { unit: '', get: () => 1 / Math.sqrt(E().er || 1), set: (v) => { E().er = 1 / (v * v); }, ok: (v) => v > 0 && v <= 1, scope: 'er' });
-    out += fieldRow('tl-alpha', 'Pertes α', { unit: 'dB/m', get: () => at0().alpha || 0, set: (v) => Object.assign(E(), at0(), { alpha: v }), ok: (v) => v >= 0 && Number.isFinite(v), text: (v) => `${sig(v, 4).replace('−', '-')} dB/m`, step: stepAdd(0.1), scope: 'alpha' });
-    out += selectRow('tl-law', 'Loi des pertes', [['sqrt', 'α · √(f / f₀), conducteur'], ['const', 'α constant']], E().alphaLaw === 'const' ? 'const' : 'sqrt', (value) => change(() => { E().alphaLaw = value; }));
+    out += fieldRow('tl-lambda', tr('in λ'), { unit: 'λ', get: () => at0().deg / 360, set: (v) => setDeg(360 * v), ok: (v) => v >= 0 && Number.isFinite(v), text: (v) => `${sig(v, 5)} λ`, step: stepAdd(0.005), scope: 'deg' });
+    out += fieldRow('tl-elec', tr('electrical'), { unit: 'm', get: () => at0().deg / 360 * wave(), set: (v) => setDeg(360 * v / wave()), ok: (v) => v >= 0 && Number.isFinite(v), scope: 'deg' });
+    out += fieldRow('tl-phys', tr('physical'), { unit: 'm', get: () => rf.lineLengths(E()).phys, set: (v) => setDeg(360 * v * Math.sqrt(E().er || 1) / wave()), ok: (v) => v >= 0 && Number.isFinite(v), scope: 'deg' });
+    out += fieldRow('tl-er', tr('Effective εr'), { unit: '', get: () => E().er || 1, set: (v) => { E().er = v; }, ok: (v) => v >= 1 && Number.isFinite(v), scope: 'er' });
+    out += fieldRow('tl-vf', tr('Velocity factor'), { unit: '', get: () => 1 / Math.sqrt(E().er || 1), set: (v) => { E().er = 1 / (v * v); }, ok: (v) => v > 0 && v <= 1, scope: 'er' });
+    out += fieldRow('tl-alpha', tr('Loss α'), { unit: 'dB/m', get: () => at0().alpha || 0, set: (v) => Object.assign(E(), at0(), { alpha: v }), ok: (v) => v >= 0 && Number.isFinite(v), text: (v) => `${sig(v, 4).replace('−', '-')} dB/m`, step: stepAdd(0.1), scope: 'alpha' });
+    out += selectRow('tl-law', tr('Loss law'), [['sqrt', tr('α · √(f / f₀), conductor')], ['const', tr('constant α')]], E().alphaLaw === 'const' ? 'const' : 'sqrt', (value) => change(() => { E().alphaLaw = value; }));
     return out;
   };
 
@@ -2934,9 +4254,9 @@ const SmithChart = (() => {
         if (!checked) o[key] = null;
         else o[key] = net.defaultElement(key.toUpperCase(), 'series', state.project).value;
       }));
-      const box = `<input type="checkbox" data-act="${prefix}-has-${key}"${present ? ' checked' : ''} aria-label="${label} présent">`;
+      const box = `<input type="checkbox" data-act="${prefix}-has-${key}"${present ? ' checked' : ''} aria-label="${esc(tr('{0} present', label))}">`;
       if (present) out += fieldRow(`${prefix}-${key}`, label, { unit, get: () => O()[key], set: (v) => { O()[key] = v; }, scope: `${prefix}${key}` }, box);
-      else out += `<div class="row"><label>${label}</label><span class="empty" style="flex:1">absent</span>${box}</div>`;
+      else out += `<div class="row"><label>${label}</label><span class="empty" style="flex:1">${tr('absent')}</span>${box}</div>`;
     }
     return out;
   };
@@ -2945,16 +4265,16 @@ const SmithChart = (() => {
   const LOAD_FORMATS = {
     z: { name: 'Z = R + jX', labels: ['R', 'X'], units: ['Ω', 'Ω'], to: (z) => [z.re, z.im], from: (a, b) => K.make(a, b) },
     y: { name: 'Y = G + jB', labels: ['G', 'B'], units: ['S', 'S'], to: (z) => { const y = rf.invZ(z); return [y.re, y.im]; }, from: (a, b) => rf.invZ(K.make(a, b)) },
-    zn: { name: 'z normalisée', labels: ['r', 'x'], units: ['', ''], to: (z, z0) => [z.re / z0, z.im / z0], from: (a, b, z0) => K.make(a * z0, b * z0) },
-    yn: { name: 'y normalisée', labels: ['g', 'b'], units: ['', ''], to: (z, z0) => { const y = rf.invZ(z); return [y.re * z0, y.im * z0]; }, from: (a, b, z0) => rf.invZ(K.make(a / z0, b / z0)) },
-    gamma: { name: 'Γ module ∠ phase', labels: ['|Γ|', 'Phase'], units: ['', '°'], to: (z, z0) => { const g = rf.zToGamma(z, z0); return [K.abs(g), K.arg(g) * 180 / Math.PI]; }, from: (a, b, z0) => rf.gammaToZ(K.polar(a, b), z0) },
-    s11: { name: 'S11 en dB ∠ phase', labels: ['|S11|', 'Phase'], units: ['dB', '°'], to: (z, z0) => { const g = rf.zToGamma(z, z0); return [20 * Math.log10(K.abs(g)), K.arg(g) * 180 / Math.PI]; }, from: (a, b, z0) => rf.gammaToZ(K.polar(10 ** (a / 20), b), z0) },
+    zn: { get name() { return tr('normalized z'); }, labels: ['r', 'x'], units: ['', ''], to: (z, z0) => [z.re / z0, z.im / z0], from: (a, b, z0) => K.make(a * z0, b * z0) },
+    yn: { get name() { return tr('normalized y'); }, labels: ['g', 'b'], units: ['', ''], to: (z, z0) => { const y = rf.invZ(z); return [y.re * z0, y.im * z0]; }, from: (a, b, z0) => rf.invZ(K.make(a / z0, b / z0)) },
+    gamma: { get name() { return tr('Γ magnitude ∠ phase'); }, get labels() { return ['|Γ|', tr('Phase')]; }, units: ['', '°'], to: (z, z0) => { const g = rf.zToGamma(z, z0); return [K.abs(g), K.arg(g) * 180 / Math.PI]; }, from: (a, b, z0) => rf.gammaToZ(K.polar(a, b), z0) },
+    s11: { get name() { return tr('S11 in dB ∠ phase'); }, get labels() { return ['|S11|', tr('Phase')]; }, units: ['dB', '°'], to: (z, z0) => { const g = rf.zToGamma(z, z0); return [20 * Math.log10(K.abs(g)), K.arg(g) * 180 / Math.PI]; }, from: (a, b, z0) => rf.gammaToZ(K.polar(10 ** (a / 20), b), z0) },
   };
 
   const loadEditor = () => {
     const L = () => state.project.load;
     const z0 = () => state.project.z0;
-    let out = selectRow('load-kind', 'Type', [['z', 'Impédance fixe'], ['rlc', 'Circuit R-L-C'], ['table', 'Table Z(f)']], L().kind, (value) => change((p) => {
+    let out = selectRow('load-kind', tr('Type'), [['z', tr('Fixed impedance')], ['rlc', tr('R-L-C circuit')], ['table', tr('Z(f) table')]], L().kind, (value) => change((p) => {
       const z = model.nodes[0].z;
       if (value === 'z') p.load = { kind: 'z', z: K.isFinite(z) ? { re: z.re, im: z.im } : { re: p.z0, im: 0 } };
       else if (value === 'rlc') p.load = { kind: 'rlc', topology: 'series', r: K.isFinite(z) && z.re > 0 ? z.re : p.z0, l: null, c: null };
@@ -2962,7 +4282,7 @@ const SmithChart = (() => {
     }));
     if (L().kind === 'z') {
       const fmt = LOAD_FORMATS[state.loadFmt];
-      out += selectRow('load-fmt', 'Saisie', Object.entries(LOAD_FORMATS).map(([k, f]) => [k, f.name]), state.loadFmt, (value) => { state.loadFmt = value; drawEditor(true); });
+      out += selectRow('load-fmt', tr('Input'), Object.entries(LOAD_FORMATS).map(([k, f]) => [k, f.name]), state.loadFmt, (value) => { state.loadFmt = value; drawEditor(true); });
       [0, 1].forEach((part) => {
         const unit = fmt.units[part];
         out += fieldRow(`load-${part}`, fmt.labels[part], {
@@ -2975,9 +4295,9 @@ const SmithChart = (() => {
           scope: 'load',
         });
       });
-      out += '<p class="info">Le point DP1 se glisse aussi directement sur l\'abaque. La charge reste fixe quand la fréquence varie.</p>';
+      out += `<p class="info">${tr('The DP1 point can also be dragged directly on the chart. The load stays fixed when the frequency varies.')}</p>`;
     } else if (L().kind === 'rlc') {
-      out += segRow('load-topo', 'Montage', [['series', 'Série'], ['parallel', 'Parallèle']], L().topology, (value) => change(() => { L().topology = value; }));
+      out += segRow('load-topo', tr('Connection'), [['series', tr('Series')], ['parallel', tr('Parallel')]], L().topology, (value) => change(() => { L().topology = value; }));
       out += rlcRows(L, 'load', (fn) => change(fn));
     } else {
       const text = L().points.map((pt) => `${eng.format(pt.f, 'Hz', 6)}  ${sig(pt.z.re, 6).replace('−', '-')}  ${sig(pt.z.im, 6).replace('−', '-')}`).join('\n');
@@ -2998,7 +4318,7 @@ const SmithChart = (() => {
         change(() => { L().points = points; });
         return true;
       });
-      out += `<p class="info">Une ligne par point : fréquence, R, X (en ohms). Interpolation linéaire sur Γ, sans extrapolation.</p><textarea data-act="load-table" spellcheck="false" aria-label="Points de la charge">${esc(text)}</textarea>`;
+      out += `<p class="info">${tr('One line per point: frequency, R, X (in ohms). Linear interpolation on Γ, no extrapolation.')}</p><textarea data-act="load-table" spellcheck="false" aria-label="${esc(tr('Load points'))}">${esc(text)}</textarea>`;
     }
     return out;
   };
@@ -3009,27 +4329,27 @@ const SmithChart = (() => {
     const p = state.project;
     const count = p.elements.length;
     let out = '';
-    const connRow = () => segRow('conn', 'Montage', [['series', 'Série'], ['shunt', 'Parallèle']], el.conn, (value) => change(() => { E().conn = value; }));
+    const connRow = () => segRow('conn', tr('Connection'), [['series', tr('Series')], ['shunt', tr('Shunt')]], el.conn, (value) => change(() => { E().conn = value; }));
 
     if (el.kind === 'R' || el.kind === 'L' || el.kind === 'C') {
       const unit = { R: 'Ω', L: 'H', C: 'F' }[el.kind];
       const def = { unit, get: () => E().value, set: (v) => { E().value = v; }, scope: 'value' };
-      out += connRow() + fieldRow('value', 'Valeur', def) + sliderRow(def, false);
-      out += `<div class="row"><label>Normaliser</label><div class="actions" style="margin:0">${['E12', 'E24', 'E96'].map((name) => button(`snap-${name}`, name, () => change(() => { E().value = eseries.snap(E().value, name); }))).join('')}</div></div>`;
+      out += connRow() + fieldRow('value', tr('Value'), def) + sliderRow(def, false);
+      out += `<div class="row"><label>${tr('Normalize')}</label><div class="actions" style="margin:0">${['E12', 'E24', 'E96'].map((name) => button(`snap-${name}`, name, () => change(() => { E().value = eseries.snap(E().value, name); }))).join('')}</div></div>`;
       if (el.kind !== 'R') out += lossRows(E, el.kind);
     } else if (el.kind === 'RLC') {
       out += connRow();
-      out += segRow('topo', 'Circuit', [['series', 'R-L-C série'], ['parallel', 'R-L-C parallèle']], el.topology, (value) => change(() => { E().topology = value; }));
+      out += segRow('topo', tr('Circuit'), [['series', tr('Series R-L-C')], ['parallel', tr('Parallel R-L-C')]], el.topology, (value) => change(() => { E().topology = value; }));
       out += rlcRows(E, 'rlc', (fn) => change(fn));
     } else if (el.kind === 'TL') {
       out += lineRows(E);
     } else if (el.kind === 'STUB') {
-      out += segRow('term', 'Extrémité', [['open', 'Ouverte'], ['short', 'Court-circuit']], el.term, (value) => change(() => { E().term = value; }));
+      out += segRow('term', tr('End'), [['open', tr('Open')], ['short', tr('Short circuit')]], el.term, (value) => change(() => { E().term = value; }));
       out += lineRows(E);
     } else if (el.kind === 'XFMR') {
       const def = { unit: '', get: () => E().n, set: (v) => { E().n = v; }, text: (v) => sig(v, 5), scope: 'n' };
-      out += fieldRow('xf-n', 'Rapport n', def) + sliderRow(def, false);
-      out += '<p class="info">Transformateur idéal : Z<sub>in</sub> = n² · Z (n = spires côté source / spires côté charge).</p>';
+      out += fieldRow('xf-n', tr('Ratio n'), def) + sliderRow(def, false);
+      out += `<p class="info">${tr('Ideal transformer: Z<sub>in</sub> = n² · Z (n = turns on the source side / turns on the load side).')}</p>`;
     }
 
     out += infoRow('step', () => {
@@ -3038,21 +4358,21 @@ const SmithChart = (() => {
       const h = el.kind === 'TL' || el.kind === 'XFMR' ? null : net.branchOf(E(), state.project.f0);
       if (h && !K.isZero(h.d) && !K.isZero(h.n)) {
         const zb = K.div(h.n, h.d);
-        bits.push(info.shunt ? `Admittance de la branche à f₀ : <b>${esc(fmtY(rf.invZ(zb)))}</b>` : `Impédance de la branche à f₀ : <b>${esc(fmtZ(zb))}</b>`);
+        bits.push(info.shunt ? tr('Branch admittance at f₀: <b>{0}</b>', esc(fmtY(rf.invZ(zb)))) : tr('Branch impedance at f₀: <b>{0}</b>', esc(fmtZ(zb))));
       }
-      if (info.locus && info.locus.type === 'r') bits.push(`Cercle r = ${esc(sig(info.locus.value))}, Δx = <b>${esc(fmtJn(info.locus.delta))}</b>`);
-      else if (info.locus && info.locus.type === 'g') bits.push(`Cercle g = ${esc(sig(info.locus.value))}, Δb = <b>${esc(fmtJn(info.locus.delta))}</b>`);
-      else if (info.locus && info.locus.type === 'gamma') bits.push(`Cercle |Γ| = ${esc(sig(info.locus.value))}, rotation de <b>${esc(sig(info.locus.delta))}°</b>`);
+      if (info.locus && info.locus.type === 'r') bits.push(tr('Circle r = {0}, Δx = <b>{1}</b>', esc(sig(info.locus.value)), esc(fmtJn(info.locus.delta))));
+      else if (info.locus && info.locus.type === 'g') bits.push(tr('Circle g = {0}, Δb = <b>{1}</b>', esc(sig(info.locus.value)), esc(fmtJn(info.locus.delta))));
+      else if (info.locus && info.locus.type === 'gamma') bits.push(tr('Circle |Γ| = {0}, rotation of <b>{1}°</b>', esc(sig(info.locus.value)), esc(sig(info.locus.delta))));
       else if (info.dz) bits.push(`Δz = <b>${esc(fmtCx(info.dz))}</b>`);
       return bits.join('<br>');
     });
 
     out += '<div class="actions">';
-    out += button('move-load', 'Vers la charge', () => change((q) => { const e = q.elements; [e[i - 1], e[i]] = [e[i], e[i - 1]]; state.selected = i; }), i === 0);
-    out += button('move-src', 'Vers la source', () => change((q) => { const e = q.elements; [e[i + 1], e[i]] = [e[i], e[i + 1]]; state.selected = i + 2; }), i === count - 1);
-    out += button('dup', 'Dupliquer', () => change((q) => { q.elements.splice(i + 1, 0, io.parse(io.stringify(E()))); state.selected = i + 2; }));
-    out += button('toggle', el.off ? 'Réactiver' : 'Désactiver', () => change(() => { E().off = !E().off; }));
-    out += button('del', 'Supprimer', () => removeElement(i));
+    out += button('move-load', tr('Toward load'), () => change((q) => { const e = q.elements; [e[i - 1], e[i]] = [e[i], e[i - 1]]; state.selected = i; }), i === 0);
+    out += button('move-src', tr('Toward source'), () => change((q) => { const e = q.elements; [e[i + 1], e[i]] = [e[i], e[i + 1]]; state.selected = i + 2; }), i === count - 1);
+    out += button('dup', tr('Duplicate'), () => change((q) => { q.elements.splice(i + 1, 0, io.parse(io.stringify(E()))); state.selected = i + 2; }));
+    out += button('toggle', el.off ? tr('Re-enable') : tr('Disable'), () => change(() => { E().off = !E().off; }));
+    out += button('del', tr('Delete'), () => removeElement(i));
     out += '</div>';
     return out;
   };
@@ -3065,12 +4385,12 @@ const SmithChart = (() => {
     const node = state.selected;
     useReg(editorReg);
     fields.clear(); infos.clear(); actions.clear();
-    let title = 'Élément';
+    let title = tr('Element');
     let html;
     if (node < 0) {
-      html = '<p class="empty">Sélectionnez la charge ou un élément (schéma, abaque ou tableau des points) pour le modifier. Les boutons « Série » et « Parallèle » ajoutent un élément après la sélection, côté source.</p>';
+      html = `<p class="empty">${tr('Select the load or an element (schematic, chart or points table) to edit it. The "Series" and "Shunt" buttons add an element after the selection, on the source side.')}</p>`;
     } else if (node === 0) {
-      title = 'DP1 · charge';
+      title = tr('DP1 · load');
       html = loadEditor();
     } else {
       title = `${nodeName(node)} · ${kindName(p.elements[node - 1])}`;
@@ -3236,14 +4556,14 @@ const SmithChart = (() => {
     let title;
     if (state.hover && state.hover.node < 0 && state.sweepIdx < 0) {
       m = rf.metrics(rf.stFromGamma(state.hover.gamma, p.z0), p.z0, p.f0);
-      title = 'Curseur';
+      title = tr('Cursor');
     } else if (state.sweepIdx >= 0 && model.sweep && !(state.hover && state.hover.node >= 0)) {
       m = model.sweep[state.sweepIdx];
-      title = `Sweep · ${eng.format(m.f, 'Hz')}`;
+      title = tr('Sweep · {0}', eng.format(m.f, 'Hz'));
     } else {
       const i = state.hover ? state.hover.node : (state.selected >= 0 ? state.selected : model.nodes.length - 1);
       m = model.nodes[i];
-      title = i === 0 ? `${nodeName(i)} · charge` : `${nodeName(i)} · ${i === model.nodes.length - 1 ? 'entrée' : describe(p.elements[i - 1], p.f0)}`;
+      title = i === 0 ? tr('{0} · load', nodeName(i)) : i === model.nodes.length - 1 ? tr('{0} · input', nodeName(i)) : `${nodeName(i)} · ${describe(p.elements[i - 1], p.f0)}`;
     }
     $('cursor-title').textContent = title;
     const rows = [
@@ -3251,16 +4571,16 @@ const SmithChart = (() => {
       ['Y', fmtY(m.y)],
       ['Γ', `${sig(m.mag)} ∠ ${m.ang == null ? '—' : `${m.ang.toFixed(2).replace('-', '−')}°`}`],
       ['VSWR', m.vswr == null ? '—' : sig(m.vswr)],
-      ['Return loss', fmtDb(m.rl)],
-      ['Mismatch loss', fmtDb(m.ml)],
+      [tr('Return loss'), fmtDb(m.rl)],
+      [tr('Mismatch loss'), fmtDb(m.ml)],
       ['Q', sig(m.q)],
-      ['z normalisée', fmtCx(m.zn)],
-      ['y normalisée', fmtCx(m.yn)],
-      ['Équivalent série', equivalent(m.series, '+')],
-      ['Équivalent parallèle', equivalent(m.parallel, '//')],
+      [tr('normalized z'), fmtCx(m.zn)],
+      [tr('normalized y'), fmtCx(m.yn)],
+      [tr('Series equivalent'), equivalent(m.series, '+')],
+      [tr('Parallel equivalent'), equivalent(m.parallel, '//')],
     ];
     $('cursor-list').innerHTML = rows.map(([k, val]) => `<dt>${esc(k)}</dt><dd>${esc(val)}</dd>`).join('');
-    $('cursor-flag').innerHTML = m.active ? '<span class="flag">▲ Actif / instable : |Γ| &gt; 1</span>' : '';
+    $('cursor-flag').innerHTML = m.active ? `<span class="flag">${esc(tr('▲ Active / unstable: |Γ| > 1'))}</span>` : '';
   };
 
   const sweepFields = new Map();
@@ -3268,16 +4588,16 @@ const SmithChart = (() => {
     const s = state.project.sweep;
     const box = $('sweep-box');
     const defs = [
-      ['sw-start', 'Début', 'Hz', () => s.start, (v) => { state.project.sweep.start = v; }],
-      ['sw-stop', 'Fin', 'Hz', () => s.stop, (v) => { state.project.sweep.stop = v; }],
-      ['sw-points', 'Points', '', () => s.points, (v) => { state.project.sweep.points = Math.round(Math.min(2001, Math.max(2, v))); }],
+      ['sw-start', tr('Start'), 'Hz', () => s.start, (v) => { state.project.sweep.start = v; }],
+      ['sw-stop', tr('Stop'), 'Hz', () => s.stop, (v) => { state.project.sweep.stop = v; }],
+      ['sw-points', tr('Points'), '', () => s.points, (v) => { state.project.sweep.points = Math.round(Math.min(2001, Math.max(2, v))); }],
     ];
     sweepFields.clear();
     defs.forEach(([id, , unit, get, set]) => sweepFields.set(id, { unit, get, set }));
     if (!box.firstChild) {
-      box.innerHTML = `<div class="row"><label for="sw-on">Tracer</label><input type="checkbox" id="sw-on"><span class="empty" style="flex:1">trace à l'entrée du réseau</span></div>`
+      box.innerHTML = `<div class="row"><label for="sw-on">${tr('Plot')}</label><input type="checkbox" id="sw-on"><span class="empty" style="flex:1">${tr('plots at the network input')}</span></div>`
         + defs.map(([id, label]) => `<div class="row"><label for="${id}">${label}</label><input class="vf" id="${id}" autocomplete="off" spellcheck="false"></div>`).join('')
-        + '<div class="row"><label for="sw-scale">Échelle</label><select id="sw-scale"><option value="lin">Linéaire</option><option value="log">Logarithmique</option></select></div>'
+        + `<div class="row"><label for="sw-scale">${tr('Scale')}</label><select id="sw-scale"><option value="lin">${tr('Linear')}</option><option value="log">${tr('Logarithmic')}</option></select></div>`
         + '<div class="actions"><button type="button" class="btn sm" id="sw-around">f₀ ± 20 %</button><button type="button" class="btn sm" id="sw-octave">f₀ / 2 … 2 · f₀</button></div>';
     }
     $('sw-on').checked = s.on;
@@ -3308,14 +4628,14 @@ const SmithChart = (() => {
 
   const drawPanels = () => {
     const p = state.project;
-    $('points-freq').textContent = `à ${eng.format(p.f0, 'Hz')}`;
+    $('points-freq').textContent = tr('at {0}', eng.format(p.f0, 'Hz'));
     $('tbl-points').innerHTML = model.nodes.map((m, i) => {
       const sub = i === 0 ? describeLoad(p.load) : describe(p.elements[i - 1], p.f0);
       return `<tr data-node="${i}" aria-selected="${state.selected === i}"><td>${nodeName(i)}<span class="sub">${esc(sub)}</span></td><td class="num">${esc(K.isFinite(m.z) ? fmtCx(m.z) : '∞')}</td><td class="num">${esc(sig(m.q, 3))}</td></tr>`;
     }).join('');
 
     const chips = (list, id) => {
-      $(id).innerHTML = list.map((val, i) => `<span class="chip">${esc(sig(val))}<button type="button" data-i="${i}" aria-label="Retirer ${esc(sig(val))}">×</button></span>`).join('');
+      $(id).innerHTML = list.map((val, i) => `<span class="chip">${esc(sig(val))}<button type="button" data-i="${i}" aria-label="${esc(tr('Remove {0}', sig(val)))}">×</button></span>`).join('');
     };
     chips(p.circles.vswr, 'chips-vswr');
     chips(p.circles.q, 'chips-q');
@@ -3339,7 +4659,7 @@ const SmithChart = (() => {
   const PLOTS = [
     { id: 'plot-s11', title: '|S11| (dB)', value: (m) => (m.mag === 0 ? -80 : Math.max(-80, -m.rl)), text: (v) => `${sig(v)} dB` },
     { id: 'plot-vswr', title: 'VSWR', value: (m) => (m.vswr == null ? NaN : m.vswr), text: (v) => sig(v) },
-    { id: 'plot-phase', title: 'Phase de Γ (°)', value: (m) => (m.ang == null ? NaN : m.ang), text: (v) => `${sig(v)}°` },
+    { id: 'plot-phase', get title() { return tr('Phase of Γ (°)'); }, value: (m) => (m.ang == null ? NaN : m.ang), text: (v) => `${sig(v)}°` },
   ];
   let plotGeo = null;
 
@@ -3433,8 +4753,8 @@ const SmithChart = (() => {
 
   /* --- Side panels: matching and preferred values ------------------------------------------ */
 
-  const FAMILIES = [['L', 'Réseau en L'], ['pi', 'Réseau en π, Q imposé'], ['T', 'Réseau en T, Q imposé'], ['stub', 'Ligne + stub'], ['stub2', 'Double stub'], ['quarter', 'Quart d\'onde'], ['line', 'Ligne + réactance']];
-  const CHARACTER = { lowpass: 'passe-bas', highpass: 'passe-haut', mixed: 'mixte', lines: 'lignes' };
+  const families = () => [['L', tr('L network')], ['pi', tr('π network, specified Q')], ['T', tr('T network, specified Q')], ['stub', tr('Line + stub')], ['stub2', tr('Double stub')], ['quarter', tr('Quarter-wave')], ['line', tr('Line + reactance')]];
+  const character = (c) => ({ lowpass: tr('low-pass'), highpass: tr('high-pass'), mixed: tr('mixed'), lines: tr('lines') })[c];
   state.match = { family: 'L', rt: null, xt: 0, q: 5, zcLine: null, zcStub: null, spacing: 45, rlMin: 10, sort: 'bw', results: [], reason: '', preview: -1, previewPaths: null, formKey: '' };
   state.eseries = 'E24';
 
@@ -3458,15 +4778,15 @@ const SmithChart = (() => {
     computeMatch();
     const local = (get, set, extra = {}) => ({ local: true, get, set, ...extra });
     const plain = { text: (v) => sig(v, 5).replace('−', '-') };
-    let form = selectRow('m-family', 'Réseau', FAMILIES, ms.family, (v) => { ms.family = v; drawSide(true); });
-    form += fieldRow('m-rt', 'Cible R', local(() => (ms.rt == null ? p.z0 : ms.rt), (v) => { ms.rt = v; }, { unit: 'Ω' }));
-    form += fieldRow('m-xt', 'Cible X', local(() => ms.xt, (v) => { ms.xt = v; }, { unit: 'Ω', ok: (v) => Number.isFinite(v), step: (v, d) => v + d * 0.01 * Math.max(Math.abs(v), p.z0 * 0.1) }));
-    if (ms.family === 'pi' || ms.family === 'T') form += fieldRow('m-q', 'Q imposé', local(() => ms.q, (v) => { ms.q = v; }, { unit: '', ...plain }));
-    if (['stub', 'stub2', 'quarter', 'line'].includes(ms.family)) form += fieldRow('m-zcl', 'Zc de la ligne', local(() => ms.zcLine || p.z0, (v) => { ms.zcLine = v; }, { unit: 'Ω' }));
-    if (ms.family === 'stub' || ms.family === 'stub2') form += fieldRow('m-zcs', 'Zc des stubs', local(() => ms.zcStub || p.z0, (v) => { ms.zcStub = v; }, { unit: 'Ω' }));
-    if (ms.family === 'stub2') form += fieldRow('m-sp', 'Écartement', local(() => ms.spacing, (v) => { ms.spacing = v; }, { unit: '°', text: (v) => `${sig(v, 5)}°`, step: stepAdd(1) }));
-    form += fieldRow('m-rl', 'Bande à RL ≥', local(() => ms.rlMin, (v) => { ms.rlMin = v; }, { unit: 'dB', text: (v) => `${sig(v)} dB`, step: stepAdd(1) }));
-    form += selectRow('m-sort', 'Classer par', [['bw', 'bande passante'], ['q', 'Q le plus faible']], ms.sort, (v) => { ms.sort = v; drawSide(true); });
+    let form = selectRow('m-family', tr('Network'), families(), ms.family, (v) => { ms.family = v; drawSide(true); });
+    form += fieldRow('m-rt', tr('Target R'), local(() => (ms.rt == null ? p.z0 : ms.rt), (v) => { ms.rt = v; }, { unit: 'Ω' }));
+    form += fieldRow('m-xt', tr('Target X'), local(() => ms.xt, (v) => { ms.xt = v; }, { unit: 'Ω', ok: (v) => Number.isFinite(v), step: (v, d) => v + d * 0.01 * Math.max(Math.abs(v), p.z0 * 0.1) }));
+    if (ms.family === 'pi' || ms.family === 'T') form += fieldRow('m-q', tr('Specified Q'), local(() => ms.q, (v) => { ms.q = v; }, { unit: '', ...plain }));
+    if (['stub', 'stub2', 'quarter', 'line'].includes(ms.family)) form += fieldRow('m-zcl', tr('Line Zc'), local(() => ms.zcLine || p.z0, (v) => { ms.zcLine = v; }, { unit: 'Ω' }));
+    if (ms.family === 'stub' || ms.family === 'stub2') form += fieldRow('m-zcs', tr('Stub Zc'), local(() => ms.zcStub || p.z0, (v) => { ms.zcStub = v; }, { unit: 'Ω' }));
+    if (ms.family === 'stub2') form += fieldRow('m-sp', tr('Spacing'), local(() => ms.spacing, (v) => { ms.spacing = v; }, { unit: '°', text: (v) => `${sig(v, 5)}°`, step: stepAdd(1) }));
+    form += fieldRow('m-rl', tr('Band at RL ≥'), local(() => ms.rlMin, (v) => { ms.rlMin = v; }, { unit: 'dB', text: (v) => `${sig(v)} dB`, step: stepAdd(1) }));
+    form += selectRow('m-sort', tr('Sort by'), [['bw', tr('bandwidth')], ['q', tr('lowest Q')]], ms.sort, (v) => { ms.sort = v; drawSide(true); });
     const formBox = $('match-form');
     if (force || ms.formKey !== ms.family || !formBox.firstChild) {
       formBox.innerHTML = form;
@@ -3481,14 +4801,14 @@ const SmithChart = (() => {
     }
 
     const zinNow = model.nodes[model.nodes.length - 1].z;
-    let out = `<p class="info">Depuis l'entrée actuelle (${nodeName(model.nodes.length - 1)}) : <b>${esc(fmtZ(zinNow))}</b>. Le réseau trouvé s'ajoute côté source.</p>`;
-    if (!ms.results.length) out += `<p class="info">${esc(ms.reason || 'Aucune solution.')}</p>`;
+    let out = `<p class="info">${tr('From the current input ({0}): <b>{1}</b>. The network found is added on the source side.', nodeName(model.nodes.length - 1), esc(fmtZ(zinNow)))}</p>`;
+    if (!ms.results.length) out += `<p class="info">${esc(ms.reason || tr('No solution.'))}</p>`;
     ms.results.forEach((r, i) => {
       const sc = r.score;
       const open = sc.openLow || sc.openHigh;
       const band = sc.bw > 0 ? `${open ? '> ' : ''}${eng.format(sc.bw, 'Hz', 3)} (${sig(sc.fbw * 100, 3)} %)` : '—';
       const chain = r.elements.map((e) => describe(e, p.f0)).join(' → ');
-      out += `<div class="sol" data-sol="${i}" tabindex="0"><div class="sol-main"><div class="sol-title">${esc(chain)}</div><div class="sol-meta">${CHARACTER[sc.character]} · Q ${esc(sig(sc.qMax, 3))} · bande ${esc(band)}</div></div>${button(`m-apply-${i}`, 'Appliquer', () => applySolution(i))}</div>`;
+      out += `<div class="sol" data-sol="${i}" tabindex="0"><div class="sol-main"><div class="sol-title">${esc(chain)}</div><div class="sol-meta">${tr('{0} · Q {1} · band {2}', character(sc.character), esc(sig(sc.qMax, 3)), esc(band))}</div></div>${button(`m-apply-${i}`, tr('Apply'), () => applySolution(i))}</div>`;
     });
     $('match-results').innerHTML = out;
   };
@@ -3533,26 +4853,26 @@ const SmithChart = (() => {
     if (!$('card-eseries').open) { box.innerHTML = ''; return; }
     const p = state.project;
     const { elements, changes } = eseries.snapElements(p.elements, state.eseries);
-    let out = selectRow('e-series', 'Série', [['E12', 'E12 (10 %)'], ['E24', 'E24 (5 %)'], ['E96', 'E96 (1 %)']], state.eseries, (v) => { state.eseries = v; drawSide(true); });
-    if (!changes.length) out += '<p class="info">Tous les R, L et C du réseau sont déjà dans cette série.</p>';
+    let out = selectRow('e-series', tr('Series'), [['E12', 'E12 (10 %)'], ['E24', 'E24 (5 %)'], ['E96', 'E96 (1 %)']], state.eseries, (v) => { state.eseries = v; drawSide(true); });
+    if (!changes.length) out += `<p class="info">${tr('All R, L and C of the network are already in this series.')}</p>`;
     else {
       const before = model.nodes[model.nodes.length - 1];
       const after = net.inputAt({ ...p, elements });
       const unitOf = (ch) => { const k = p.elements[ch.index].kind; return ch.key === 'r' || k === 'R' ? 'Ω' : ch.key === 'l' || k === 'L' ? 'H' : 'F'; };
       out += '<dl class="kv">';
       for (const ch of changes) out += `<dt>${nodeName(ch.index + 1)}</dt><dd>${esc(eng.format(ch.from, unitOf(ch)))} → <b>${esc(eng.format(ch.to, unitOf(ch)))}</b></dd>`;
-      out += `<dt>|Γ| à f₀</dt><dd>${esc(sig(before.mag))} → <b>${esc(sig(after.mag))}</b></dd>`;
-      out += `<dt>Return loss</dt><dd>${esc(fmtDb(before.rl))} → <b>${esc(fmtDb(after.rl))}</b></dd>`;
+      out += `<dt>${esc(tr('|Γ| at f₀'))}</dt><dd>${esc(sig(before.mag))} → <b>${esc(sig(after.mag))}</b></dd>`;
+      out += `<dt>${esc(tr('Return loss'))}</dt><dd>${esc(fmtDb(before.rl))} → <b>${esc(fmtDb(after.rl))}</b></dd>`;
       out += `<dt>VSWR</dt><dd>${esc(before.vswr == null ? '—' : sig(before.vswr))} → <b>${esc(after.vswr == null ? '—' : sig(after.vswr))}</b></dd></dl>`;
-      out += `<div class="actions">${button('e-apply', 'Appliquer l\'arrondi', () => change((q) => { q.elements = eseries.snapElements(q.elements, state.eseries).elements; }))}</div>`;
+      out += `<div class="actions">${button('e-apply', tr('Apply rounding'), () => change((q) => { q.elements = eseries.snapElements(q.elements, state.eseries).elements; }))}</div>`;
     }
     box.innerHTML = out;
   };
 
   /* --- Amplifier panel ---------------------------------------------------------------------- */
 
-  const GAIN_KINDS = [['available', 'Gain disponible (plan source)', 'GA'], ['operating', 'Gain en puissance (plan charge)', 'GP'], ['unilateral-source', 'Unilatéral, côté source', 'GS'], ['unilateral-load', 'Unilatéral, côté charge', 'GL']];
-  const gainTag = (kind) => (GAIN_KINDS.find((k) => k[0] === kind) || GAIN_KINDS[0])[2];
+  const gainKinds = () => [['available', tr('Available gain (source plane)'), 'GA'], ['operating', tr('Operating power gain (load plane)'), 'GP'], ['unilateral-source', tr('Unilateral, source side'), 'GS'], ['unilateral-load', tr('Unilateral, load side'), 'GL']];
+  const gainTag = (kind) => (gainKinds().find((k) => k[0] === kind) || gainKinds()[0])[2];
   const plainCx = (z) => ({ re: z.re, im: z.im });
   const exampleDevice = () => ({
     s: { s11: plainCx(K.polar(0.121, -149)), s12: plainCx(K.polar(0.108, 59.4)), s21: plainCx(K.polar(3.756, 78.9)), s22: plainCx(K.polar(0.41, -54.5)) },
@@ -3569,10 +4889,10 @@ const SmithChart = (() => {
     const A = () => state.project.amp;
     let out = '';
     if (!p.amp) {
-      out += '<p class="info">Cercles de stabilité, de gain et de facteur de bruit d\'un quadripôle (transistor) décrit par ses paramètres S.</p><div class="actions">';
-      out += button('amp-example', 'Exemple : BFG33G à 2 GHz', () => change((q) => { q.amp = exampleDevice(); }));
+      out += `<p class="info">${tr('Stability, gain and noise figure circles of a two-port (transistor) described by its S parameters.')}</p><div class="actions">`;
+      out += button('amp-example', tr('Example: BFG33G at 2 GHz'), () => change((q) => { q.amp = exampleDevice(); }));
       if (state.device) {
-        out += button('amp-device', 'Depuis le .s2p importé, à f₀', () => change((q) => {
+        out += button('amp-device', tr('From the imported .s2p, at f₀'), () => change((q) => {
           const d = amp.deviceAt(state.device, q.f0);
           const s = {};
           for (const key of ['s11', 's12', 's21', 's22']) s[key] = plainCx(d.s[key]);
@@ -3598,7 +4918,7 @@ const SmithChart = (() => {
       const a = def(1);
       fields.set(`${id}-m`, m);
       fields.set(`${id}-a`, a);
-      return `<div class="row"><label for="${id}-m">${label}</label><input class="vf" id="${id}-m" data-field="${id}-m" value="${esc(showField(m))}" aria-label="${label}, module" autocomplete="off"><input class="vf" id="${id}-a" data-field="${id}-a" value="${esc(showField(a))}" aria-label="${label}, phase" autocomplete="off"></div>`;
+      return `<div class="row"><label for="${id}-m">${label}</label><input class="vf" id="${id}-m" data-field="${id}-m" value="${esc(showField(m))}" aria-label="${esc(tr('{0}, magnitude', label))}" autocomplete="off"><input class="vf" id="${id}-a" data-field="${id}-a" value="${esc(showField(a))}" aria-label="${esc(tr('{0}, phase', label))}" autocomplete="off"></div>`;
     };
     const check = (id, label, on, fn) => {
       actions.set(id, (value, checked) => change(() => fn(checked)));
@@ -3606,47 +4926,47 @@ const SmithChart = (() => {
     };
     const chipList = (list, text, prefix) => `<div class="chips">${list.map((item, i) => {
       actions.set(`${prefix}-${i}`, () => change(() => list.splice(i, 1)));
-      return `<span class="chip">${esc(text(item))}<button type="button" data-act="${prefix}-${i}" aria-label="Retirer ${esc(text(item))}">×</button></span>`;
+      return `<span class="chip">${esc(text(item))}<button type="button" data-act="${prefix}-${i}" aria-label="${esc(tr('Remove {0}', text(item)))}">×</button></span>`;
     }).join('')}</div>`;
 
-    out += '<div class="sub-head">Paramètres S (module, phase)</div>';
+    out += `<div class="sub-head">${tr('S parameters (magnitude, phase)')}</div>`;
     for (const [key, label] of [['s11', 'S11'], ['s21', 'S21'], ['s12', 'S12'], ['s22', 'S22']]) out += polarRow(`amp-${key}`, label, () => A().s[key], (z) => { A().s[key] = z; });
 
     const fig = amp.figures(p.amp.s);
     const rows = [
       ['K', sig(fig.k)],
-      ['μ charge / source', `${sig(fig.muLoad)} / ${sig(fig.muSource)}`],
+      [tr('μ load / source'), `${sig(fig.muLoad)} / ${sig(fig.muSource)}`],
       ['|Δ|', sig(K.abs(fig.delta))],
-      [fig.mag != null ? 'Gain maximal (MAG)' : 'Gain stable maximal (MSG)', fmtDb(fig.mag != null ? fig.magDb : fig.msgDb)],
+      [fig.mag != null ? tr('Maximum gain (MAG)') : tr('Maximum stable gain (MSG)'), fmtDb(fig.mag != null ? fig.magDb : fig.msgDb)],
       ['|S21|²', fmtDb(fig.s21Db)],
     ];
     const gs = model.nodes[model.nodes.length - 1].gamma;
     if (K.isFinite(gs) && K.abs(gs) < 1) {
       const g = amp.powerGains(p.amp.s, gs, K.make(0, 0));
-      rows.push(['— pour ΓS = entrée du réseau —', ''], ['Γ de sortie', `${sig(K.abs(g.gout))} ∠ ${(K.arg(g.gout) * 180 / Math.PI).toFixed(2).replace('-', '−')}°`], ['Z de sortie', fmtZ(rf.gammaToZ(g.gout, p.z0))]);
-      if (K.abs(g.gout) < 1) rows.push(['Gain disponible', fmtDb(10 * Math.log10(g.ga))]);
-      if (p.amp.noise) rows.push(['Facteur de bruit', fmtDb(amp.noiseFigure(p.amp.noise, gs))]);
+      rows.push([tr('— for ΓS = network input —'), ''], [tr('Output Γ'), `${sig(K.abs(g.gout))} ∠ ${(K.arg(g.gout) * 180 / Math.PI).toFixed(2).replace('-', '−')}°`], [tr('Output Z'), fmtZ(rf.gammaToZ(g.gout, p.z0))]);
+      if (K.abs(g.gout) < 1) rows.push([tr('Available gain'), fmtDb(10 * Math.log10(g.ga))]);
+      if (p.amp.noise) rows.push([tr('Noise figure'), fmtDb(amp.noiseFigure(p.amp.noise, gs))]);
     }
     out += `<dl class="kv">${rows.map(([k, val]) => `<dt>${esc(k)}</dt><dd>${esc(val)}</dd>`).join('')}</dl>`;
-    out += `<p class="info">${fig.unconditional ? 'Inconditionnellement stable.' : '▲ Conditionnellement stable : gardez les terminaisons du côté stable des cercles.'}</p>`;
+    out += `<p class="info">${esc(fig.unconditional ? tr('Unconditionally stable.') : tr('▲ Conditionally stable: keep the terminations on the stable side of the circles.'))}</p>`;
 
-    out += '<div class="sub-head">Cercles</div>';
-    out += check('amp-stab-s', 'Stabilité, plan de la source', p.amp.stab.source, (on) => { A().stab.source = on; });
-    out += check('amp-stab-l', 'Stabilité, plan de la charge', p.amp.stab.load, (on) => { A().stab.load = on; });
+    out += `<div class="sub-head">${tr('Circles')}</div>`;
+    out += check('amp-stab-s', tr('Stability, source plane'), p.amp.stab.source, (on) => { A().stab.source = on; });
+    out += check('amp-stab-l', tr('Stability, load plane'), p.amp.stab.load, (on) => { A().stab.load = on; });
     actions.set('amp-kind', (value) => { state.ampKind = value; });
-    out += `<div class="row"><select data-act="amp-kind" aria-label="Type de cercle de gain">${GAIN_KINDS.map(([k, t]) => `<option value="${k}"${k === state.ampKind ? ' selected' : ''}>${t}</option>`).join('')}</select><input class="mini-input" id="amp-gain" data-add="gain" placeholder="dB" aria-label="Gain du cercle, en dB" autocomplete="off"></div>`;
+    out += `<div class="row"><select data-act="amp-kind" aria-label="${esc(tr('Gain circle type'))}">${gainKinds().map(([k, t]) => `<option value="${k}"${k === state.ampKind ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select><input class="mini-input" id="amp-gain" data-add="gain" placeholder="dB" aria-label="${esc(tr('Circle gain, in dB'))}" autocomplete="off"></div>`;
     out += chipList(p.amp.gains, (g) => `${gainTag(g.kind)} ${sig(g.db)} dB`, 'amp-gain-del');
 
-    out += '<div class="sub-head">Bruit</div>';
-    out += check('amp-noise', 'Données de bruit', Boolean(p.amp.noise), (on) => { A().noise = on ? { nfmin: 1, gopt: { re: 0, im: 0 }, rn: 0.5 } : null; });
+    out += `<div class="sub-head">${tr('Noise')}</div>`;
+    out += check('amp-noise', tr('Noise data'), Boolean(p.amp.noise), (on) => { A().noise = on ? { nfmin: 1, gopt: { re: 0, im: 0 }, rn: 0.5 } : null; });
     if (p.amp.noise) {
-      out += fieldRow('amp-nfmin', 'NF minimal', { unit: 'dB', scope: 'amp-nfmin', get: () => A().noise.nfmin, set: (v) => { A().noise.nfmin = v; }, ok: (v) => v >= 0 && Number.isFinite(v), text: (v) => `${plain(v)} dB`, step: stepAdd(0.1) });
-      out += polarRow('amp-gopt', 'Γ optimal', () => A().noise.gopt, (z) => { A().noise.gopt = z; });
+      out += fieldRow('amp-nfmin', tr('Minimum NF'), { unit: 'dB', scope: 'amp-nfmin', get: () => A().noise.nfmin, set: (v) => { A().noise.nfmin = v; }, ok: (v) => v >= 0 && Number.isFinite(v), text: (v) => `${plain(v)} dB`, step: stepAdd(0.1) });
+      out += polarRow('amp-gopt', tr('Optimal Γ'), () => A().noise.gopt, (z) => { A().noise.gopt = z; });
       out += fieldRow('amp-rn', 'rn = Rn / Z0', { unit: '', scope: 'amp-rn', get: () => A().noise.rn, set: (v) => { A().noise.rn = v; }, text: plain });
-      out += '<div class="row"><label for="amp-nf">Cercle NF</label><input class="mini-input" id="amp-nf" data-add="nf" placeholder="dB" autocomplete="off"></div>';
+      out += `<div class="row"><label for="amp-nf">${tr('NF circle')}</label><input class="mini-input" id="amp-nf" data-add="nf" placeholder="dB" autocomplete="off"></div>`;
       out += chipList(p.amp.nfs, (nf) => `NF ${sig(nf)} dB`, 'amp-nf-del');
     }
-    out += `<div class="actions">${button('amp-remove', 'Retirer l\'amplificateur', () => change((q) => { q.amp = null; }))}</div>`;
+    out += `<div class="actions">${button('amp-remove', tr('Remove amplifier'), () => change((q) => { q.amp = null; }))}</div>`;
     box.innerHTML = out;
   };
   $('amp-box').addEventListener('keydown', (ev) => {
@@ -3672,10 +4992,10 @@ const SmithChart = (() => {
       const q = CR.toPx(v, K.make(circle.cx - (d > 1e-9 ? circle.cx / d : 0) * circle.rad, circle.cy - (d > 1e-9 ? circle.cy / d : -1) * circle.rad));
       out += `<text class="ring-label" x="${q.x.toFixed(1)}" y="${(q.y - 5).toFixed(1)}" text-anchor="middle">${esc(text)}</text>`;
     };
-    for (const [plane, on, name] of [['source', a.stab.source, 'source'], ['load', a.stab.load, 'charge']]) {
+    for (const [plane, on] of [['source', a.stab.source], ['load', a.stab.load]]) {
       if (!on) continue;
       const c = amp.stabilityCircle(a.s, plane);
-      if (c) ring(c, 'amp-stab', `Stabilité ${name} : stable ${c.stableInside ? 'dedans' : 'dehors'}`);
+      if (c) ring(c, 'amp-stab', plane === 'source' ? (c.stableInside ? tr('Source stability: stable inside') : tr('Source stability: stable outside')) : (c.stableInside ? tr('Load stability: stable inside') : tr('Load stability: stable outside')));
     }
     for (const g of a.gains) ring(amp.gainCircle(a.s, g.kind, g.db), 'amp-gain', `${gainTag(g.kind)} ${sig(g.db)} dB`);
     if (a.noise) {
@@ -3707,7 +5027,7 @@ const SmithChart = (() => {
   const courseLabel = (i) => {
     const m = model.nodes[i];
     const asY = i > 0 ? model.steps[i - 1].shunt : (model.steps[0] && model.steps[0].shunt);
-    return `${nodeName(i)} : ${asY ? `y = ${fmtCx(m.yn, 3)}` : `z = ${fmtCx(m.zn, 3)}`}`;
+    return asY ? tr('{0}: y = {1}', nodeName(i), fmtCx(m.yn, 3)) : tr('{0}: z = {1}', nodeName(i), fmtCx(m.zn, 3));
   };
   const drawCourse = () => {
     const layer = $('l-course');
@@ -3724,7 +5044,7 @@ const SmithChart = (() => {
       let text;
       if (type === 'r') { circle = rf.rCircle(value); cls = 'course-z'; text = `Δx = ${fmtJn(delta)}`; }
       else if (type === 'g') { circle = rf.gCircle(value); cls = 'course-y'; text = `Δb = ${fmtJn(delta)}`; }
-      else if (type === 'gamma') { circle = { cx: 0, cy: 0, rad: value }; cls = 'course-n'; text = `rotation de ${sig(delta)}°`; }
+      else if (type === 'gamma') { circle = { cx: 0, cy: 0, rad: value }; cls = 'course-n'; text = tr('rotation of {0}°', sig(delta)); }
       else return;
       out += `<path class="${cls}" d="${CR.circleD(v, circle)}"/>`;
       const at = CR.pointAlong(v, model.paths[i].map((s) => s.gamma), 0.5);
@@ -3736,7 +5056,7 @@ const SmithChart = (() => {
       const a = CR.toPx(v, model.nodes[node].gamma);
       const b = CR.toPx(v, K.neg(model.nodes[node].gamma));
       out += `<line class="course-sym" x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}"/><circle class="pt-mark" cx="${b.x.toFixed(1)}" cy="${b.y.toFixed(1)}" r="4"/>`;
-      out += `<text class="course-label" x="${(b.x + 8).toFixed(1)}" y="${(b.y + 14).toFixed(1)}">symétrique : y = ${esc(fmtCx(model.nodes[node].yn, 3))}</text>`;
+      out += `<text class="course-label" x="${(b.x + 8).toFixed(1)}" y="${(b.y + 14).toFixed(1)}">${esc(tr('symmetric: y = {0}', fmtCx(model.nodes[node].yn, 3)))}</text>`;
     }
     layer.innerHTML = out;
   };
@@ -3758,7 +5078,7 @@ const SmithChart = (() => {
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-    say(`Fichier « ${name} » enregistré.`);
+    say(tr('File "{0}" saved.', name));
   };
   const stamp = () => {
     const p = state.project;
@@ -3806,9 +5126,9 @@ const SmithChart = (() => {
       canvas.height = h * scale;
       canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
       URL.revokeObjectURL(url);
-      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('conversion impossible'))), 'image/png');
+      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('conversion failed'))), 'image/png');
     };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('conversion impossible')); };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('conversion failed')); };
     img.src = url;
   });
 
@@ -3832,10 +5152,10 @@ const SmithChart = (() => {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => { try { handler(String(reader.result), file.name); } catch (err) { say(err.message, true); } };
-    reader.onerror = () => say('Lecture du fichier impossible.', true);
+    reader.onerror = () => say(tr('Cannot read the file.'), true);
     reader.readAsText(file);
   };
-  $('file-project').addEventListener('change', (ev) => readFile(ev.target, (text, name) => loadProject(io.importProject(text), `Projet « ${name} » ouvert.`)));
+  $('file-project').addEventListener('change', (ev) => readFile(ev.target, (text, name) => loadProject(io.importProject(text), tr('Project "{0}" opened.', name))));
   $('file-data').addEventListener('change', (ev) => readFile(ev.target, (text, name) => {
     let points;
     let note;
@@ -3844,11 +5164,11 @@ const SmithChart = (() => {
       const port = Number($('sel-port').value);
       points = io.touchstoneToTable(ts, { port });
       state.device = ts.ports === 2 ? ts : null;
-      note = ts.ports === 2 ? `S${port}${port} du fichier, autre port fermé sur ${sig(ts.z0)} Ω` : 'fichier à un port';
+      note = ts.ports === 2 ? tr('S{0} of the file, other port terminated on {1} Ω', `${port}${port}`, sig(ts.z0)) : tr('one-port file');
     } else {
       const table = io.parseImpedanceTable(text);
       points = table.points;
-      note = `fréquences lues en ${table.unit === 1 ? 'Hz' : table.unit === 1e3 ? 'kHz' : table.unit === 1e6 ? 'MHz' : 'GHz'}`;
+      note = tr('frequencies read in {0}', table.unit === 1 ? 'Hz' : table.unit === 1e3 ? 'kHz' : table.unit === 1e6 ? 'MHz' : 'GHz');
     }
     state.selected = 0;
     change((p) => {
@@ -3858,7 +5178,7 @@ const SmithChart = (() => {
       if (p.f0 < lo || p.f0 > hi) p.f0 = points[Math.floor(points.length / 2)].f;
       if (hi > lo) p.sweep = { ...p.sweep, on: true, start: lo, stop: hi };
     });
-    say(`« ${name} » : ${points.length} points importés comme charge (${note}).`);
+    say(tr('"{0}": {1} points imported as load ({2}).', name, points.length, note));
   }));
 
   const copyText = async (text) => {
@@ -3889,23 +5209,23 @@ const SmithChart = (() => {
     'f-save': () => download(`${stamp()}.json`, io.exportProject(state.project), 'application/json'),
     'f-link': async () => {
       const frag = linkOf();
-      if (!frag) { say('Projet trop volumineux pour tenir dans un lien : enregistrez plutôt le fichier.', true); return; }
+      if (!frag) { say(tr('Project too large to fit in a link: save the file instead.'), true); return; }
       const url = `${location.href.split('#')[0]}#${frag}`;
-      say((await copyText(url)) ? 'Lien copié dans le presse-papiers.' : 'Copie impossible : le lien est dans la barre d\'adresse.', false);
+      say((await copyText(url)) ? tr('Link copied to the clipboard.') : tr('Copy failed: the link is in the address bar.'), false);
     },
     'f-import': () => $('file-data').click(),
-    'f-svg': () => download(`${stamp()}-abaque.svg`, chartSvg().text, 'image/svg+xml'),
-    'f-png': async () => { try { download(`${stamp()}-abaque.png`, await svgToPng(chartSvg())); } catch (err) { say('Export PNG impossible dans ce navigateur.', true); } },
+    'f-svg': () => download(`${stamp()}-chart.svg`, chartSvg().text, 'image/svg+xml'),
+    'f-png': async () => { try { download(`${stamp()}-chart.png`, await svgToPng(chartSvg())); } catch (err) { say(tr('PNG export is not possible in this browser.'), true); } },
     'f-copy': async () => {
       try {
         const blob = await svgToPng(chartSvg());
         await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-        say('Image de l\'abaque copiée dans le presse-papiers.');
-      } catch (err) { say('Copie d\'image refusée par le navigateur : utilisez l\'export PNG.', true); }
+        say(tr('Chart image copied to the clipboard.'));
+      } catch (err) { say(tr('Image copy refused by the browser: use the PNG export.'), true); }
     },
-    'f-schem': () => download(`${stamp()}-schema.svg`, standaloneSvg($('schem'), '.s-hit', '--panel').text, 'image/svg+xml'),
+    'f-schem': () => download(`${stamp()}-schematic.svg`, standaloneSvg($('schem'), '.s-hit', '--panel').text, 'image/svg+xml'),
     'f-points': () => download(`${stamp()}-points.csv`, pointsCsv(), 'text/csv'),
-    'f-sweep': () => { if (model.sweep) download(`${stamp()}-sweep.csv`, sweepCsv(), 'text/csv'); else say('Activez d\'abord le sweep en fréquence.', true); },
+    'f-sweep': () => { if (model.sweep) download(`${stamp()}-sweep.csv`, sweepCsv(), 'text/csv'); else say(tr('Turn on the frequency sweep first.'), true); },
     'f-cir': () => download(`${stamp()}.cir`, io.toCir(state.project), 'text/plain'),
     'f-ckt': () => download(`${stamp()}.ckt`, io.toCkt(state.project), 'text/plain'),
   };
@@ -4103,7 +5423,11 @@ const SmithChart = (() => {
   });
 
   const presetSelect = $('sel-preset');
-  presetSelect.innerHTML = PRESETS.map((p, i) => `<option value="${i}">${esc(p.name)}</option>`).join('');
+  const fillPresets = () => {
+    const keep = presetSelect.selectedIndex;
+    presetSelect.innerHTML = PRESETS.map((p, i) => `<option value="${i}">${esc(tr(p.name))}</option>`).join('');
+    presetSelect.selectedIndex = keep < 0 ? 0 : keep;
+  };
   presetSelect.addEventListener('change', () => {
     state.selected = -1;
     change(() => { state.project = PRESETS[Number(presetSelect.value)].make(); });
@@ -4138,7 +5462,36 @@ const SmithChart = (() => {
   }
   window.addEventListener('hashchange', () => {
     if (!/^#p1\./.test(location.hash) || location.hash.slice(1) === linkOf()) return;
-    try { loadProject(io.decodeLink(location.hash), 'Projet chargé depuis le lien.'); } catch (err) { say(err.message, true); }
+    try { loadProject(io.decodeLink(location.hash), tr('Project loaded from the link.')); } catch (err) { say(err.message, true); }
+  });
+
+  /* --- Language ---------------------------------------------------------------------------- */
+
+  const langSelect = $('sel-lang');
+  langSelect.innerHTML = SmithI18n.LANGS.map(([code, name]) => `<option value="${code}">${esc(name)}</option>`).join('');
+  const applyLang = (code) => {
+    SmithI18n.setLang(code);
+    root.lang = SmithI18n.lang;
+    document.title = tr('Smith Chart');
+    langSelect.value = SmithI18n.lang;
+    SmithI18n.applyStatic(document.body);
+    // elements whose content is drawn by the code carry data-i18n-skip: their own label is set here
+    $('schem').setAttribute('aria-label', tr('Network schematic'));
+    $('plot-s11').setAttribute('aria-label', tr('Magnitude of S11 in decibels versus frequency'));
+    $('plot-vswr').setAttribute('aria-label', tr('VSWR versus frequency'));
+    $('plot-phase').setAttribute('aria-label', tr('Phase of the reflection coefficient versus frequency'));
+    fillPresets();
+  };
+  let savedLang = null;
+  try { savedLang = localStorage.getItem('smith.lang'); } catch (err) { /* storage unavailable */ }
+  applyLang(SmithI18n.supported(savedLang) ? savedLang : SmithI18n.detect());
+  langSelect.addEventListener('change', () => {
+    try { localStorage.setItem('smith.lang', langSelect.value); } catch (err) { /* storage unavailable */ }
+    applyLang(langSelect.value);
+    $('sweep-box').textContent = '';   // rebuilt by drawPanels with the new labels
+    refresh();
+    drawEditor(true);                  // the editor is cached by editorKey
+    drawSide(true);
   });
 
   fitView();
