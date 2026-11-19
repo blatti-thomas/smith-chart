@@ -43,7 +43,7 @@ The links below always point to the latest version.
 | Linux, x86-64 (AppImage) | [Smith-Chart-Linux-x64.AppImage](https://github.com/blatti-thomas/smith-chart/releases/latest/download/Smith-Chart-Linux-x64.AppImage) |
 | Linux, x86-64 (archive) | [Smith-Chart-Linux-x64.tar.gz](https://github.com/blatti-thomas/smith-chart/releases/latest/download/Smith-Chart-Linux-x64.tar.gz) |
 
-The builds are not code-signed. Windows SmartScreen may warn on first launch ("More info" → "Run anyway").
+The builds are not code-signed yet. Windows SmartScreen may warn on first launch ("More info" → "Run anyway"). Signing through SignPath Foundation is prepared and documented in [SIGNING.md](SIGNING.md).
 On macOS, open the app with right-click → Open the first time (or run
 `xattr -dr com.apple.quarantine "/Applications/Smith Chart.app"`).
 
