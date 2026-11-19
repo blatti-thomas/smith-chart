@@ -7,6 +7,28 @@ Smith chart and impedance-matching tool built for the SysRF course (HEIG-VD, cha
 replace Smith V3.10 by F. Dellsperger. One file, no installation, no network connection.
 The interface is available in English, French, German, Italian and Spanish.
 
+## Screenshots
+
+An L-section network (series 2.055 nH, shunt 4.862 pF) matching a 15 + j10 Ω load to 50 Ω at 1 GHz: schematic,
+Smith chart with the element trajectories, VSWR circle, readout panel and frequency sweep plots.
+Light and dark themes follow the system setting.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/main-dark.png">
+    <img src="docs/screenshots/main-light.png" alt="Smith Chart: L-section matching network, Smith chart and frequency sweep plots" width="900">
+  </picture>
+</p>
+
+Amplifier panel (S parameters, stability circles, gain and noise figure), with the BFG33G example:
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/amplifier-dark.png">
+    <img src="docs/screenshots/amplifier-light.png" alt="Smith Chart: amplifier panel with stability circles on the chart" width="900">
+  </picture>
+</p>
+
 ## Download
 
 Desktop builds are attached to every [release](https://github.com/blatti-thomas/smith-chart/releases/latest).
@@ -33,6 +55,7 @@ You can also skip the installer: download the repository and open `index.html` i
 | `tests.mjs` | Tests of the calculation engine: `node tests.mjs` (Node ≥ 18, no dependency) |
 | `i18n-check.mjs` | Checks that every UI string is translated in every language: `node i18n-check.mjs` |
 | `SPEC.md` | Specification: functions taken from Smith, added, excluded, and why |
+| `docs/screenshots/` | Images shown in this README |
 | `main.js`, `package.json` | Desktop wrapper (Electron) used to build the Windows and macOS apps |
 
 ## Usage
