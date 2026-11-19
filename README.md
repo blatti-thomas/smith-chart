@@ -40,10 +40,15 @@ The links below always point to the latest version.
 | Windows (portable, no installation) | [Smith-Chart-Windows-Portable-x64.exe](https://github.com/blatti-thomas/smith-chart/releases/latest/download/Smith-Chart-Windows-Portable-x64.exe) |
 | macOS, Apple Silicon (M1 and later) | [Smith-Chart-macOS-arm64.dmg](https://github.com/blatti-thomas/smith-chart/releases/latest/download/Smith-Chart-macOS-arm64.dmg) |
 | macOS, Intel | [Smith-Chart-macOS-x64.dmg](https://github.com/blatti-thomas/smith-chart/releases/latest/download/Smith-Chart-macOS-x64.dmg) |
+| Linux, x86-64 (AppImage) | [Smith-Chart-Linux-x64.AppImage](https://github.com/blatti-thomas/smith-chart/releases/latest/download/Smith-Chart-Linux-x64.AppImage) |
+| Linux, x86-64 (archive) | [Smith-Chart-Linux-x64.tar.gz](https://github.com/blatti-thomas/smith-chart/releases/latest/download/Smith-Chart-Linux-x64.tar.gz) |
 
 The builds are not code-signed. Windows SmartScreen may warn on first launch ("More info" → "Run anyway").
 On macOS, open the app with right-click → Open the first time (or run
 `xattr -dr com.apple.quarantine "/Applications/Smith Chart.app"`).
+
+On Linux, make the AppImage executable (`chmod +x Smith-Chart-Linux-x64.AppImage`) and run it; it needs FUSE 2
+(`libfuse2`) on recent Ubuntu releases, otherwise use the archive.
 
 You can also skip the installer: download the repository and open `index.html` in a browser.
 
@@ -56,7 +61,7 @@ You can also skip the installer: download the repository and open `index.html` i
 | `i18n-check.mjs` | Checks that every UI string is translated in every language: `node i18n-check.mjs` |
 | `SPEC.md` | Specification: functions taken from Smith, added, excluded, and why |
 | `docs/screenshots/` | Images shown in this README |
-| `main.js`, `package.json` | Desktop wrapper (Electron) used to build the Windows and macOS apps |
+| `main.js`, `package.json` | Desktop wrapper (Electron) used to build the Windows, macOS and Linux apps |
 
 ## Usage
 
@@ -204,7 +209,7 @@ verifies.
 
 ### Releasing
 
-Push a version tag; GitHub Actions builds the Windows and macOS apps and attaches them to the release:
+Push a version tag; GitHub Actions builds the Windows, macOS and Linux apps and attaches them to the release:
 
 ```bash
 git tag v0.2.0

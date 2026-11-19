@@ -33,6 +33,8 @@ jobs:
             script: dist:win
           - os: macos-latest
             script: dist:mac
+          - os: ubuntu-latest
+            script: dist:linux
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -60,7 +62,7 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           shopt -s nullglob
-          files=(dist/Smith-Chart-*.exe dist/Smith-Chart-*.dmg dist/Smith-Chart-*.zip)
+          files=(dist/Smith-Chart-*.exe dist/Smith-Chart-*.dmg dist/Smith-Chart-*.zip dist/Smith-Chart-*.AppImage dist/Smith-Chart-*.tar.gz)
           if [ ${#files[@]} -eq 0 ]; then echo "No artifacts found"; ls -la dist; exit 1; fi
           printf 'Uploading %s\n' "${files[@]}"
           gh release upload "$TAG" "${files[@]}" --repo "$REPO" --clobber
