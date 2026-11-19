@@ -40,17 +40,30 @@ The links below always point to the latest version.
 | Windows (portable, no installation) | [Smith-Chart-Windows-Portable-x64.exe](https://github.com/blatti-thomas/smith-chart/releases/latest/download/Smith-Chart-Windows-Portable-x64.exe) |
 | macOS, Apple Silicon (M1 and later) | [Smith-Chart-macOS-arm64.dmg](https://github.com/blatti-thomas/smith-chart/releases/latest/download/Smith-Chart-macOS-arm64.dmg) |
 | macOS, Intel | [Smith-Chart-macOS-x64.dmg](https://github.com/blatti-thomas/smith-chart/releases/latest/download/Smith-Chart-macOS-x64.dmg) |
-| Linux, x86-64 (AppImage) | [Smith-Chart-Linux-x64.AppImage](https://github.com/blatti-thomas/smith-chart/releases/latest/download/Smith-Chart-Linux-x64.AppImage) |
+| Linux, x86-64 (AppImage) | [Smith-Chart-Linux-x86_64.AppImage](https://github.com/blatti-thomas/smith-chart/releases/latest/download/Smith-Chart-Linux-x86_64.AppImage) |
 | Linux, x86-64 (archive) | [Smith-Chart-Linux-x64.tar.gz](https://github.com/blatti-thomas/smith-chart/releases/latest/download/Smith-Chart-Linux-x64.tar.gz) |
 
-The builds are not code-signed yet. Windows SmartScreen may warn on first launch ("More info" → "Run anyway"). Signing through SignPath Foundation is prepared and documented in [SIGNING.md](SIGNING.md).
+The builds are not code-signed yet. Windows SmartScreen may warn on first launch ("More info" → "Run anyway"). See [Code signing policy](#code-signing-policy).
 On macOS, open the app with right-click → Open the first time (or run
 `xattr -dr com.apple.quarantine "/Applications/Smith Chart.app"`).
 
-On Linux, make the AppImage executable (`chmod +x Smith-Chart-Linux-x64.AppImage`) and run it; it needs FUSE 2
+On Linux, make the AppImage executable (`chmod +x Smith-Chart-Linux-x86_64.AppImage`) and run it; it needs FUSE 2
 (`libfuse2`) on recent Ubuntu releases, otherwise use the archive.
 
 You can also skip the installer: download the repository and open `index.html` in a browser.
+
+## Code signing policy
+
+The Windows builds are meant to be signed with a free certificate from the SignPath Foundation. The
+application is pending, so the current builds are not signed yet. Once it is approved, signing is done
+by the release workflow, from the source code of this repository only (setup in [SIGNING.md](SIGNING.md)).
+
+Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by
+[SignPath Foundation](https://signpath.org).
+
+- Committers, reviewers and approvers: [blatti-thomas](https://github.com/blatti-thomas)
+- Privacy policy: this program does not send any information to other networked systems. Projects and
+  settings stay on the computer.
 
 ## Files
 
