@@ -334,9 +334,48 @@ details.card > summary small { color: var(--muted); font-weight: 400; letter-spa
 .sol-title { font-variant-numeric: tabular-nums; }
 .sol-meta { color: var(--ink-2); font-size: 11.5px; }
 .kv dd b { font-weight: 600; }
-.file-group { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-bottom: 4px; }
-#status { min-height: 1.4em; }
-#status.bad { color: var(--crit); }
+.menu { position: relative; }
+.menu > summary { list-style: none; user-select: none; }
+.menu > summary::-webkit-details-marker { display: none; }
+.menu > summary::after { content: " BE"; color: var(--muted); }
+.menu[open] > summary { background: var(--wash-2); }
+.menu-pop {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 230px;
+  padding: 6px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
+.menu-pop .sub-head { margin: 8px 6px 4px; }
+.menu-pop .sub-head:first-child { margin-top: 2px; }
+.menu-pop .mi { height: 28px; padding: 0 8px; background: transparent; border: 0; border-radius: 6px; color: var(--ink); text-align: left; cursor: pointer; }
+.menu-pop .mi:hover, .menu-pop .mi:focus-visible { background: var(--wash); }
+.menu-pop select { margin: 2px 6px; height: 26px; }
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  z-index: 40;
+  transform: translateX(-50%);
+  max-width: min(90vw, 640px);
+  margin: 0;
+  padding: 8px 14px;
+  background: var(--ink);
+  color: var(--panel);
+  border-radius: 8px;
+  font-size: 13px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+.toast[hidden] { display: none; }
+.toast.bad { background: var(--crit); color: #fff; }
 .course-z, .course-y, .course-n { fill: none; stroke-width: 1.8; }
 .course-z { stroke: var(--z); }
 .course-y { stroke: var(--y); }
@@ -362,8 +401,35 @@ details.card > summary small { color: var(--muted); font-weight: 400; letter-spa
 </head>
 <body>
 <div class="app">
+  <p id="status" data-i18n-skip class="toast" role="status" aria-live="polite" hidden></p>
   <header class="topbar">
     <h1>Smith Chart</h1>
+    <details class="menu" id="menu-file">
+      <summary class="btn">File</summary>
+      <div class="menu-pop" id="files-box">
+        <button type="button" class="mi" data-file="f-open">Open…</button>
+        <button type="button" class="mi" data-file="f-save">Save</button>
+        <button type="button" class="mi" data-file="f-link">Copy link</button>
+        <div class="sub-head">Measured load</div>
+        <button type="button" class="mi" data-file="f-import">Import .s1p, .s2p or CSV…</button>
+        <select id="sel-port" class="narrow" aria-label="Parameter used for a two-port file">
+          <option value="1">S11 of the .s2p</option>
+          <option value="2">S22 of the .s2p</option>
+        </select>
+        <div class="sub-head">Export</div>
+        <button type="button" class="mi" data-file="f-svg">Chart SVG</button>
+        <button type="button" class="mi" data-file="f-png">Chart PNG</button>
+        <button type="button" class="mi" data-file="f-copy">Copy image</button>
+        <button type="button" class="mi" data-file="f-schem">Schematic SVG</button>
+        <button type="button" class="mi" data-file="f-points">Points CSV</button>
+        <button type="button" class="mi" data-file="f-sweep">Sweep CSV</button>
+        <button type="button" class="mi" data-file="f-cir">LTspice netlist</button>
+        <button type="button" class="mi" data-file="f-ckt">Smith netlist</button>
+      </div>
+    </details>
+    <button type="button" class="btn" id="btn-new" title="Start an empty project (50 Ω load)">New project</button>
+    <input type="file" id="file-project" accept=".json,application/json" hidden>
+    <input type="file" id="file-data" accept=".s1p,.s2p,.csv,.txt" hidden>
     <label class="field"><span>Z<sub>0</sub></span> <input id="in-z0" autocomplete="off" spellcheck="false" aria-label="Reference impedance Z0"></label>
     <label class="field"><span>f<sub>0</sub></span> <input id="in-f0" autocomplete="off" spellcheck="false" aria-label="Design frequency"></label>
     <div class="seg" id="seg-mode" role="group" aria-label="Displayed planes">
@@ -375,7 +441,6 @@ details.card > summary small { color: var(--muted); font-weight: 400; letter-spa
       <button type="button" data-units="norm" title="Normalized graduations">z, y</button>
       <button type="button" data-units="abs" title="Graduations in ohms and siemens">Ω, mS</button>
     </div>
-    <button type="button" class="btn" id="btn-new" title="Start an empty project (50 Ω load)">New project</button>
     <label class="field">Language <select id="sel-lang" aria-label="Language"></select></label>
     <span class="spacer"></span>
     <button type="button" class="btn" id="btn-course" aria-pressed="false" title="Shows the r or g circle followed by each element, its Δx or Δb, and the impedance / admittance symmetry">Course mode</button>
@@ -477,39 +542,6 @@ details.card > summary small { color: var(--muted); font-weight: 400; letter-spa
     <details class="card ed" id="card-amp">
       <summary>Amplifier (S-parameters)</summary>
       <div id="amp-box" data-i18n-skip></div>
-    </details>
-    <details class="card ed" id="card-files">
-      <summary>Files and exports</summary>
-      <div id="files-box">
-        <div class="sub-head">Project</div>
-        <div class="file-group">
-          <button type="button" class="btn sm" data-file="f-open">Open…</button>
-          <button type="button" class="btn sm" data-file="f-save">Save</button>
-          <button type="button" class="btn sm" data-file="f-link">Copy link</button>
-        </div>
-        <div class="sub-head">Measured load</div>
-        <div class="file-group">
-          <button type="button" class="btn sm" data-file="f-import">Import .s1p, .s2p or CSV…</button>
-          <select id="sel-port" class="narrow" aria-label="Parameter used for a two-port file">
-            <option value="1">S11 of the .s2p</option>
-            <option value="2">S22 of the .s2p</option>
-          </select>
-        </div>
-        <div class="sub-head">Export</div>
-        <div class="file-group">
-          <button type="button" class="btn sm" data-file="f-svg">Chart SVG</button>
-          <button type="button" class="btn sm" data-file="f-png">Chart PNG</button>
-          <button type="button" class="btn sm" data-file="f-copy">Copy image</button>
-          <button type="button" class="btn sm" data-file="f-schem">Schematic SVG</button>
-          <button type="button" class="btn sm" data-file="f-points">Points CSV</button>
-          <button type="button" class="btn sm" data-file="f-sweep">Sweep CSV</button>
-          <button type="button" class="btn sm" data-file="f-cir">LTspice netlist</button>
-          <button type="button" class="btn sm" data-file="f-ckt">Smith netlist</button>
-        </div>
-        <p id="status" data-i18n-skip class="info" role="status" aria-live="polite"></p>
-        <input type="file" id="file-project" accept=".json,application/json" hidden>
-        <input type="file" id="file-data" accept=".s1p,.s2p,.csv,.txt" hidden>
-      </div>
     </details>
   </aside>
 </div>
@@ -652,8 +684,8 @@ SmithI18n.register('fr', {
   'Frequency sweep': 'Sweep en fréquence',
   'Circles': 'Cercles',
   'Amplifier (S-parameters)': 'Amplificateur (paramètres S)',
-  'Files and exports': 'Fichiers et exports',
-  'Project': 'Projet',
+  'File': 'Fichier',
+  'New project started: empty, 50 Ω load.': 'Nouveau projet démarré : vide, charge 50 Ω.',
   'Open…': 'Ouvrir…',
   'Save': 'Enregistrer',
   'Copy link': 'Copier le lien',
@@ -950,8 +982,8 @@ SmithI18n.register('de', {
   'Frequency sweep': 'Frequenzdurchlauf',
   'Circles': 'Kreise',
   'Amplifier (S-parameters)': 'Verstärker (S-Parameter)',
-  'Files and exports': 'Dateien und Exporte',
-  'Project': 'Projekt',
+  'File': 'Datei',
+  'New project started: empty, 50 Ω load.': 'Neues Projekt gestartet: leer, Last 50 Ω.',
   'Open…': 'Öffnen…',
   'Save': 'Speichern',
   'Copy link': 'Link kopieren',
@@ -1248,8 +1280,8 @@ SmithI18n.register('it', {
   'Frequency sweep': 'Sweep in frequenza',
   'Circles': 'Cerchi',
   'Amplifier (S-parameters)': 'Amplificatore (parametri S)',
-  'Files and exports': 'File ed esportazioni',
-  'Project': 'Progetto',
+  'File': 'File',
+  'New project started: empty, 50 Ω load.': 'Nuovo progetto avviato: vuoto, carico 50 Ω.',
   'Open…': 'Apri…',
   'Save': 'Salva',
   'Copy link': 'Copia il link',
@@ -1546,8 +1578,8 @@ SmithI18n.register('es', {
   'Frequency sweep': 'Barrido en frecuencia',
   'Circles': 'Círculos',
   'Amplifier (S-parameters)': 'Amplificador (parámetros S)',
-  'Files and exports': 'Archivos y exportaciones',
-  'Project': 'Proyecto',
+  'File': 'Archivo',
+  'New project started: empty, 50 Ω load.': 'Nuevo proyecto iniciado: vacío, carga 50 Ω.',
   'Open…': 'Abrir…',
   'Save': 'Guardar',
   'Copy link': 'Copiar el enlace',
@@ -4990,10 +5022,14 @@ const SmithChart = (() => {
 
   /* --- Files, exports, link (section "io") -------------------------------------------------- */
 
+  let sayTimer = 0;
   const say = (text, bad = false) => {
     const el = $('status');
     el.textContent = text;
     el.classList.toggle('bad', bad);
+    el.hidden = false;
+    clearTimeout(sayTimer);
+    sayTimer = setTimeout(() => { el.hidden = true; }, bad ? 7000 : 4000);
   };
   const download = (name, data, mime) => {
     const blob = data instanceof Blob ? data : new Blob([data], { type: mime });
@@ -5155,10 +5191,15 @@ const SmithChart = (() => {
     'f-cir': () => download(`${stamp()}.cir`, io.toCir(state.project), 'text/plain'),
     'f-ckt': () => download(`${stamp()}.ckt`, io.toCkt(state.project), 'text/plain'),
   };
+  const fileMenu = $('menu-file');
   $('files-box').addEventListener('click', (ev) => {
     const b = ev.target.closest('button[data-file]');
-    if (b && FILE_ACTIONS[b.dataset.file]) FILE_ACTIONS[b.dataset.file]();
+    if (!b || !FILE_ACTIONS[b.dataset.file]) return;
+    fileMenu.open = false;
+    FILE_ACTIONS[b.dataset.file]();
   });
+  document.addEventListener('click', (ev) => { if (fileMenu.open && !fileMenu.contains(ev.target)) fileMenu.open = false; });
+  document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && fileMenu.open) { fileMenu.open = false; fileMenu.querySelector('summary').focus(); } });
 
   /* --- Refresh ---------------------------------------------------------------------- */
 
@@ -5351,6 +5392,7 @@ const SmithChart = (() => {
   $('btn-new').addEventListener('click', () => {
     state.selected = -1;
     change(() => { state.project = newProject(); });
+    say(tr('New project started: empty, 50 Ω load.'));
   });
 
   $('btn-undo').addEventListener('click', undo);
