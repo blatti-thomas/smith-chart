@@ -2,8 +2,8 @@
 
 Phase 0 — functional specification and architecture. Nothing is coded at this stage.
 Document drawn up on 2026-11-13 from F. Dellsperger's public documentation and from
-chapter 8 of the SysRF course (Hochet & Favrat, 2017). No binary was downloaded, decompiled
-or run.
+chapter 8 of the SysRF course (Hochet & Favrat, 2017). At that date no binary had been downloaded, decompiled
+or run. On 2026-11-14 the Smith V3.10 assembly was analysed statically (see § 12); it was never run.
 
 ## 1. Sources
 
@@ -86,7 +86,7 @@ Decision: **R** = kept, **A** = kept and improved, **X** = excluded (reason in �
 | Keyboard entry: Z, Y or Γ, Cartesian or polar | [S2 p. 7] | A | + S11 (dB/phase), + normalized value, + load described by a series or parallel R-L-C circuit (the slide 16 case) |
 | Several datapoints, a single "Start" | [S2 p. 9] | A | Load = fixed value, R-L-C model, or multi-frequency **Z(f) table** |
 | Import of S11 / S22 from Touchstone .s1p / .s2p | [S1], [S2 p. 7, 72] | A | MA / DB / RI formats, units Hz…GHz, arbitrary `R`; .s2p with port 2 terminated in a load of choice |
-| CITI import | [S2 p. 74] | X | § 5 |
+| CITI import | [S2 p. 74] | R | Taken back after the binary analysis (§ 12.2) |
 | EZNEC `LastZ.txt` import | [S2 p. 76] | A | Via a generic "f, R, X" CSV import (covers EZNEC) |
 | Editing a datapoint (double-click) | [S2 p. 27] | R | In the inspector, or by dragging the point |
 
@@ -158,7 +158,7 @@ Decision: **R** = kept, **A** = kept and improved, **X** = excluded (reason in �
 
 | Excluded | Reason |
 |---|---|
-| CITI import / conversion | Legacy instrument format, absent from the course; Touchstone and CSV cover the use cases |
+| CITI → Touchstone conversion | Viewer function; CITI **import** is taken back (§ 12.2) |
 | S → H / Z / Y / A conversion and re-export, polar plot of S12 / S21 | Functions of an S-parameter viewer, outside the "chart + matching" scope |
 | Reading `.xmlsc` / `.smc` projects | Format not publicly documented |
 | Dockable windows, remembered positions | Replaced by a fixed, adaptive layout ("clean" constraint) |
@@ -323,5 +323,57 @@ Deviations from this document:
 | Clipboard | chart and schematic | chart only; the schematic is exported as SVG |
 | Printing | stylesheet | present, not verified on paper |
 | Points table | selectable columns | fixed columns (Z, Q); the CSV export contains all quantities |
+| Slide examples | preloaded in an "Example" menu | removed on 2026-11-15 at the user's request: the tool starts on an empty project, with a "New project" button. The slide vectors stay in `tests.mjs` |
+| Tuning slider | ± 20 % around the value | "Whole locus" range by default, from the zero value to the infinite value |
+| Colors and line widths | excluded in favour of themes (§ 3.1) | taken back on 2026-11-15 at the user's request: "Settings" panel (default Z0 and frequency, colors, line widths, default slider range and E series), stored on this computer. The three-hue palette stays the starting one |
+| Vertical schematic | not taken (§ 12.2) | taken on 2026-11-15: "Vertical schematic" checkbox in the settings |
+| Menus | toolbar and panels only | menu bar (File, Edit, View, Options, Help) added on 2026-11-15 at the user's request, with built-in documentation and an "About" window naming the author. No "Window" menu (single window) |
+| Dashes | em dash for a missing value | plain hyphen everywhere, at the user's request |
+| Extended chart | Smith's "Expanded" option, not described in its help (`Help V3.10.chm`, read on 2026-11-15: no mention) | "Extended chart" checkbox: view up to |Γ| = 2 and grid of the r < 0 region. This is my interpretation of the option, not a verified reproduction of Smith |
 
 The limitations are listed in `README.md`.
+
+## 12. Static analysis of Smith V3.10 (2026-11-14)
+
+Tool: REA 6.7.0 (`inspect-managed-artifact`, `inspect-managed-members`) on `Smith V3.10.exe`
+(.NET 2.0, not obfuscated, 116 types, 1931 methods, 1534 strings). The binary was neither loaded nor run.
+REA gives names, fields, strings, numeric constants and the call graph, **not decompiled code**: the
+formulas were not read instruction by instruction. No code was copied.
+The help file `Help V3.10.chm` was not read. No instruction addressed to an agent was found.
+
+### 12.1 What the binary confirms, completes or contradicts
+
+| Topic | Finding | Evidence |
+|---|---|---|
+| Tuning Cockpit | Absent from V3.10, as § 1 says | no matching class or string |
+| Elements | The 12 elements of § 3.3, no more and no less | `CActualPart`, "Insert …" toolbar |
+| `.xmlsc` projects | XML serialization of `CSmithChartDesign` (points, elements, Q, VSWR, stability, noise, gain, sweep). **Contradicts § 5** ("undocumented format") | `CFile.ReadData` |
+| `.smc` projects | Old text format with `[DATAPOINTS]`, `[ELEMENTS]`… sections | `CFile.ReadData` |
+| Shortcut | Ctrl+M toggles Smith Chart / S-Plot (missing from § 3.4) | `FormMain.Form1_KeyDown` |
+| Default values | f = 500 MHz, Z0 = 50 Ω, εr = 1, line 50 Ω and 0.25 λ | `Smith V3.10.exe.config`, `FrmLineImpedance` |
+| Zoom | Step of ×2, between 0.125 and 8 | `FormMain.btnZoomIn_Click`, `btnZoomOut_Click` |
+| Entry | Negative real part, \|Γ\| > 1 and f = 0 are refused | messages of `FrmDataPoint` |
+| Speed of light | 299 800 000 m/s in the calculation, 300 000 000 in the datapoint sweep, 299 792 458 in the edit dialog, the schematic and the netlist | constants of `CGlobalFunctions`, `FrmEditElement`, `FormMain.menuItemSaveNetlist_Click` |
+| Losses | 8.686 dB/Np, √(f/f_DP) law | `CGlobalFunctions.RecalculateCircuit` |
+| Precision | S parameters of the gain and stability circles stored in single precision | `r4` fields of `Gain` and `Stability` |
+| Stubs | Lossless (`A=0 F=0` in the netlist) | `FormMain.menuItemSaveNetlist_Click` |
+| Transformer | Label `1:n`, netlist `TRF … R1=0 N=`; **direction of the ratio still undetermined** | `FrmSchematic`, netlist |
+
+Decision: the tool keeps c = 299 792 458 m/s and the exact dB ↔ Np conversion. The difference with Smith
+only affects line losses, to within 0.003 %.
+
+### 12.2 Differences found and what was done
+
+| Smith V3.10 function | Evidence | Outcome |
+|---|---|---|
+| Gain table per frequency (MAG, MSG, K, μ) and its plots | `FrmGainTable`, `FrmGainGraphs` | **Taken**: table and plots in the amplifier panel, for the imported `.s2p` |
+| S11 and S22 return-loss plot | `FrmReturnLossGraph` | **Taken**, same panel |
+| ASCII export of the circles | `frmExportSelect` | **Taken**: "Circles CSV" (centre and radius in the Γ plane) |
+| Q = 0.2 … 10 and VSWR = 1.2 … 10 check boxes | `FrmCircles` | **Taken**: preset buttons |
+| DP, TP and circle labels can be switched on and off | `CSettings` | **Taken** |
+| Drag and drop of a file | `FrmSmithChart.frmSmithChart_DragDrop` | **Taken** |
+| Reading `.xmlsc` projects | `CFile.ReadData` | **Dropped** on 2026-11-14: the demo version does not save a project, so there is no sample file to fix the type codes (not visible in the metadata). To be taken back only if a real `.xmlsc` is provided |
+| CITI import with noise parameters | `CFile.ReadCITIFile` | **Taken**: `io.parseCiti` (S[i,j], PortZ[1], Sopt, Rn, NFmin). Smith's examples `BFG33G.cti` and `BFG33_591Pt.cti` read back identically to the manufacturer `.s2p`. CITI → Touchstone conversion stays excluded |
+| Several datapoints, sweep on datapoints | `CDatapoint`, `CalculateCircuitDatapointSweep` | Covered differently by the Z(f) table load |
+| Vertical schematic, custom labels | `FrmSettings` | Vertical schematic taken on 2026-11-15 (§ 11); custom labels not taken |
+| Polar S12 / S21 plot, S → H / Z / Y / A conversion, `.smc` format, recent files, dockable windows | `FrmS12`, `FrmS21`, `FormMain` | Excluded (§ 5) |

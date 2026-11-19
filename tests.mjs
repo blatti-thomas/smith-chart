@@ -791,7 +791,7 @@ test('display', () => {
   const cases = [
     [6.8e-12, 'F', '6.8 pF'], [15e-9, 'H', '15 nH'], [869e6, 'Hz', '869 MHz'], [50, 'Ω', '50 Ω'],
     [0.02, 'm', '20 mm'], [0, 'Ω', '0 Ω'], [999.96e3, 'Hz', '1 MHz'], [1234.5, 'Ω', '1.234 kΩ'],
-    [-3.3e-6, 'F', '-3.3 µF'], [Infinity, 'Ω', '∞ Ω'], [NaN, 'Ω', '—'], [12.5, '', '12.5'],
+    [-3.3e-6, 'F', '-3.3 µF'], [Infinity, 'Ω', '∞ Ω'], [NaN, 'Ω', '-'], [12.5, '', '12.5'],
   ];
   for (const [value, unit, expected] of cases) same(eng.format(value, unit), expected);
   same(eng.formatCx(c(0.6, 0.8)), '0.6 + j0.8');
@@ -1668,6 +1668,218 @@ test('S parameters interpolated from a .s2p, and saved in the project', () => {
   same(back.stab.source, true); same(back.stab.load, false); same(back.gains.length, 1); same(back.nfs.join(), '3.8');
   same(io.normalizeProject({ amp: { s: { s11: c(0, 0) } } }).amp, null);
   same(io.normalizeProject(fullProject()).amp, null);
+});
+test('per-frequency gain table of an .s2p: K, μ, MAG, MSG and return loss (independent forms)', () => {
+  const rnd = prng(2026);
+  const devices = [BFG];
+  while (devices.length < 40) devices.push(randomDevice(rnd));
+  const pm = (z) => `${Math.sqrt(mod2(z))} ${Math.atan2(z.im, z.re) * 180 / Math.PI}`;
+  const text = ['# GHz S MA R 50', ...devices.map((s, i) => `${i + 1} ${pm(s.s11)} ${pm(s.s21)} ${pm(s.s12)} ${pm(s.s22)}`)].join('\n');
+  const rows = amp.table(io.parseTouchstone(text));
+  same(rows.length, devices.length);
+  close(rows[0].k, 1.17, 5e-3, 'K of the BFG33G (ex. 13)');
+  close(rows[0].magDb, 12.94, 2e-3, 'Gmax of the BFG33G (ex. 13)');
+  let conditional = 0;
+  rows.forEach((row, i) => {
+    const s = devices[i];
+    close(row.f, (i + 1) * 1e9, 1e-12);
+    const m = (z) => Math.sqrt(mod2(z));
+    const delta = csub(cmul(s.s11, s.s22), cmul(s.s12, s.s21));
+    const k = (1 - mod2(s.s11) - mod2(s.s22) + mod2(delta)) / (2 * m(s.s12) * m(s.s21));
+    close(row.k, k, 1e-9, 'K');
+    close(row.msgDb, 10 * Math.log10(m(s.s21)) - 10 * Math.log10(m(s.s12)), 1e-9, 'MSG');   // power ratio |S21| / |S12|
+    if (k >= 1) close(row.magDb, 10 * Math.log10(m(s.s21) / m(s.s12) / (k + Math.sqrt(k * k - 1))), 1e-9, 'MAG');
+    else { same(row.magDb, null); conditional += 1; }
+    close(row.s21Db, 20 * Math.log10(m(s.s21)), 1e-9); close(row.s12Db, 20 * Math.log10(m(s.s12)), 1e-9);
+    close(row.rl11, -20 * Math.log10(m(s.s11)), 1e-9); close(row.rl22, -20 * Math.log10(m(s.s22)), 1e-9);
+    // μ is the distance from the centre of the chart to the load-plane stability circle
+    const circle = amp.stabilityCircle(s, 'load');
+    close(row.mu, Math.abs(Math.hypot(circle.cx, circle.cy) - circle.rad) * (circle.stableInside === (Math.hypot(circle.cx, circle.cy) < circle.rad) ? 1 : -1), 1e-9, 'μ');
+  });
+  ok(conditional > 3 && conditional < 37, `unbalanced sample (${conditional} conditional)`);
+});
+test('circles CSV export: every row read back gives a circle with the announced property', () => {
+  const p = { ...fullProject(), circles: { vswr: [2, 5], q: [0.5, 3] }, amp: { s: BFG, noise: BFG_NOISE, stab: { source: true, load: true }, gains: [{ kind: 'available', db: 11 }, { kind: 'operating', db: 12 }, { kind: 'unilateral-source', db: -0.01 }], nfs: [3.9] } };
+  const lines = io.circlesCsv(p, ',').trim().split('\n');
+  same(lines[0], 'type,value,plane,center_re,center_im,radius,note');
+  const rows = lines.slice(1).map((line) => { const f = line.split(','); return { kind: f[0], value: Number(f[1]), plane: f[2], circle: { cx: Number(f[3]), cy: Number(f[4]), rad: Number(f[5]) }, note: f[6] }; });
+  same(rows.length, 2 + 4 + 2 + 3 + 1);
+  const zOf = (g) => cdiv(cadd(c(1), g), csub(c(1), g));
+  for (const row of rows) {
+    for (const deg of [20, 140, 255]) {
+      const g = onCircle(row.circle, deg);
+      const m = Math.sqrt(mod2(g));
+      if (row.kind === 'VSWR') close((1 + m) / (1 - m), row.value, 1e-7, 'VSWR');
+      else if (row.kind === 'Q') {
+        if (m >= 1) continue;                                   // only the part of the arc inside the chart
+        const z = zOf(g);
+        if ((z.im > 0) === row.note.includes('> 0')) close(Math.abs(z.im) / z.re, row.value, 1e-6, 'Q');
+      } else if (row.kind === 'stability') close(Math.sqrt(mod2(row.plane === 'source' ? gammaOut(BFG, g) : gammaIn(BFG, g))), 1, 1e-6, 'stability boundary');
+      else if (row.kind === 'noise') close(amp.noiseFigure(BFG_NOISE, g), row.value, 1e-6, 'NF');
+      else if (row.kind === 'gain available') close(10 * Math.log10(amp.powerGains(BFG, g, c(0, 0)).ga), row.value, 1e-6, 'GA');
+      else if (row.kind === 'gain operating') close(10 * Math.log10(amp.powerGains(BFG, c(0, 0), g).gp), row.value, 1e-6, 'GP');
+      else if (row.kind === 'gain unilateral-source') close(10 * Math.log10((1 - mod2(g)) / mod2(csub(c(1), cmul(BFG.s11, g)))), row.value, 1e-6, 'GS');
+      else throw new Error(`unexpected type: ${row.kind}`);
+    }
+  }
+  same(io.circlesCsv(fullProject()).trim().split('\n').length >= 1, true);
+  same(io.circlesCsv({ ...fullProject(), circles: { vswr: [], q: [] }, amp: null }).trim(), 'type;value;plane;center_re;center_im;radius;note');
+});
+test('CITI file: same content as the equivalent .s2p, in MAGANGLE, DBANGLE and RI, with noise', () => {
+  const ref = io.parseTouchstone(s2pText('RI', 'Hz', 1, 75));
+  const block = (rows) => `BEGIN\r\n${rows.join('\r\n')}\r\nEND`;
+  for (const fmt of ['MAGANGLE', 'DBANGLE', 'RI']) {
+    const pair = (z) => fmtPair(z, fmt === 'MAGANGLE' ? 'MA' : fmt === 'DBANGLE' ? 'DB' : 'RI').replace(' ', ', ');
+    const col = (key) => block(twoPortFreqs.map((f) => pair(twoPort(f, 75)[key])));
+    const text = ['# Created for the tests', '', 'CITIFILE A.01.00', 'NAME DATA', `VAR freq MAG ${twoPortFreqs.length}`,
+      `DATA S[1,1] ${fmt}`, `DATA S[1,2] ${fmt}`, `DATA S[2,1] ${fmt}`, `DATA S[2,2] ${fmt}`, 'DATA PortZ[1] MAGANGLE',
+      'VAR_LIST_BEGIN', ...twoPortFreqs.map((f) => `   ${f}`), 'VAR_LIST_END',
+      col('s11'), col('s12'), col('s21'), col('s22'), block(twoPortFreqs.map(() => '75, 0')),
+      '', 'CITIFILE A.01.00', 'NAME OTHER', 'VAR freq MAG 1', 'DATA k MAG', 'VAR_LIST_BEGIN', '1', 'VAR_LIST_END', 'BEGIN', '9', 'END'].join('\r\n');
+    const ts = io.parseCiti(text);
+    same(ts.ports, 2); same(ts.z0, 75); same(ts.points.length, ref.points.length); same(ts.noise.length, 0);
+    ts.points.forEach((pt, k) => {
+      close(pt.f, ref.points[k].f, 1e-12);
+      for (const key of ['s11', 's21', 's12', 's22']) close(pt.s[key], ref.points[k].s[key], 1e-9, `${fmt} ${key}`);
+    });
+  }
+  // BFG33G : the first two frequencies of the CITI example shipped with Smith, against the manufacturer .s2p lines
+  const bfg = io.parseCiti(['CITIFILE A.01.00', 'NAME SP1.SP', 'VAR freq MAG 2',
+    'DATA S[1,1] MAGANGLE', 'DATA S[1,2] MAGANGLE', 'DATA S[2,1] MAGANGLE', 'DATA S[2,2] MAGANGLE', 'DATA PortZ[1] MAGANGLE', 'DATA Sopt MAGANGLE', 'DATA Rn MAG', 'DATA NFmin MAG',
+    'VAR_LIST_BEGIN', '1e+008', '2e+008', 'VAR_LIST_END',
+    'BEGIN', '0.813, -11.9', '0.752, -23.5', 'END', 'BEGIN', '0.012, 79.3', '0.022, 72', 'END',
+    'BEGIN', '12.673, 164.5', '12.218, 151.5', 'END', 'BEGIN', '0.941, -11.5', '0.867, -21.3', 'END',
+    'BEGIN', '50, 0', '50, 0', 'END', 'BEGIN', '0.528, 5.3', '0.528, 5.3', 'END', 'BEGIN', '59', '59', 'END', 'BEGIN', '3.1', '3.1', 'END'].join('\n'));
+  const s2p = io.parseTouchstone('# MHz S MA R 50\n100 .813 -11.9 12.673 164.5 .012 79.3 .941 -11.5\n200 .752 -23.5 12.218 151.5 .022 72.0 .867 -21.3\n! Noise data:\n500 3.10 .528 5.30 1.18\n');
+  bfg.points.forEach((pt, k) => { close(pt.f, s2p.points[k].f, 1e-12); for (const key of ['s11', 's21', 's12', 's22']) close(pt.s[key], s2p.points[k].s[key], 1e-12, key); });
+  same(bfg.noise.length, 2);
+  close(bfg.noise[0].nfmin, 3.1, EXACT); close(bfg.noise[0].gopt, s2p.noise[0].gopt, 1e-12); close(bfg.noise[0].rn, s2p.noise[0].rn, 1e-12, 'Rn in ohms scaled to rn');
+  close(amp.table(bfg)[0].k, amp.table(s2p)[0].k, 1e-12);
+  // one port, SEG_LIST, and errors
+  const one = io.parseCiti('CITIFILE A.01.01\nNAME MEMORY\nVAR FREQ MAG 3\nDATA S[1,1] RI\nSEG_LIST_BEGIN\nSEG 1e9 2e9 3\nSEG_LIST_END\nBEGIN\n0.5,0\n0,0.5\n-0.25,0\nEND\n');
+  same(one.ports, 1); same(one.z0, 50); close(one.points[1].f, 1.5e9, 1e-12); close(one.points[1].s, c(0, 0.5), EXACT);
+  for (const [text, word] of [['# nothing', 'CITIFILE'], ['CITIFILE A.01.00\nDATA S[1,1] RI\nVAR_LIST_BEGIN\n1\n2\nVAR_LIST_END\nBEGIN\n1,0\nEND', 'frequencies'], ['CITIFILE A.01.00\nDATA S[2,1] RI\nVAR_LIST_BEGIN\n1\nVAR_LIST_END\nBEGIN\n1,0\nEND', 'S[1,1]']]) {
+    let message = '';
+    try { io.parseCiti(text); } catch (err) { message = err.message; }
+    ok(message.includes(word), `expected a message containing "${word}", got "${message}"`);
+  }
+});
+test('thinned polyline: faithful to half a pixel, bounded in size, and clipped outside the view', () => {
+  // distance from a point to the drawn path, by walking its segments (independent of the generator)
+  const segments = (d) => {
+    const out = [];
+    let cur = null;
+    for (const m of d.matchAll(/([ML])(-?[\d.]+) (-?[\d.]+)/g)) {
+      const p = { x: Number(m[2]), y: Number(m[3]) };
+      if (m[1] === 'L' && cur) out.push([cur, p]);
+      cur = p;
+    }
+    return out;
+  };
+  const distance = (p, segs) => Math.min(...segs.map(([a, b]) => {
+    const dx = b.x - a.x; const dy = b.y - a.y;
+    const len = dx * dx + dy * dy;
+    const u = len ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len)) : 0;
+    return Math.hypot(p.x - a.x - u * dx, p.y - a.y - u * dy);
+  }));
+  // 50 000 points on a spiral that fits in the chart
+  const spiral = [];
+  for (let i = 0; i < 50000; i += 1) { const u = i / 49999; spiral.push(c(0.9 * u * Math.cos(40 * u), 0.9 * u * Math.sin(40 * u))); }
+  const d = Chart.polyD(view600, spiral);
+  const segs = segments(d);
+  ok(segs.length < 12000, `${segs.length} segments for a spiral about 5000 px long`);
+  ok(segs.length > 2000, `only ${segs.length} segments: the curve would look angular`);
+  for (let i = 0; i < spiral.length; i += 97) {
+    const p = { x: 300 + spiral[i].re * 262, y: 300 - spiral[i].im * 262 };
+    ok(distance(p, segs) < 0.9, `point ${i} at ${distance(p, segs).toFixed(2)} px from the path`);
+  }
+  const end = { x: 300 + spiral[49999].re * 262, y: 300 - spiral[49999].im * 262 };
+  ok(distance(end, segs) < 0.02, 'the last end point must be drawn exactly');
+  // strongly zoomed view: what lies outside is dropped, what is visible is kept
+  const cross = 0.9 * (6 * Math.PI / 40);                                       // the spiral crosses the real axis here (third turn)
+  const zoomed = Chart.makeView(600, 600, 20000, 300 - cross * 20000, 300);     // centred on that crossing
+  const dz = Chart.polyD(zoomed, spiral);
+  const segz = segments(dz);
+  ok(segz.length > 0 && dz.length < d.length, 'the zoomed path must be shorter than the full path');
+  let visible = 0;
+  for (let i = 0; i < spiral.length; i += 1) {
+    const p = { x: zoomed.ox + spiral[i].re * zoomed.k, y: zoomed.oy - spiral[i].im * zoomed.k };
+    if (p.x < 0 || p.x > 600 || p.y < 0 || p.y > 600) continue;
+    visible += 1;
+    if (visible % 7 === 0) ok(distance(p, segz) < 0.9, `visible point ${i} at ${distance(p, segz).toFixed(2)} px from the zoomed path`);
+  }
+  ok(visible > 50, `too few visible points to conclude (${visible})`);
+  for (const [a, b] of segz) ok(Math.max(Math.abs(a.x), Math.abs(a.y), Math.abs(b.x), Math.abs(b.y)) < 40000, 'segment far outside the view was kept');
+  // a curve entirely outside the view gives nothing; breaks are still honoured
+  same(Chart.polyD(zoomed, [c(-0.5, 0), c(-0.6, 0.1), c(-0.7, 0)]), '');
+  same(Chart.polyD(view600, [c(0, 0), c(0.0001, 0), c(0.0002, 0)]), 'M300 300L300.05 300');
+});
+test('trajectory of an element pushed to an extreme value: no jump and no sharp angle', () => {
+  // an element with a huge or tiny value travels to the edge of the chart: the path must stay a smooth curve
+  let checked = 0;
+  for (const load of [c(2, 10), c(50, 0), c(20, -30), c(150, 80)]) {
+    for (const conn of ['series', 'shunt']) {
+      for (const [kind, unit] of [['C', 1e-12], ['L', 1e-9], ['R', 1]]) {
+        for (const v of [1e-6, 1e-3, 0.1, 1, 10, 1e3, 1e5, 1e9]) {
+          const p = { ...fullProject(), z0: 50, f0: 869e6, load: { kind: 'z', z: load }, elements: [{ kind, conn, value: v * unit }] };
+          const path = net.trajectory(p, 0).map((s) => s.gamma);
+          const tag = `${conn} ${kind} ${v * unit} on ${load.re}+j${load.im}`;
+          ok(path.length < 600, `${path.length} points: ${tag}`);
+          close(path[path.length - 1], net.inputAt(p).gamma, 1e-9, `end of the path: ${tag}`);
+          for (let i = 1; i < path.length; i += 1) {
+            const a = path[i - 1]; const b = path[i];
+            ok(Math.hypot(b.re - a.re, b.im - a.im) < 0.03, `jump of ${Math.hypot(b.re - a.re, b.im - a.im).toFixed(3)}: ${tag}`);
+            if (i < 2) continue;
+            const z = path[i - 2];
+            const u = [a.re - z.re, a.im - z.im]; const w = [b.re - a.re, b.im - a.im];
+            if (Math.hypot(...u) < 1e-6 || Math.hypot(...w) < 1e-6) continue;
+            const turn = Math.abs(Math.atan2(u[0] * w[1] - u[1] * w[0], u[0] * w[0] + u[1] * w[1])) * 180 / Math.PI;
+            ok(turn < 12, `angle of ${turn.toFixed(0)}°: ${tag}`);
+          }
+          checked += 1;
+        }
+      }
+    }
+  }
+  same(checked, 4 * 2 * 3 * 8);
+});
+test('settings: defaults, valid fields kept, doubtful values discarded', () => {
+  const d = io.normalizePrefs(null);
+  same(JSON.stringify(d), JSON.stringify({ z0: 50, f0: 1e9, colors: { z: null, y: null, sweep: null, traj: null, ring: null }, widths: { grid: 1, traj: 1, ring: 1, sweep: 1 }, slider: 0, eseries: 'E24', mode: 'zy', units: 'norm', labels: { dp: true, tp: true, rings: true }, schemVertical: false, extended: false }));
+  same(JSON.stringify(io.normalizePrefs('x')), JSON.stringify(d));
+  same(JSON.stringify(io.normalizePrefs({ colors: 3, widths: null, labels: 'no' })), JSON.stringify(d));
+  const good = { z0: 75, f0: 2.4e9, colors: { z: '#AA0011', y: '#0011aa', sweep: null, traj: '#123456', ring: '#abcdef' }, widths: { grid: 0.5, traj: 3, ring: 1.5, sweep: 2 }, slider: 10, eseries: 'E96', mode: 'y', units: 'abs', labels: { dp: false, tp: true, rings: false }, schemVertical: true, extended: true };
+  const kept = io.normalizePrefs(JSON.parse(JSON.stringify(good)));
+  same(JSON.stringify(kept), JSON.stringify({ ...good, colors: { ...good.colors, z: '#aa0011' } }));
+  same(JSON.stringify(io.normalizePrefs(kept)), JSON.stringify(kept));                       // idempotent
+  const bad = io.normalizePrefs({ z0: -5, f0: 'abc', colors: { z: 'red', y: '#12345', sweep: 'url(x)', traj: '#12345g', ring: 7 }, widths: { grid: 0, traj: 99, ring: NaN, sweep: '2' }, slider: 3, eseries: 'E48', mode: 'both', units: 'ohm', labels: { dp: 0 }, schemVertical: 'yes', extended: 1, extra: { evil: true } });
+  same(JSON.stringify(bad), JSON.stringify(d));
+});
+test('extended chart: the outer grid stays between |Γ| = 1 and the limit, on r < 0 circles or x arcs', () => {
+  const view = Chart.makeView(800, 800, 150);                        // |gamma| = 2 fits in the view
+  for (const sign of [1, -1]) {
+    const g = Chart.outerGrid(view, sign, { limit: 2 });
+    ok(g.d.length > 2000, 'outer grid is empty');
+    same(g.labels.map((l) => l.text).join(' '), '−0.2 −0.5 −1 −2 −5');
+    let onR = 0; let onX = 0;
+    for (const m of g.d.matchAll(/[ML](-?[\d.]+) (-?[\d.]+)/g)) {
+      const gamma = Chart.toGamma(view, Number(m[1]), Number(m[2]));
+      const mod = Math.hypot(gamma.re, gamma.im);
+      ok(mod > 0.999 && mod < 2.01, `point at |Γ| = ${mod.toFixed(3)}`);
+      // back to the plane it belongs to (impedance, or admittance for sign < 0), by the textbook formula
+      const p = sign > 0 ? gamma : c(-gamma.re, -gamma.im);
+      // every circle passes through gamma = 1, where z is infinitely sensitive to the 0.01 px rounding of the path
+      if (Math.hypot(p.re - 1, p.im) < 0.08) continue;
+      const z = cdiv(cadd(c(1), p), csub(c(1), p));
+      const near = (v, list) => list.some((t) => Math.abs(v - t) < 0.02 * Math.max(1, Math.abs(t)));
+      if (near(z.re, [-0.2, -0.5, -1, -2, -5])) onR += 1;
+      else if (near(Math.abs(z.im), [0.2, 0.5, 1, 2, 5])) onX += 1;
+      else throw new Error(`point off the grid: z = ${z.re.toFixed(3)} + j${z.im.toFixed(3)}`);
+      ok(z.re < 0.02, `positive resistance outside the disc: ${z.re}`);
+    }
+    ok(onR > 200 && onX > 200, `unexpected split: ${onR} points on r, ${onX} on x`);
+  }
+  same(Chart.outerGrid(view, 1, { limit: 2, units: 'abs', z0: 50 }).labels.map((l) => l.text).join(' '), '−10 −25 −50 −100 −250');
 });
 
 /* ========================================================================== */

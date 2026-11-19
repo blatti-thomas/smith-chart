@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Smith Chart</title>
+<meta name="author" content="Thomas Blatti">
 <style>
 /* ---------------------------------------------------------------- tokens */
 :root {
@@ -103,6 +104,42 @@ h1, h2 { margin: 0; font-weight: 600; }
   border-bottom: 1px solid var(--border);
 }
 .topbar h1 { font-size: 14px; margin-right: 4px; }
+/* menu bar: a full line at the top of the bar */
+.menubar { flex: 0 0 100%; display: flex; gap: 2px; margin: -4px -6px 0; }
+.menubar > button { height: 26px; padding: 0 10px; border: 0; border-radius: 6px; background: transparent; color: var(--ink); font: inherit; cursor: pointer; }
+.menubar > button:hover, .menubar > button[aria-expanded="true"] { background: var(--wash-2); }
+.menu-pop { position: fixed; z-index: 40; min-width: 250px; padding: 4px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28); }
+.menu-pop[hidden] { display: none; }
+.menu-pop button { display: flex; align-items: center; gap: 8px; width: 100%; height: 28px; padding: 0 10px 0 6px; border: 0; border-radius: 5px; background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.menu-pop button:hover, .menu-pop button:focus-visible { background: var(--wash-2); outline: none; }
+.menu-pop button:disabled { color: var(--muted); cursor: default; background: transparent; }
+.menu-pop .tick { width: 14px; text-align: center; }
+.menu-pop .lbl { flex: 1; }
+.menu-pop .key { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.menu-pop hr { margin: 4px 6px; border: 0; border-top: 1px solid var(--hair); }
+/* help and about windows */
+dialog.sheet { width: min(860px, 94vw); max-height: 88vh; padding: 0; overflow: hidden; background: var(--panel); color: var(--ink); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 18px 60px rgba(0, 0, 0, 0.4); }
+dialog.sheet::backdrop { background: rgba(0, 0, 0, 0.45); }
+dialog.sheet.small { width: min(460px, 94vw); }
+/* the documentation has a fixed height: its two panes scroll, the window does not */
+#dlg-help[open] { display: flex; flex-direction: column; height: 88vh; }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+.sheet-head h2 { margin: 0; font-size: 15px; }
+.sheet-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 190px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+.sheet-toc { display: flex; flex-direction: column; gap: 2px; min-height: 0; padding: 12px 8px; border-right: 1px solid var(--border); overflow-y: auto; }
+.sheet-toc button { padding: 5px 8px; border: 0; border-radius: 5px; background: transparent; color: var(--ink-2); font: inherit; font-size: 12.5px; text-align: left; cursor: pointer; }
+.sheet-toc button:hover { background: var(--wash-2); color: var(--ink); }
+.sheet-text { position: relative; min-height: 0; padding: 4px 22px 22px; overflow-y: auto; line-height: 1.5; }
+.sheet-text h3 { margin: 20px 0 6px; font-size: 14px; }
+.sheet-text p, .sheet-text li { color: var(--ink-2); font-size: 13px; }
+.sheet-text ul, .sheet-text ol { margin: 6px 0; padding-left: 20px; }
+.sheet-text table { margin: 8px 0; font-size: 12.5px; }
+.sheet-text td, .sheet-text th { white-space: normal; vertical-align: top; }
+.sheet-text code, .sheet-text kbd { padding: 1px 5px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); font-size: 12px; }
+.about { padding: 18px 20px 20px; line-height: 1.55; }
+.about p { margin: 0 0 10px; color: var(--ink-2); font-size: 13px; }
+.about .name { color: var(--ink); font-size: 17px; font-weight: 600; }
+@media (max-width: 700px) { .sheet-body { grid-template-columns: minmax(0, 1fr); } .sheet-toc { display: none; } }
 .field { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); }
 .field input, .field select, .mini-input {
   height: 28px;
@@ -176,20 +213,21 @@ input[aria-invalid="true"] { border-color: var(--crit); }
 /* ----------------------------------------------------------- chart marks */
 .gz { fill: none; stroke: var(--z); }
 .gy { fill: none; stroke: var(--y); }
-.maj { stroke-width: 1.1; stroke-opacity: 0.9; }
-.med { stroke-width: 0.9; stroke-opacity: 0.62; }
-.min { stroke-width: 0.7; stroke-opacity: 0.42; }
+/* --w-* and --*-c come from the settings panel; without them the theme applies */
+.maj { stroke-width: calc(1.1px * var(--w-grid, 1)); stroke-opacity: 0.9; }
+.med { stroke-width: calc(0.9px * var(--w-grid, 1)); stroke-opacity: 0.62; }
+.min { stroke-width: calc(0.7px * var(--w-grid, 1)); stroke-opacity: 0.42; }
 .gl { font-size: 10px; font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
 .gl-z { fill: var(--z-text); }
 .gl-y { fill: var(--y-text); }
 .rim { fill: none; stroke: var(--ink); stroke-width: 1.3; }
 .axis { stroke: var(--axis); stroke-width: 1; }
-.ring { fill: none; stroke: var(--ink-2); stroke-width: 1.2; stroke-dasharray: 5 4; }
+.ring { fill: none; stroke: var(--ring-c, var(--ink-2)); stroke-width: calc(1.2px * var(--w-ring, 1)); stroke-dasharray: 5 4; }
 .ring-label { fill: var(--ink-2); font-size: 10.5px; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; }
-.sweep { fill: none; stroke: var(--sweep); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.sweep { fill: none; stroke: var(--sweep); stroke-width: calc(2px * var(--w-sweep, 1)); stroke-linejoin: round; stroke-linecap: round; }
 .sweep-head { fill: var(--sweep); }
-.traj { fill: none; stroke: var(--ink); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
-.traj.sel { stroke-width: 3.2; }
+.traj { fill: none; stroke: var(--traj-c, var(--ink)); stroke-width: calc(2px * var(--w-traj, 1)); stroke-linejoin: round; stroke-linecap: round; }
+.traj.sel { stroke-width: calc(3.2px * var(--w-traj, 1)); }
 .traj-head { fill: var(--ink); }
 .pt { fill: var(--ink); stroke: var(--surface); stroke-width: 2; }
 .pt.active { fill: var(--crit); }
@@ -242,6 +280,18 @@ td .sub { display: block; color: var(--muted); font-size: 11px; }
 .work { grid-template-rows: auto minmax(0, 1fr) auto; grid-template-columns: minmax(0, 1fr); }
 .schem-scroll { overflow-x: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; }
 #schem { display: block; }
+/* vertical schematic: a column on the left of the chart, the palette above both */
+body.schem-v .work { grid-template-columns: auto minmax(0, 1fr); }
+body.schem-v .strip { display: contents; }
+body.schem-v .palette { grid-column: 1 / -1; grid-row: 1; margin: 10px 14px 0; }
+body.schem-v .schem-scroll { grid-column: 1; grid-row: 2; min-height: 0; margin: 10px 0 14px 14px; overflow-x: hidden; overflow-y: auto; }
+body.schem-v .chart-box { grid-column: 2; grid-row: 2; }
+body.schem-v .plots { grid-column: 1 / -1; grid-row: 3; }
+@media (max-width: 860px) {
+  body.schem-v .work { grid-template-columns: minmax(0, 1fr); }
+  body.schem-v .palette, body.schem-v .schem-scroll, body.schem-v .chart-box, body.schem-v .plots { grid-column: 1; grid-row: auto; }
+  body.schem-v .schem-scroll { margin: 10px 14px 0; max-height: 50vh; }
+}
 .s-wire { fill: none; stroke: var(--ink); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .s-sym { fill: var(--panel); stroke: var(--ink); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .s-sym path { fill: none; }
@@ -348,9 +398,22 @@ details.card > summary small { color: var(--muted); font-weight: 400; letter-spa
 .amp-stab { stroke: var(--ink); stroke-dasharray: 9 3 2 3; }
 .amp-gain { stroke: var(--ink-2); stroke-dasharray: 6 3; }
 .amp-nf { stroke: var(--ink-2); stroke-dasharray: 1.5 3; }
+.af-table { max-height: 190px; overflow: auto; margin: 6px 0; border: 1px solid var(--hair); border-radius: 6px; }
+.af-table table { font-size: 11px; }
+.af-table th { position: sticky; top: 0; background: var(--surface); }
+.af-plot { display: block; width: 100%; height: auto; margin-top: 6px; cursor: crosshair; touch-action: none; }
+.af-a, .af-b { fill: none; stroke: var(--ink); stroke-width: 1.6; stroke-linejoin: round; }
+.af-b { stroke-dasharray: 5 3; }
+.af-ref { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 2 3; }
+.presets { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 10px; }
+.presets .btn { min-width: 34px; }
+#card-prefs input[type="color"] { width: 44px; height: 26px; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: transparent; cursor: pointer; }
+#card-prefs input[type="range"] { flex: 1; min-width: 0; }
+#card-prefs output { min-width: 34px; text-align: right; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+body.dropping .chart-wrap, body.dropping #chart { outline: 2px dashed var(--muted); outline-offset: -6px; }
 .check { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
 @media print {
-  .topbar, .palette, .zoom, .hint, .inspector, .plots-empty { display: none; }
+  .topbar, .palette, .zoom, .hint, .inspector, .plots-empty, .menu-pop, dialog { display: none; }
   .app { display: block; height: auto; }
   body { background: #fff; }
   .chart-box { height: 170mm; }
@@ -363,6 +426,7 @@ details.card > summary small { color: var(--muted); font-weight: 400; letter-spa
 <body>
 <div class="app">
   <header class="topbar">
+    <nav class="menubar" id="menubar" role="menubar" aria-label="Application menus" data-i18n-skip></nav>
     <h1>Smith Chart</h1>
     <label class="field"><span>Z<sub>0</sub></span> <input id="in-z0" autocomplete="off" spellcheck="false" aria-label="Reference impedance Z0"></label>
     <label class="field"><span>f<sub>0</sub></span> <input id="in-f0" autocomplete="off" spellcheck="false" aria-label="Design frequency"></label>
@@ -375,7 +439,7 @@ details.card > summary small { color: var(--muted); font-weight: 400; letter-spa
       <button type="button" data-units="norm" title="Normalized graduations">z, y</button>
       <button type="button" data-units="abs" title="Graduations in ohms and siemens">Ω, mS</button>
     </div>
-    <button type="button" class="btn" id="btn-new" title="Start an empty project (50 Ω load)">New project</button>
+    <button type="button" class="btn" id="btn-new" title="Start an empty project: 50 Ω load, no element (can be undone)">New project</button>
     <label class="field">Language <select id="sel-lang" aria-label="Language"></select></label>
     <span class="spacer"></span>
     <button type="button" class="btn" id="btn-course" aria-pressed="false" title="Shows the r or g circle followed by each element, its Δx or Δb, and the impedance / admittance symmetry">Course mode</button>
@@ -472,11 +536,43 @@ details.card > summary small { color: var(--muted); font-weight: 400; letter-spa
     <details class="card">
       <summary>Circles</summary>
       <div class="row"><label for="in-vswr">VSWR</label><input class="mini-input" id="in-vswr" placeholder="2" autocomplete="off"><div class="chips" id="chips-vswr" data-i18n-skip></div></div>
+      <div class="presets" id="pre-vswr" role="group" aria-label="Common VSWR circles" data-i18n-skip></div>
       <div class="row"><label for="in-q">Q</label><input class="mini-input" id="in-q" placeholder="1" autocomplete="off"><div class="chips" id="chips-q" data-i18n-skip></div></div>
+      <div class="presets" id="pre-q" role="group" aria-label="Common Q loci" data-i18n-skip></div>
+      <div class="sub-head">Labels on the chart</div>
+      <label class="check"><input type="checkbox" id="lab-dp" checked> Load (DP)</label>
+      <label class="check"><input type="checkbox" id="lab-tp" checked> Transformed points (TP)</label>
+      <label class="check"><input type="checkbox" id="lab-rings" checked> Circles</label>
     </details>
     <details class="card ed" id="card-amp">
       <summary>Amplifier (S-parameters)</summary>
       <div id="amp-box" data-i18n-skip></div>
+    </details>
+    <details class="card" id="card-prefs">
+      <summary>Settings</summary>
+      <div class="sub-head">New project</div>
+      <div class="row"><label for="pf-z0">Z<sub>0</sub></label><input class="mini-input" id="pf-z0" autocomplete="off"></div>
+      <div class="row"><label for="pf-f0">f<sub>0</sub></label><input class="mini-input" id="pf-f0" autocomplete="off"></div>
+      <div class="sub-head">Display</div>
+      <label class="check"><input type="checkbox" id="pf-vertical"> Vertical schematic</label>
+      <label class="check"><input type="checkbox" id="pf-extended"> Extended chart (r &lt; 0, up to |Γ| = 2)</label>
+      <div class="sub-head">Colors</div>
+      <div class="row"><label for="pc-z">Z plane</label><input type="color" id="pc-z"></div>
+      <div class="row"><label for="pc-y">Y plane</label><input type="color" id="pc-y"></div>
+      <div class="row"><label for="pc-sweep">Sweep</label><input type="color" id="pc-sweep"></div>
+      <div class="row"><label for="pc-traj">Trajectories</label><input type="color" id="pc-traj"></div>
+      <div class="row"><label for="pc-ring">Circles</label><input type="color" id="pc-ring"></div>
+      <p class="info">The default colors were chosen to stay distinguishable with color-vision deficiency; "Reset to defaults" restores them.</p>
+      <div class="sub-head">Line widths</div>
+      <div class="row"><label for="pw-grid">Grid</label><input type="range" id="pw-grid" min="0.5" max="3" step="0.1"><output id="po-grid"></output></div>
+      <div class="row"><label for="pw-traj">Trajectories</label><input type="range" id="pw-traj" min="0.5" max="3" step="0.1"><output id="po-traj"></output></div>
+      <div class="row"><label for="pw-ring">Circles</label><input type="range" id="pw-ring" min="0.5" max="3" step="0.1"><output id="po-ring"></output></div>
+      <div class="row"><label for="pw-sweep">Sweep</label><input type="range" id="pw-sweep" min="0.5" max="3" step="0.1"><output id="po-sweep"></output></div>
+      <div class="sub-head">Defaults</div>
+      <div class="row"><label for="pf-slider">Slider</label><select id="pf-slider"><option value="0">Whole locus</option><option value="1.2">± 20 %</option><option value="2">÷ 2 … × 2</option><option value="10">÷ 10 … × 10</option></select></div>
+      <div class="row"><label for="pf-eseries">E series</label><select id="pf-eseries"><option>E12</option><option>E24</option><option>E96</option></select></div>
+      <p class="info">These settings, the display mode and the label choices are saved on this computer.</p>
+      <div class="actions"><button type="button" class="btn sm" id="pf-reset">Reset to defaults</button></div>
     </details>
     <details class="card ed" id="card-files">
       <summary>Files and exports</summary>
@@ -489,7 +585,7 @@ details.card > summary small { color: var(--muted); font-weight: 400; letter-spa
         </div>
         <div class="sub-head">Measured load</div>
         <div class="file-group">
-          <button type="button" class="btn sm" data-file="f-import">Import .s1p, .s2p or CSV…</button>
+          <button type="button" class="btn sm" data-file="f-import">Import .s1p, .s2p, CITI or CSV…</button>
           <select id="sel-port" class="narrow" aria-label="Parameter used for a two-port file">
             <option value="1">S11 of the .s2p</option>
             <option value="2">S22 of the .s2p</option>
@@ -503,17 +599,38 @@ details.card > summary small { color: var(--muted); font-weight: 400; letter-spa
           <button type="button" class="btn sm" data-file="f-schem">Schematic SVG</button>
           <button type="button" class="btn sm" data-file="f-points">Points CSV</button>
           <button type="button" class="btn sm" data-file="f-sweep">Sweep CSV</button>
+          <button type="button" class="btn sm" data-file="f-circles">Circles CSV</button>
           <button type="button" class="btn sm" data-file="f-cir">LTspice netlist</button>
           <button type="button" class="btn sm" data-file="f-ckt">Smith netlist</button>
         </div>
         <p id="status" data-i18n-skip class="info" role="status" aria-live="polite"></p>
         <input type="file" id="file-project" accept=".json,application/json" hidden>
-        <input type="file" id="file-data" accept=".s1p,.s2p,.csv,.txt" hidden>
+        <input type="file" id="file-data" accept=".s1p,.s2p,.cti,.citi,.csv,.txt" hidden>
       </div>
     </details>
   </aside>
 </div>
 
+<div class="menu-pop" id="menu-pop" role="menu" hidden></div>
+
+<dialog class="sheet" id="dlg-help" aria-labelledby="help-title">
+  <div class="sheet-head"><h2 id="help-title">Smith Chart documentation</h2><button type="button" class="btn sm" data-close>Close</button></div>
+  <div class="sheet-body">
+    <div class="sheet-toc" id="help-toc" data-i18n-skip></div>
+    <div class="sheet-text" id="help-text" data-i18n-skip></div>
+  </div>
+</dialog>
+
+<dialog class="sheet small" id="dlg-about" aria-labelledby="about-title">
+  <div class="sheet-head"><h2 id="about-title">About</h2><button type="button" class="btn sm" data-close>Close</button></div>
+  <div class="about">
+    <p class="name">Smith Chart</p>
+    <p>Interactive Smith chart and impedance matching tool, built for the SysRF course at HEIG-VD.</p>
+    <p><b>Author: Thomas Blatti</b><br>© 2026 Thomas Blatti. Released under the MIT license.</p>
+    <p>Independent rewrite, inspired by the Smith software by Fritz Dellsperger. No code from that software is used.</p>
+    <p>The desktop application is built with Electron.</p>
+  </div>
+</dialog>
 <script id="smith-i18n">
 /* ============================================================================
  * smith-i18n — tiny translation layer.
@@ -594,7 +711,6 @@ SmithI18n.register('fr', {
   'Normalized graduations': 'Graduations normalisées',
   'Graduations in ohms and siemens': 'Graduations en ohms et en siemens',
   'New project': 'Nouveau projet',
-  'Start an empty project (50 Ω load)': 'Démarrer un projet vide (charge 50 Ω)',
   'Shows the r or g circle followed by each element, its Δx or Δb, and the impedance / admittance symmetry': 'Affiche le cercle r ou g suivi par chaque élément, son Δx ou Δb, et la symétrie impédance / admittance',
   'Course mode': 'Mode cours',
   'Undo (Ctrl+Z)': 'Annuler (Ctrl+Z)',
@@ -658,7 +774,6 @@ SmithI18n.register('fr', {
   'Save': 'Enregistrer',
   'Copy link': 'Copier le lien',
   'Measured load': 'Charge mesurée',
-  'Import .s1p, .s2p or CSV…': 'Importer .s1p, .s2p ou CSV…',
   'Parameter used for a two-port file': 'Paramètre utilisé pour un fichier à deux ports',
   'S11 of the .s2p': 'S11 du .s2p',
   'S22 of the .s2p': 'S22 du .s2p',
@@ -880,6 +995,161 @@ SmithI18n.register('fr', {
   'Turn on the frequency sweep first.': 'Activez d\'abord le sweep en fréquence.',
   'Project loaded from the link.': 'Projet chargé depuis le lien.',
   'Language': 'Langue',
+  'Unreadable frequency segment in the CITI file: "{0}"': 'Segment de fréquence illisible dans le fichier CITI : « {0} »',
+  'Unreadable line in the CITI file: "{0}"': 'Ligne illisible dans le fichier CITI : « {0} »',
+  'This is not a CITI file (no CITIFILE line).': 'Ce n\'est pas un fichier CITI (pas de ligne CITIFILE).',
+  'No frequency in the CITI file.': 'Aucune fréquence dans le fichier CITI.',
+  'Incomplete CITI file: data blocks are missing.': 'Fichier CITI incomplet : il manque des blocs de données.',
+  'CITI file: {0} values for {1}, {2} frequencies.': 'Fichier CITI : {0} valeurs pour {1}, {2} fréquences.',
+  'CITI format "{0}" is not supported for {1}.': 'Le format CITI « {0} » n\'est pas pris en charge pour {1}.',
+  'The CITI file does not contain S[1,1].': 'Le fichier CITI ne contient pas S[1,1].',
+  'Invalid reference impedance in the CITI file.': 'Impédance de référence invalide dans le fichier CITI.',
+  'Whole locus': 'Tout le lieu',
+  '.s2p file, per frequency': 'Fichier .s2p, par fréquence',
+  'Load the S parameters at this frequency': 'Charger les paramètres S à cette fréquence',
+  'Logarithmic frequency axis': 'Axe des fréquences logarithmique',
+  'Gain (dB): MAG ───  MSG ─ ─': 'Gain (dB) : MAG ───  MSG ─ ─',
+  'Stability: K ───  μ ─ ─': 'Stabilité : K ───  μ ─ ─',
+  'Return loss (dB): S11 ───  S22 ─ ─': 'Perte de retour (dB) : S11 ───  S22 ─ ─',
+  'Hover a plot to read the values; click a table row to load its S parameters.': 'Survolez un graphe pour lire les valeurs ; cliquez sur une ligne du tableau pour charger ses paramètres S.',
+  'Could not read the file.': 'Impossible de lire le fichier.',
+  'No circle to export: add a VSWR, Q or amplifier circle.': 'Aucun cercle à exporter : ajoutez un cercle de VSWR, de Q ou d\'amplificateur.',
+  'File': 'Fichier',
+  'Open project…': 'Ouvrir un projet…',
+  'Save project': 'Enregistrer le projet',
+  'Copy project link': 'Copier le lien du projet',
+  'Import a measurement (.s1p, .s2p, CITI, CSV)…': 'Importer une mesure (.s1p, .s2p, CITI, CSV)…',
+  'Export chart as SVG': 'Exporter l\'abaque en SVG',
+  'Export chart as PNG': 'Exporter l\'abaque en PNG',
+  'Copy chart image': 'Copier l\'image de l\'abaque',
+  'Export schematic as SVG': 'Exporter le schéma en SVG',
+  'Export points (CSV)': 'Exporter les points (CSV)',
+  'Export sweep (CSV)': 'Exporter le sweep (CSV)',
+  'Export circles (CSV)': 'Exporter les cercles (CSV)',
+  'LTspice netlist (.cir)': 'Netlist LTspice (.cir)',
+  'Smith-format netlist (.ckt)': 'Netlist au format Smith (.ckt)',
+  'Edit': 'Édition',
+  'Delete selected element': 'Supprimer l\'élément sélectionné',
+  'Del': 'Suppr',
+  'Deselect': 'Désélectionner',
+  'Esc': 'Échap',
+  'View': 'Affichage',
+  'Z plane': 'Plan Z',
+  'Y plane': 'Plan Y',
+  'Z and Y planes': 'Plans Z et Y',
+  'Extended chart': 'Abaque étendu',
+  'Vertical schematic': 'Schéma vertical',
+  'Fit view': 'Ajuster la vue',
+  'Dark theme': 'Thème sombre',
+  'Options': 'Options',
+  'Settings…': 'Réglages…',
+  'Reset to defaults': 'Rétablir les valeurs par défaut',
+  'Help': 'Aide',
+  'Documentation': 'Documentation',
+  'Keyboard shortcuts': 'Raccourcis clavier',
+  'RF conventions': 'Conventions RF',
+  'About Smith Chart': 'À propos de Smith Chart',
+  'Getting started': 'Prise en main',
+  'Smith Chart is an interactive Smith chart for impedance matching. You describe a load, add elements to it one by one, and the chart shows the path followed by the impedance up to the network input.': 'Smith Chart est un abaque de Smith interactif pour l\'adaptation d\'impédance. Vous décrivez une charge, lui ajoutez des éléments un à un, et l\'abaque montre le chemin suivi par l\'impédance jusqu\'à l\'entrée du réseau.',
+  'The tool starts on an empty project: a 50 Ω load, no element. <b>File, New project</b> returns to it at any time.': 'L\'outil démarre sur un projet vide : une charge de 50 Ω, aucun élément. <b>Fichier, Nouveau projet</b> y revient à tout moment.',
+  'Building a network': 'Construire un réseau',
+  'The network is built <b>from the load towards the source</b>. The first element touches the load; the input impedance is the one seen after the last element.': 'Le réseau se construit <b>de la charge vers la source</b>. Le premier élément touche la charge ; l\'impédance d\'entrée est celle vue après le dernier élément.',
+  'Set <b>Z0</b> and <b>f0</b> in the top bar.': 'Réglez <b>Z0</b> et <b>f0</b> dans la barre du haut.',
+  'Click the load in the schematic and enter it: Z, Y, normalized values, Γ, S11, R-L-C circuit, or imported Z(f) table.': 'Cliquez sur la charge dans le schéma et saisissez-la : Z, Y, valeurs normalisées, Γ, S11, circuit R-L-C ou table Z(f) importée.',
+  'Add elements with the "Series" and "Shunt" buttons. The new element is inserted after the selected element, on the source side.': 'Ajoutez des éléments avec les boutons « Série » et « Parallèle ». Le nouvel élément s\'insère après l\'élément sélectionné, côté source.',
+  'Available elements: R, L and C in series or in shunt, transmission line (lossless or lossy), open or short-circuited stub, ideal transformer, compound R-L-C. A transformer of ratio n gives Zin = n² · Z.': 'Éléments disponibles : R, L et C en série ou en parallèle, ligne de transmission (sans pertes ou avec pertes), stub ouvert ou court-circuité, transformateur idéal, R-L-C composé. Un transformateur de rapport n donne Zin = n² · Z.',
+  'Entering and tuning a value': 'Saisir et régler une valeur',
+  'Entry accepts engineering notation: <code>6.8p</code>, <code>6,8 pF</code>, <code>15n</code>, <code>869M</code>, <code>2k2</code>, <code>4R7</code>, <code>1e-9</code>. Prefixes are case-sensitive: <code>m</code> is milli, <code>M</code> is mega.': 'La saisie accepte la notation d\'ingénieur : <code>6.8p</code>, <code>6,8 pF</code>, <code>15n</code>, <code>869M</code>, <code>2k2</code>, <code>4R7</code>, <code>1e-9</code>. Les préfixes sont sensibles à la casse : <code>m</code> est milli, <code>M</code> est méga.',
+  'Gesture': 'Geste',
+  'Effect': 'Effet',
+  'Mouse wheel or up and down arrows on a field': 'Molette de la souris ou flèches haut et bas sur un champ',
+  'Plus or minus 1 % (1° for an angle). Shift multiplies the step by 10, Alt divides it by 10.': 'Plus ou moins 1 % (1° pour un angle). Maj multiplie le pas par 10, Alt le divise par 10.',
+  '"Adjustment" slider': 'Curseur « Réglage »',
+  '"Whole locus" range: the two ends of the slider are the two ends of the element locus. Narrower ranges are offered next to it.': 'Plage « Tout le lieu » : les deux extrémités du curseur sont les deux extrémités du lieu de l\'élément. Des plages plus étroites sont proposées à côté.',
+  'Drag a TP point on the chart': 'Glisser un point TP sur l\'abaque',
+  'Tunes the element that ends at this point, along its locus.': 'Règle l\'élément qui se termine à ce point, le long de son lieu.',
+  'Drag DP1': 'Glisser DP1',
+  'Moves a fixed load.': 'Déplace une charge fixe.',
+  '"Normalize" buttons E12, E24, E96': 'Boutons « Normaliser » E12, E24, E96',
+  'Round the value to the chosen series, after a free adjustment.': 'Arrondissent la valeur à la série choisie, après un réglage libre.',
+  'Reading the chart': 'Lire l\'abaque',
+  'The Z plane is red, the Y plane blue, the sweep green. Trajectories, circles and selection are drawn in ink. These colors can be changed in the settings.': 'Le plan Z est rouge, le plan Y bleu, le sweep vert. Les trajectoires, les cercles et la sélection sont tracés à l\'encre. Ces couleurs peuvent être modifiées dans les réglages.',
+  'Wheel: zoom. Drag the background: pan. Double-click or key <kbd>0</kbd>: fit the view.': 'Molette : zoom. Glisser le fond : déplacer. Double-clic ou touche <kbd>0</kbd> : ajuster la vue.',
+  'The readout panel gives Z, Y, Γ, VSWR, return loss, mismatch loss, Q, the normalized values and the equivalent components of the hovered point, or of the network input by default.': 'Le panneau de lecture donne Z, Y, Γ, VSWR, perte de retour, perte de désadaptation, Q, les valeurs normalisées et les composants équivalents du point survolé, ou de l\'entrée du réseau par défaut.',
+  'Points are called DP (load), TP (transformed points) and SP (sweep points), as in Smith.': 'Les points s\'appellent DP (charge), TP (points transformés) et SP (points du sweep), comme dans Smith.',
+  '<b>Extended chart</b> (View menu) shows the negative-resistance region, up to |Γ| = 2.': '<b>Abaque étendu</b> (menu Affichage) montre la région à résistance négative, jusqu\'à |Γ| = 2.',
+  'Right-hand panels': 'Panneaux de droite',
+  'Panel': 'Panneau',
+  'Role': 'Rôle',
+  'Value, losses and tuning of the selected element or load.': 'Valeur, pertes et réglage de l\'élément ou de la charge sélectionné.',
+  'Table of the DP and TP points with Z and Q.': 'Tableau des points DP et TP avec Z et Q.',
+  'Proposes L, π, T, stub, quarter-wave or line-and-reactance networks, ranked by bandwidth or by Q.': 'Propose des réseaux en L, en π, en T, à stub, quart d\'onde ou ligne et réactance, classés par bande passante ou par Q.',
+  'Rounds all R, L and C to an E series and shows the effect on the match.': 'Arrondit tous les R, L et C à une série E et montre l\'effet sur l\'adaptation.',
+  'Plots the network input over a frequency range, with the |S11|, VSWR and phase plots.': 'Trace l\'entrée du réseau sur une plage de fréquences, avec les graphes de |S11|, du VSWR et de la phase.',
+  'VSWR circles and Q loci, with presets, and the choice of displayed labels.': 'Cercles de VSWR et lieux de Q, avec préréglages, et choix des étiquettes affichées.',
+  'Stability, gain and noise of a two-port described by its S parameters; table and per-frequency plots after importing an .s2p or CITI file.': 'Stabilité, gain et bruit d\'un quadripôle décrit par ses paramètres S ; tableau et graphes par fréquence après l\'import d\'un fichier .s2p ou CITI.',
+  'Settings': 'Réglages',
+  'Defaults, display, colors and line widths.': 'Valeurs par défaut, affichage, couleurs et épaisseurs de trait.',
+  'Project, imported measurements, exports.': 'Projet, mesures importées, exports.',
+  'Files': 'Fichiers',
+  '<b>Project</b>: Save produces a JSON file; Open reads it back. "Copy link" encodes the project in an address.': '<b>Projet</b> : Enregistrer produit un fichier JSON ; Ouvrir le relit. « Copier le lien » encode le projet dans une adresse.',
+  '<b>Measurements</b>: Touchstone .s1p and .s2p files, CITI files, or a CSV table "frequency, R, X". The measurement becomes the load of the project.': '<b>Mesures</b> : fichiers Touchstone .s1p et .s2p, fichiers CITI, ou table CSV « fréquence, R, X ». La mesure devient la charge du projet.',
+  '<b>Exports</b>: chart as SVG or PNG, schematic as SVG, points, sweep and circles as CSV, LTspice netlist (.cir) and Smith-format netlist (.ckt).': '<b>Exports</b> : abaque en SVG ou PNG, schéma en SVG, points, sweep et cercles en CSV, netlist LTspice (.cir) et netlist au format Smith (.ckt).',
+  'A file dropped on the window opens directly: .json as a project, anything else as a measurement.': 'Un fichier déposé sur la fenêtre s\'ouvre directement : .json comme projet, tout le reste comme mesure.',
+  'The "Settings" panel (Options menu) sets the Z0 and frequency of a new project, the vertical schematic, the extended chart, the colors, the line widths, the slider range and the default E series. Settings are stored on this computer, not in the project. "Reset to defaults" returns to the starting palette, chosen to stay readable with color-vision deficiency.': 'Le panneau « Réglages » (menu Options) fixe le Z0 et la fréquence d\'un nouveau projet, le schéma vertical, l\'abaque étendu, les couleurs, les épaisseurs de trait, la plage du curseur et la série E par défaut. Les réglages sont enregistrés sur cet ordinateur, pas dans le projet. « Rétablir les valeurs par défaut » revient à la palette de départ, choisie pour rester lisible en cas de déficience de la vision des couleurs.',
+  'Key': 'Touche',
+  'Action': 'Action',
+  'Undo, redo': 'Annuler, rétablir',
+  'Save, open a project': 'Enregistrer, ouvrir un projet',
+  'Delete the selected element': 'Supprimer l\'élément sélectionné',
+  'Deselect, close a menu': 'Désélectionner, fermer un menu',
+  '<kbd>+</kbd>, <kbd>-</kbd>, <kbd>0</kbd> and arrows on the chart': '<kbd>+</kbd>, <kbd>-</kbd>, <kbd>0</kbd> et flèches sur l\'abaque',
+  'Zoom, fit, pan': 'Zoom, ajuster, déplacer',
+  'This documentation': 'Cette documentation',
+  'Γ = (Z - Z0) / (Z + Z0), with Z0 real. VSWR = (1 + |Γ|) / (1 - |Γ|). Return loss = -20 · log|Γ|, positive.': 'Γ = (Z - Z0) / (Z + Z0), avec Z0 réel. VSWR = (1 + |Γ|) / (1 - |Γ|). Perte de retour = -20 · log|Γ|, positive.',
+  'Q of a point = |X| / R.': 'Q d\'un point = |X| / R.',
+  'A series element moves the point along an r circle; a shunt element, along a g circle.': 'Un élément série déplace le point le long d\'un cercle r ; un élément parallèle, le long d\'un cercle g.',
+  'A line keeps its physical length when the frequency varies; its electrical length is defined at a reference frequency. Losses α are in dB per metre.': 'Une ligne garde sa longueur physique quand la fréquence varie ; sa longueur électrique est définie à une fréquence de référence. Les pertes α sont en dB par mètre.',
+  'During a sweep, a fixed impedance stays fixed, an R-L-C circuit varies, a table is interpolated.': 'Pendant un sweep, une impédance fixe reste fixe, un circuit R-L-C varie, une table est interpolée.',
+  'Known limitations': 'Limites connues',
+  'The characteristic impedance of a lossy line stays real.': 'L\'impédance caractéristique d\'une ligne à pertes reste réelle.',
+  'Automatic matching assumes lossless elements and matches at f0 only.': 'L\'adaptation automatique suppose des éléments sans pertes et n\'adapte qu\'à f0.',
+  'Touchstone 1.x files with one or two ports; no version 2.0. Only one block is read from a CITI file.': 'Fichiers Touchstone 1.x à un ou deux ports ; pas de version 2.0. Un seul bloc est lu dans un fichier CITI.',
+  'The LTspice netlist is checked by an independent solver, not by LTspice itself.': 'La netlist LTspice est vérifiée par un solveur indépendant, pas par LTspice lui-même.',
+  'Smith .xmlsc projects are not read.': 'Les projets Smith .xmlsc ne sont pas lus.',
+  'The direction of the transformer ratio could not be compared with Smith.': 'Le sens du rapport du transformateur n\'a pas pu être comparé à Smith.',
+  'Start an empty project: 50 Ω load, no element (can be undone)': 'Démarrer un projet vide : charge 50 Ω, aucun élément (annulable)',
+  'Labels on the chart': 'Étiquettes sur l\'abaque',
+  'Load (DP)': 'Charge (DP)',
+  'Transformed points (TP)': 'Points transformés (TP)',
+  'Display': 'Affichage',
+  'Extended chart (r < 0, up to |Γ| = 2)': 'Abaque étendu (r < 0, jusqu\'à |Γ| = 2)',
+  'Colors': 'Couleurs',
+  'Sweep': 'Sweep',
+  'Trajectories': 'Trajectoires',
+  'The default colors were chosen to stay distinguishable with color-vision deficiency; "Reset to defaults" restores them.': 'Les couleurs par défaut ont été choisies pour rester distinguables en cas de déficience de la vision des couleurs ; « Rétablir les valeurs par défaut » les restaure.',
+  'Line widths': 'Épaisseurs de trait',
+  'Grid': 'Grille',
+  'Defaults': 'Valeurs par défaut',
+  'Slider': 'Curseur',
+  '± 20 %': '± 20 %',
+  '÷ 2 … × 2': '÷ 2 … × 2',
+  '÷ 10 … × 10': '÷ 10 … × 10',
+  'E series': 'Série E',
+  'E12': 'E12',
+  'E24': 'E24',
+  'E96': 'E96',
+  'These settings, the display mode and the label choices are saved on this computer.': 'Ces réglages, le mode d\'affichage et le choix des étiquettes sont enregistrés sur cet ordinateur.',
+  'Import .s1p, .s2p, CITI or CSV…': 'Importer .s1p, .s2p, CITI ou CSV…',
+  'Circles CSV': 'Cercles CSV',
+  'Smith Chart documentation': 'Documentation de Smith Chart',
+  'Close': 'Fermer',
+  'About': 'À propos',
+  'Interactive Smith chart and impedance matching tool, built for the SysRF course at HEIG-VD.': 'Abaque de Smith interactif et outil d\'adaptation d\'impédance, conçu pour le cours SysRF de la HEIG-VD.',
+  'Author: Thomas Blatti': 'Auteur : Thomas Blatti',
+  '© 2026 Thomas Blatti. Released under the MIT license.': '© 2026 Thomas Blatti. Publié sous licence MIT.',
+  'Independent rewrite, inspired by the Smith software by Fritz Dellsperger. No code from that software is used.': 'Réécriture indépendante, inspirée du logiciel Smith de Fritz Dellsperger. Aucun code de ce logiciel n\'est utilisé.',
+  'The desktop application is built with Electron.': 'L\'application de bureau est construite avec Electron.',
 });
 
 // Deutsch
@@ -892,7 +1162,6 @@ SmithI18n.register('de', {
   'Normalized graduations': 'Normierte Skalenteilung',
   'Graduations in ohms and siemens': 'Skalenteilung in Ohm und Siemens',
   'New project': 'Neues Projekt',
-  'Start an empty project (50 Ω load)': 'Leeres Projekt starten (Last 50 Ω)',
   'Shows the r or g circle followed by each element, its Δx or Δb, and the impedance / admittance symmetry': 'Zeigt den r- oder g-Kreis, dem jedes Element folgt, dessen Δx oder Δb sowie die Impedanz-/Admittanz-Symmetrie',
   'Course mode': 'Vorlesungsmodus',
   'Undo (Ctrl+Z)': 'Rückgängig (Strg+Z)',
@@ -956,7 +1225,6 @@ SmithI18n.register('de', {
   'Save': 'Speichern',
   'Copy link': 'Link kopieren',
   'Measured load': 'Gemessene Last',
-  'Import .s1p, .s2p or CSV…': '.s1p, .s2p oder CSV importieren…',
   'Parameter used for a two-port file': 'Für eine Zweitor-Datei verwendeter Parameter',
   'S11 of the .s2p': 'S11 der .s2p',
   'S22 of the .s2p': 'S22 der .s2p',
@@ -1178,6 +1446,161 @@ SmithI18n.register('de', {
   'Turn on the frequency sweep first.': 'Zuerst den Frequenz-Sweep einschalten.',
   'Project loaded from the link.': 'Projekt aus dem Link geladen.',
   'Language': 'Sprache',
+  'Unreadable frequency segment in the CITI file: "{0}"': 'Unlesbarer Frequenzabschnitt in der CITI-Datei: „{0}“',
+  'Unreadable line in the CITI file: "{0}"': 'Unlesbare Zeile in der CITI-Datei: „{0}“',
+  'This is not a CITI file (no CITIFILE line).': 'Dies ist keine CITI-Datei (keine CITIFILE-Zeile).',
+  'No frequency in the CITI file.': 'Keine Frequenz in der CITI-Datei.',
+  'Incomplete CITI file: data blocks are missing.': 'Unvollständige CITI-Datei: Datenblöcke fehlen.',
+  'CITI file: {0} values for {1}, {2} frequencies.': 'CITI-Datei: {0} Werte für {1}, {2} Frequenzen.',
+  'CITI format "{0}" is not supported for {1}.': 'Das CITI-Format „{0}“ wird für {1} nicht unterstützt.',
+  'The CITI file does not contain S[1,1].': 'Die CITI-Datei enthält kein S[1,1].',
+  'Invalid reference impedance in the CITI file.': 'Ungültige Bezugsimpedanz in der CITI-Datei.',
+  'Whole locus': 'Ganze Ortskurve',
+  '.s2p file, per frequency': '.s2p-Datei, pro Frequenz',
+  'Load the S parameters at this frequency': 'S-Parameter bei dieser Frequenz laden',
+  'Logarithmic frequency axis': 'Logarithmische Frequenzachse',
+  'Gain (dB): MAG ───  MSG ─ ─': 'Verstärkung (dB): MAG ───  MSG ─ ─',
+  'Stability: K ───  μ ─ ─': 'Stabilität: K ───  μ ─ ─',
+  'Return loss (dB): S11 ───  S22 ─ ─': 'Rückflussdämpfung (dB): S11 ───  S22 ─ ─',
+  'Hover a plot to read the values; click a table row to load its S parameters.': 'Mit der Maus über ein Diagramm fahren, um die Werte abzulesen; auf eine Tabellenzeile klicken, um deren S-Parameter zu laden.',
+  'Could not read the file.': 'Die Datei konnte nicht gelesen werden.',
+  'No circle to export: add a VSWR, Q or amplifier circle.': 'Kein Kreis zum Exportieren: VSWR-, Q- oder Verstärkerkreis hinzufügen.',
+  'File': 'Datei',
+  'Open project…': 'Projekt öffnen…',
+  'Save project': 'Projekt speichern',
+  'Copy project link': 'Projektlink kopieren',
+  'Import a measurement (.s1p, .s2p, CITI, CSV)…': 'Messung importieren (.s1p, .s2p, CITI, CSV)…',
+  'Export chart as SVG': 'Diagramm als SVG exportieren',
+  'Export chart as PNG': 'Diagramm als PNG exportieren',
+  'Copy chart image': 'Diagrammbild kopieren',
+  'Export schematic as SVG': 'Schaltplan als SVG exportieren',
+  'Export points (CSV)': 'Punkte exportieren (CSV)',
+  'Export sweep (CSV)': 'Durchlauf exportieren (CSV)',
+  'Export circles (CSV)': 'Kreise exportieren (CSV)',
+  'LTspice netlist (.cir)': 'LTspice-Netzliste (.cir)',
+  'Smith-format netlist (.ckt)': 'Netzliste im Smith-Format (.ckt)',
+  'Edit': 'Bearbeiten',
+  'Delete selected element': 'Gewähltes Element löschen',
+  'Del': 'Entf',
+  'Deselect': 'Auswahl aufheben',
+  'Esc': 'Esc',
+  'View': 'Ansicht',
+  'Z plane': 'Z-Ebene',
+  'Y plane': 'Y-Ebene',
+  'Z and Y planes': 'Z- und Y-Ebene',
+  'Extended chart': 'Erweitertes Diagramm',
+  'Vertical schematic': 'Vertikaler Schaltplan',
+  'Fit view': 'Ansicht anpassen',
+  'Dark theme': 'Dunkles Design',
+  'Options': 'Optionen',
+  'Settings…': 'Einstellungen…',
+  'Reset to defaults': 'Auf Standard zurücksetzen',
+  'Help': 'Hilfe',
+  'Documentation': 'Dokumentation',
+  'Keyboard shortcuts': 'Tastenkürzel',
+  'RF conventions': 'HF-Konventionen',
+  'About Smith Chart': 'Über Smith-Diagramm',
+  'Getting started': 'Erste Schritte',
+  'Smith Chart is an interactive Smith chart for impedance matching. You describe a load, add elements to it one by one, and the chart shows the path followed by the impedance up to the network input.': 'Smith-Diagramm ist ein interaktives Smith-Diagramm für die Impedanzanpassung. Sie beschreiben eine Last, fügen ihr nacheinander Elemente hinzu, und das Diagramm zeigt den Weg der Impedanz bis zum Netzwerkeingang.',
+  'The tool starts on an empty project: a 50 Ω load, no element. <b>File, New project</b> returns to it at any time.': 'Das Werkzeug startet mit einem leeren Projekt: eine Last von 50 Ω, kein Element. <b>Datei, Neues Projekt</b> führt jederzeit dorthin zurück.',
+  'Building a network': 'Ein Netzwerk aufbauen',
+  'The network is built <b>from the load towards the source</b>. The first element touches the load; the input impedance is the one seen after the last element.': 'Das Netzwerk wird <b>von der Last zur Quelle hin</b> aufgebaut. Das erste Element liegt an der Last; die Eingangsimpedanz ist die nach dem letzten Element gesehene.',
+  'Set <b>Z0</b> and <b>f0</b> in the top bar.': '<b>Z0</b> und <b>f0</b> in der oberen Leiste einstellen.',
+  'Click the load in the schematic and enter it: Z, Y, normalized values, Γ, S11, R-L-C circuit, or imported Z(f) table.': 'Die Last im Schaltplan anklicken und eingeben: Z, Y, normierte Werte, Γ, S11, R-L-C-Schaltung oder importierte Tabelle Z(f).',
+  'Add elements with the "Series" and "Shunt" buttons. The new element is inserted after the selected element, on the source side.': 'Elemente mit den Schaltflächen „Reihe“ und „Parallel“ hinzufügen. Das neue Element wird hinter dem gewählten Element auf der Quellenseite eingefügt.',
+  'Available elements: R, L and C in series or in shunt, transmission line (lossless or lossy), open or short-circuited stub, ideal transformer, compound R-L-C. A transformer of ratio n gives Zin = n² · Z.': 'Verfügbare Elemente: R, L und C in Reihe oder parallel, Leitung (verlustfrei oder verlustbehaftet), Leerlauf- oder Kurzschluss-Stub, idealer Transformator, zusammengesetztes R-L-C. Ein Transformator mit dem Verhältnis n ergibt Zin = n² · Z.',
+  'Entering and tuning a value': 'Einen Wert eingeben und abstimmen',
+  'Entry accepts engineering notation: <code>6.8p</code>, <code>6,8 pF</code>, <code>15n</code>, <code>869M</code>, <code>2k2</code>, <code>4R7</code>, <code>1e-9</code>. Prefixes are case-sensitive: <code>m</code> is milli, <code>M</code> is mega.': 'Die Eingabe akzeptiert die Ingenieurschreibweise: <code>6.8p</code>, <code>6,8 pF</code>, <code>15n</code>, <code>869M</code>, <code>2k2</code>, <code>4R7</code>, <code>1e-9</code>. Vorsätze unterscheiden Groß- und Kleinschreibung: <code>m</code> ist Milli, <code>M</code> ist Mega.',
+  'Gesture': 'Aktion',
+  'Effect': 'Wirkung',
+  'Mouse wheel or up and down arrows on a field': 'Mausrad oder Pfeiltasten auf/ab in einem Feld',
+  'Plus or minus 1 % (1° for an angle). Shift multiplies the step by 10, Alt divides it by 10.': 'Plus oder minus 1 % (1° bei einem Winkel). Umschalt multipliziert die Schrittweite mit 10, Alt teilt sie durch 10.',
+  '"Adjustment" slider': 'Schieberegler „Einstellung“',
+  '"Whole locus" range: the two ends of the slider are the two ends of the element locus. Narrower ranges are offered next to it.': 'Bereich „Ganze Ortskurve“: Die beiden Enden des Reglers entsprechen den beiden Enden der Ortskurve des Elements. Daneben werden engere Bereiche angeboten.',
+  'Drag a TP point on the chart': 'Einen TP-Punkt im Diagramm ziehen',
+  'Tunes the element that ends at this point, along its locus.': 'Stimmt das Element, das an diesem Punkt endet, entlang seiner Ortskurve ab.',
+  'Drag DP1': 'DP1 ziehen',
+  'Moves a fixed load.': 'Verschiebt eine feste Last.',
+  '"Normalize" buttons E12, E24, E96': 'Schaltflächen „Auf Normwert“ E12, E24, E96',
+  'Round the value to the chosen series, after a free adjustment.': 'Rundet den Wert nach freier Einstellung auf die gewählte Reihe.',
+  'Reading the chart': 'Das Diagramm lesen',
+  'The Z plane is red, the Y plane blue, the sweep green. Trajectories, circles and selection are drawn in ink. These colors can be changed in the settings.': 'Die Z-Ebene ist rot, die Y-Ebene blau, der Frequenzdurchlauf grün. Trajektorien, Kreise und Auswahl werden in Tintenfarbe gezeichnet. Diese Farben lassen sich in den Einstellungen ändern.',
+  'Wheel: zoom. Drag the background: pan. Double-click or key <kbd>0</kbd>: fit the view.': 'Mausrad: Zoom. Hintergrund ziehen: verschieben. Doppelklick oder Taste <kbd>0</kbd>: Ansicht anpassen.',
+  'The readout panel gives Z, Y, Γ, VSWR, return loss, mismatch loss, Q, the normalized values and the equivalent components of the hovered point, or of the network input by default.': 'Das Anzeigefeld gibt Z, Y, Γ, VSWR, Rückflussdämpfung, Fehlanpassungsdämpfung, Q, die normierten Werte und die Ersatzbauteile des überfahrenen Punkts an, standardmäßig des Netzwerkeingangs.',
+  'Points are called DP (load), TP (transformed points) and SP (sweep points), as in Smith.': 'Die Punkte heißen DP (Last), TP (transformierte Punkte) und SP (Sweep-Punkte), wie in Smith.',
+  '<b>Extended chart</b> (View menu) shows the negative-resistance region, up to |Γ| = 2.': '<b>Erweitertes Diagramm</b> (Menü Ansicht) zeigt den Bereich negativer Widerstände bis |Γ| = 2.',
+  'Right-hand panels': 'Felder auf der rechten Seite',
+  'Panel': 'Feld',
+  'Role': 'Funktion',
+  'Value, losses and tuning of the selected element or load.': 'Wert, Verluste und Abstimmung des gewählten Elements oder der Last.',
+  'Table of the DP and TP points with Z and Q.': 'Tabelle der Punkte DP und TP mit Z und Q.',
+  'Proposes L, π, T, stub, quarter-wave or line-and-reactance networks, ranked by bandwidth or by Q.': 'Schlägt L-, π-, T-, Stub-, Viertelwellen- oder Leitung-mit-Blindwiderstand-Netzwerke vor, geordnet nach Bandbreite oder Q.',
+  'Rounds all R, L and C to an E series and shows the effect on the match.': 'Rundet alle R, L und C auf eine E-Reihe und zeigt die Wirkung auf die Anpassung.',
+  'Plots the network input over a frequency range, with the |S11|, VSWR and phase plots.': 'Stellt den Netzwerkeingang über einem Frequenzbereich dar, mit den Diagrammen |S11|, VSWR und Phase.',
+  'VSWR circles and Q loci, with presets, and the choice of displayed labels.': 'VSWR-Kreise und Q-Ortskurven, mit Voreinstellungen, und die Wahl der angezeigten Beschriftungen.',
+  'Stability, gain and noise of a two-port described by its S parameters; table and per-frequency plots after importing an .s2p or CITI file.': 'Stabilität, Verstärkung und Rauschen eines Zweitors, beschrieben durch seine S-Parameter; Tabelle und Diagramme pro Frequenz nach dem Import einer .s2p- oder CITI-Datei.',
+  'Settings': 'Einstellungen',
+  'Defaults, display, colors and line widths.': 'Standardwerte, Anzeige, Farben und Linienstärken.',
+  'Project, imported measurements, exports.': 'Projekt, importierte Messungen, Exporte.',
+  'Files': 'Dateien',
+  '<b>Project</b>: Save produces a JSON file; Open reads it back. "Copy link" encodes the project in an address.': '<b>Projekt</b>: Speichern erzeugt eine JSON-Datei; Öffnen liest sie wieder ein. „Link kopieren“ kodiert das Projekt in einer Adresse.',
+  '<b>Measurements</b>: Touchstone .s1p and .s2p files, CITI files, or a CSV table "frequency, R, X". The measurement becomes the load of the project.': '<b>Messungen</b>: Touchstone-Dateien .s1p und .s2p, CITI-Dateien oder eine CSV-Tabelle „Frequenz, R, X“. Die Messung wird zur Last des Projekts.',
+  '<b>Exports</b>: chart as SVG or PNG, schematic as SVG, points, sweep and circles as CSV, LTspice netlist (.cir) and Smith-format netlist (.ckt).': '<b>Exporte</b>: Diagramm als SVG oder PNG, Schaltplan als SVG, Punkte, Durchlauf und Kreise als CSV, LTspice-Netzliste (.cir) und Netzliste im Smith-Format (.ckt).',
+  'A file dropped on the window opens directly: .json as a project, anything else as a measurement.': 'Eine auf das Fenster gezogene Datei wird direkt geöffnet: .json als Projekt, alles andere als Messung.',
+  'The "Settings" panel (Options menu) sets the Z0 and frequency of a new project, the vertical schematic, the extended chart, the colors, the line widths, the slider range and the default E series. Settings are stored on this computer, not in the project. "Reset to defaults" returns to the starting palette, chosen to stay readable with color-vision deficiency.': 'Das Feld „Einstellungen“ (Menü Optionen) legt Z0 und Frequenz eines neuen Projekts, den vertikalen Schaltplan, das erweiterte Diagramm, die Farben, die Linienstärken, den Reglerbereich und die Standard-E-Reihe fest. Die Einstellungen werden auf diesem Computer gespeichert, nicht im Projekt. „Auf Standard zurücksetzen“ stellt die Ausgangspalette wieder her, die auch bei Farbsehschwäche gut lesbar bleiben soll.',
+  'Key': 'Taste',
+  'Action': 'Aktion',
+  'Undo, redo': 'Rückgängig, Wiederholen',
+  'Save, open a project': 'Projekt speichern, öffnen',
+  'Delete the selected element': 'Gewähltes Element löschen',
+  'Deselect, close a menu': 'Auswahl aufheben, Menü schließen',
+  '<kbd>+</kbd>, <kbd>-</kbd>, <kbd>0</kbd> and arrows on the chart': '<kbd>+</kbd>, <kbd>-</kbd>, <kbd>0</kbd> und Pfeile im Diagramm',
+  'Zoom, fit, pan': 'Zoomen, anpassen, verschieben',
+  'This documentation': 'Diese Dokumentation',
+  'Γ = (Z - Z0) / (Z + Z0), with Z0 real. VSWR = (1 + |Γ|) / (1 - |Γ|). Return loss = -20 · log|Γ|, positive.': 'Γ = (Z - Z0) / (Z + Z0), mit reellem Z0. VSWR = (1 + |Γ|) / (1 - |Γ|). Rückflussdämpfung = -20 · log|Γ|, positiv.',
+  'Q of a point = |X| / R.': 'Q eines Punkts = |X| / R.',
+  'A series element moves the point along an r circle; a shunt element, along a g circle.': 'Ein Serienelement verschiebt den Punkt entlang eines r-Kreises; ein Parallelelement entlang eines g-Kreises.',
+  'A line keeps its physical length when the frequency varies; its electrical length is defined at a reference frequency. Losses α are in dB per metre.': 'Eine Leitung behält ihre physikalische Länge, wenn sich die Frequenz ändert; ihre elektrische Länge ist bei einer Referenzfrequenz definiert. Die Dämpfung α wird in dB pro Meter angegeben.',
+  'During a sweep, a fixed impedance stays fixed, an R-L-C circuit varies, a table is interpolated.': 'Bei einem Frequenzdurchlauf bleibt eine feste Impedanz konstant, eine R-L-C-Schaltung ändert sich, eine Tabelle wird interpoliert.',
+  'Known limitations': 'Bekannte Einschränkungen',
+  'The characteristic impedance of a lossy line stays real.': 'Der Wellenwiderstand einer verlustbehafteten Leitung bleibt reell.',
+  'Automatic matching assumes lossless elements and matches at f0 only.': 'Die automatische Anpassung setzt verlustfreie Elemente voraus und passt nur bei f0 an.',
+  'Touchstone 1.x files with one or two ports; no version 2.0. Only one block is read from a CITI file.': 'Touchstone-1.x-Dateien mit einem oder zwei Toren; keine Version 2.0. Aus einer CITI-Datei wird nur ein Block gelesen.',
+  'The LTspice netlist is checked by an independent solver, not by LTspice itself.': 'Die LTspice-Netzliste wird von einem unabhängigen Solver geprüft, nicht von LTspice selbst.',
+  'Smith .xmlsc projects are not read.': 'Smith-.xmlsc-Projekte werden nicht gelesen.',
+  'The direction of the transformer ratio could not be compared with Smith.': 'Die Richtung des Transformatorverhältnisses konnte nicht mit Smith verglichen werden.',
+  'Start an empty project: 50 Ω load, no element (can be undone)': 'Leeres Projekt starten: Last 50 Ω, kein Element (kann rückgängig gemacht werden)',
+  'Labels on the chart': 'Beschriftungen im Diagramm',
+  'Load (DP)': 'Last (DP)',
+  'Transformed points (TP)': 'Transformierte Punkte (TP)',
+  'Display': 'Anzeige',
+  'Extended chart (r < 0, up to |Γ| = 2)': 'Erweitertes Diagramm (r < 0, bis |Γ| = 2)',
+  'Colors': 'Farben',
+  'Sweep': 'Frequenzdurchlauf',
+  'Trajectories': 'Trajektorien',
+  'The default colors were chosen to stay distinguishable with color-vision deficiency; "Reset to defaults" restores them.': 'Die Standardfarben wurden so gewählt, dass sie auch bei Farbsehschwäche unterscheidbar bleiben; „Auf Standard zurücksetzen“ stellt sie wieder her.',
+  'Line widths': 'Linienstärken',
+  'Grid': 'Raster',
+  'Defaults': 'Standardwerte',
+  'Slider': 'Regler',
+  '± 20 %': '± 20 %',
+  '÷ 2 … × 2': '÷ 2 … × 2',
+  '÷ 10 … × 10': '÷ 10 … × 10',
+  'E series': 'E-Reihe',
+  'E12': 'E12',
+  'E24': 'E24',
+  'E96': 'E96',
+  'These settings, the display mode and the label choices are saved on this computer.': 'Diese Einstellungen, der Anzeigemodus und die Wahl der Beschriftungen werden auf diesem Computer gespeichert.',
+  'Import .s1p, .s2p, CITI or CSV…': '.s1p, .s2p, CITI oder CSV importieren…',
+  'Circles CSV': 'Kreise als CSV',
+  'Smith Chart documentation': 'Dokumentation Smith-Diagramm',
+  'Close': 'Schließen',
+  'About': 'Über',
+  'Interactive Smith chart and impedance matching tool, built for the SysRF course at HEIG-VD.': 'Interaktives Smith-Diagramm und Werkzeug zur Impedanzanpassung, entwickelt für den Kurs SysRF an der HEIG-VD.',
+  'Author: Thomas Blatti': 'Autor: Thomas Blatti',
+  '© 2026 Thomas Blatti. Released under the MIT license.': '© 2026 Thomas Blatti. Veröffentlicht unter der MIT-Lizenz.',
+  'Independent rewrite, inspired by the Smith software by Fritz Dellsperger. No code from that software is used.': 'Unabhängige Neuentwicklung, inspiriert von der Software Smith von Fritz Dellsperger. Es wird kein Code dieser Software verwendet.',
+  'The desktop application is built with Electron.': 'Die Desktop-Anwendung basiert auf Electron.',
 });
 
 // italiano
@@ -1190,7 +1613,6 @@ SmithI18n.register('it', {
   'Normalized graduations': 'Graduazioni normalizzate',
   'Graduations in ohms and siemens': 'Graduazioni in ohm e siemens',
   'New project': 'Nuovo progetto',
-  'Start an empty project (50 Ω load)': 'Avviare un progetto vuoto (carico 50 Ω)',
   'Shows the r or g circle followed by each element, its Δx or Δb, and the impedance / admittance symmetry': 'Mostra il cerchio r o g seguito da ogni elemento, il suo Δx o Δb e la simmetria impedenza / ammettenza',
   'Course mode': 'Modalità corso',
   'Undo (Ctrl+Z)': 'Annulla (Ctrl+Z)',
@@ -1254,7 +1676,6 @@ SmithI18n.register('it', {
   'Save': 'Salva',
   'Copy link': 'Copia il link',
   'Measured load': 'Carico misurato',
-  'Import .s1p, .s2p or CSV…': 'Importa .s1p, .s2p o CSV…',
   'Parameter used for a two-port file': 'Parametro usato per un file a due porte',
   'S11 of the .s2p': 'S11 del .s2p',
   'S22 of the .s2p': 'S22 del .s2p',
@@ -1476,6 +1897,161 @@ SmithI18n.register('it', {
   'Turn on the frequency sweep first.': 'Attiva prima lo sweep in frequenza.',
   'Project loaded from the link.': 'Progetto caricato dal link.',
   'Language': 'Lingua',
+  'Unreadable frequency segment in the CITI file: "{0}"': 'Segmento di frequenza illeggibile nel file CITI: «{0}»',
+  'Unreadable line in the CITI file: "{0}"': 'Riga illeggibile nel file CITI: «{0}»',
+  'This is not a CITI file (no CITIFILE line).': 'Questo non è un file CITI (nessuna riga CITIFILE).',
+  'No frequency in the CITI file.': 'Nessuna frequenza nel file CITI.',
+  'Incomplete CITI file: data blocks are missing.': 'File CITI incompleto: mancano i blocchi di dati.',
+  'CITI file: {0} values for {1}, {2} frequencies.': 'File CITI: {0} valori per {1}, {2} frequenze.',
+  'CITI format "{0}" is not supported for {1}.': 'Il formato CITI «{0}» non è supportato per {1}.',
+  'The CITI file does not contain S[1,1].': 'Il file CITI non contiene S[1,1].',
+  'Invalid reference impedance in the CITI file.': 'Impedenza di riferimento non valida nel file CITI.',
+  'Whole locus': 'Intero luogo',
+  '.s2p file, per frequency': 'File .s2p, per frequenza',
+  'Load the S parameters at this frequency': 'Carica i parametri S a questa frequenza',
+  'Logarithmic frequency axis': 'Asse delle frequenze logaritmico',
+  'Gain (dB): MAG ───  MSG ─ ─': 'Guadagno (dB): MAG ───  MSG ─ ─',
+  'Stability: K ───  μ ─ ─': 'Stabilità: K ───  μ ─ ─',
+  'Return loss (dB): S11 ───  S22 ─ ─': 'Perdita di ritorno (dB): S11 ───  S22 ─ ─',
+  'Hover a plot to read the values; click a table row to load its S parameters.': 'Passa il mouse su un grafico per leggere i valori; fai clic su una riga della tabella per caricarne i parametri S.',
+  'Could not read the file.': 'Impossibile leggere il file.',
+  'No circle to export: add a VSWR, Q or amplifier circle.': 'Nessun cerchio da esportare: aggiungi un cerchio di VSWR, di Q o dell\'amplificatore.',
+  'File': 'File',
+  'Open project…': 'Apri progetto…',
+  'Save project': 'Salva progetto',
+  'Copy project link': 'Copia il link del progetto',
+  'Import a measurement (.s1p, .s2p, CITI, CSV)…': 'Importa una misura (.s1p, .s2p, CITI, CSV)…',
+  'Export chart as SVG': 'Esporta la carta in SVG',
+  'Export chart as PNG': 'Esporta la carta in PNG',
+  'Copy chart image': 'Copia l\'immagine della carta',
+  'Export schematic as SVG': 'Esporta lo schema in SVG',
+  'Export points (CSV)': 'Esporta i punti (CSV)',
+  'Export sweep (CSV)': 'Esporta lo sweep (CSV)',
+  'Export circles (CSV)': 'Esporta i cerchi (CSV)',
+  'LTspice netlist (.cir)': 'Netlist LTspice (.cir)',
+  'Smith-format netlist (.ckt)': 'Netlist formato Smith (.ckt)',
+  'Edit': 'Modifica',
+  'Delete selected element': 'Elimina l\'elemento selezionato',
+  'Del': 'Canc',
+  'Deselect': 'Deseleziona',
+  'Esc': 'Esc',
+  'View': 'Visualizza',
+  'Z plane': 'Piano Z',
+  'Y plane': 'Piano Y',
+  'Z and Y planes': 'Piani Z e Y',
+  'Extended chart': 'Carta estesa',
+  'Vertical schematic': 'Schema verticale',
+  'Fit view': 'Adatta la vista',
+  'Dark theme': 'Tema scuro',
+  'Options': 'Opzioni',
+  'Settings…': 'Impostazioni…',
+  'Reset to defaults': 'Ripristina i valori predefiniti',
+  'Help': 'Aiuto',
+  'Documentation': 'Documentazione',
+  'Keyboard shortcuts': 'Scorciatoie da tastiera',
+  'RF conventions': 'Convenzioni RF',
+  'About Smith Chart': 'Informazioni su Carta di Smith',
+  'Getting started': 'Per iniziare',
+  'Smith Chart is an interactive Smith chart for impedance matching. You describe a load, add elements to it one by one, and the chart shows the path followed by the impedance up to the network input.': 'Carta di Smith è una carta di Smith interattiva per l\'adattamento di impedenza. Descrivi un carico, gli aggiungi gli elementi uno a uno, e la carta mostra il percorso seguito dall\'impedenza fino all\'ingresso della rete.',
+  'The tool starts on an empty project: a 50 Ω load, no element. <b>File, New project</b> returns to it at any time.': 'Lo strumento si avvia su un progetto vuoto: un carico da 50 Ω, nessun elemento. <b>File, Nuovo progetto</b> vi riporta in qualsiasi momento.',
+  'Building a network': 'Costruire una rete',
+  'The network is built <b>from the load towards the source</b>. The first element touches the load; the input impedance is the one seen after the last element.': 'La rete si costruisce <b>dal carico verso la sorgente</b>. Il primo elemento è collegato al carico; l\'impedenza d\'ingresso è quella che si vede dopo l\'ultimo elemento.',
+  'Set <b>Z0</b> and <b>f0</b> in the top bar.': 'Imposta <b>Z0</b> e <b>f0</b> nella barra superiore.',
+  'Click the load in the schematic and enter it: Z, Y, normalized values, Γ, S11, R-L-C circuit, or imported Z(f) table.': 'Fai clic sul carico nello schema e inseriscilo: Z, Y, valori normalizzati, Γ, S11, circuito R-L-C o tabella Z(f) importata.',
+  'Add elements with the "Series" and "Shunt" buttons. The new element is inserted after the selected element, on the source side.': 'Aggiungi gli elementi con i pulsanti «Serie» e «Parallelo». Il nuovo elemento viene inserito dopo l\'elemento selezionato, lato sorgente.',
+  'Available elements: R, L and C in series or in shunt, transmission line (lossless or lossy), open or short-circuited stub, ideal transformer, compound R-L-C. A transformer of ratio n gives Zin = n² · Z.': 'Elementi disponibili: R, L e C in serie o in parallelo, linea di trasmissione (senza o con perdite), stub aperto o in cortocircuito, trasformatore ideale, R-L-C composto. Un trasformatore di rapporto n dà Zin = n² · Z.',
+  'Entering and tuning a value': 'Inserire e regolare un valore',
+  'Entry accepts engineering notation: <code>6.8p</code>, <code>6,8 pF</code>, <code>15n</code>, <code>869M</code>, <code>2k2</code>, <code>4R7</code>, <code>1e-9</code>. Prefixes are case-sensitive: <code>m</code> is milli, <code>M</code> is mega.': 'L\'inserimento accetta la notazione ingegneristica: <code>6.8p</code>, <code>6,8 pF</code>, <code>15n</code>, <code>869M</code>, <code>2k2</code>, <code>4R7</code>, <code>1e-9</code>. I prefissi distinguono maiuscole e minuscole: <code>m</code> è milli, <code>M</code> è mega.',
+  'Gesture': 'Gesto',
+  'Effect': 'Effetto',
+  'Mouse wheel or up and down arrows on a field': 'Rotellina del mouse o frecce su e giù su un campo',
+  'Plus or minus 1 % (1° for an angle). Shift multiplies the step by 10, Alt divides it by 10.': 'Più o meno 1 % (1° per un angolo). Maiusc moltiplica il passo per 10, Alt lo divide per 10.',
+  '"Adjustment" slider': 'Cursore «Regolazione»',
+  '"Whole locus" range: the two ends of the slider are the two ends of the element locus. Narrower ranges are offered next to it.': 'Intervallo «Intero luogo»: le due estremità del cursore sono le due estremità del luogo dell\'elemento. Accanto sono proposti intervalli più stretti.',
+  'Drag a TP point on the chart': 'Trascina un punto TP sulla carta',
+  'Tunes the element that ends at this point, along its locus.': 'Regola l\'elemento che termina in questo punto, lungo il suo luogo.',
+  'Drag DP1': 'Trascina DP1',
+  'Moves a fixed load.': 'Sposta un carico fisso.',
+  '"Normalize" buttons E12, E24, E96': 'Pulsanti «Normalizza» E12, E24, E96',
+  'Round the value to the chosen series, after a free adjustment.': 'Arrotondano il valore alla serie scelta, dopo una regolazione libera.',
+  'Reading the chart': 'Leggere la carta',
+  'The Z plane is red, the Y plane blue, the sweep green. Trajectories, circles and selection are drawn in ink. These colors can be changed in the settings.': 'Il piano Z è rosso, il piano Y blu, lo sweep verde. Traiettorie, cerchi e selezione sono disegnati in inchiostro. Questi colori si possono cambiare nelle impostazioni.',
+  'Wheel: zoom. Drag the background: pan. Double-click or key <kbd>0</kbd>: fit the view.': 'Rotellina: zoom. Trascina lo sfondo: sposta. Doppio clic o tasto <kbd>0</kbd>: adatta la vista.',
+  'The readout panel gives Z, Y, Γ, VSWR, return loss, mismatch loss, Q, the normalized values and the equivalent components of the hovered point, or of the network input by default.': 'Il pannello di lettura fornisce Z, Y, Γ, VSWR, perdita di ritorno, perdita di disadattamento, Q, i valori normalizzati e i componenti equivalenti del punto sorvolato, o per impostazione predefinita dell\'ingresso della rete.',
+  'Points are called DP (load), TP (transformed points) and SP (sweep points), as in Smith.': 'I punti si chiamano DP (carico), TP (punti trasformati) e SP (punti di sweep), come in Smith.',
+  '<b>Extended chart</b> (View menu) shows the negative-resistance region, up to |Γ| = 2.': 'La <b>carta estesa</b> (menu Visualizza) mostra la regione a resistenza negativa, fino a |Γ| = 2.',
+  'Right-hand panels': 'Pannelli di destra',
+  'Panel': 'Pannello',
+  'Role': 'Funzione',
+  'Value, losses and tuning of the selected element or load.': 'Valore, perdite e regolazione dell\'elemento o del carico selezionato.',
+  'Table of the DP and TP points with Z and Q.': 'Tabella dei punti DP e TP con Z e Q.',
+  'Proposes L, π, T, stub, quarter-wave or line-and-reactance networks, ranked by bandwidth or by Q.': 'Propone reti ad L, a π, a T, a stub, a quarto d\'onda o a linea e reattanza, ordinate per larghezza di banda o per Q.',
+  'Rounds all R, L and C to an E series and shows the effect on the match.': 'Arrotonda tutti gli R, L e C a una serie E e mostra l\'effetto sull\'adattamento.',
+  'Plots the network input over a frequency range, with the |S11|, VSWR and phase plots.': 'Traccia l\'ingresso della rete su un intervallo di frequenza, con i grafici di |S11|, VSWR e fase.',
+  'VSWR circles and Q loci, with presets, and the choice of displayed labels.': 'Cerchi di VSWR e luoghi di Q, con preimpostazioni, e scelta delle etichette visualizzate.',
+  'Stability, gain and noise of a two-port described by its S parameters; table and per-frequency plots after importing an .s2p or CITI file.': 'Stabilità, guadagno e rumore di un doppio bipolo descritto dai suoi parametri S; tabella e grafici per frequenza dopo l\'importazione di un file .s2p o CITI.',
+  'Settings': 'Impostazioni',
+  'Defaults, display, colors and line widths.': 'Valori predefiniti, visualizzazione, colori e spessori delle linee.',
+  'Project, imported measurements, exports.': 'Progetto, misure importate, esportazioni.',
+  'Files': 'File',
+  '<b>Project</b>: Save produces a JSON file; Open reads it back. "Copy link" encodes the project in an address.': '<b>Progetto</b>: Salva produce un file JSON; Apri lo rilegge. «Copia il link» codifica il progetto in un indirizzo.',
+  '<b>Measurements</b>: Touchstone .s1p and .s2p files, CITI files, or a CSV table "frequency, R, X". The measurement becomes the load of the project.': '<b>Misure</b>: file Touchstone .s1p e .s2p, file CITI o una tabella CSV «frequenza, R, X». La misura diventa il carico del progetto.',
+  '<b>Exports</b>: chart as SVG or PNG, schematic as SVG, points, sweep and circles as CSV, LTspice netlist (.cir) and Smith-format netlist (.ckt).': '<b>Esportazioni</b>: carta in SVG o PNG, schema in SVG, punti, sweep e cerchi in CSV, netlist LTspice (.cir) e netlist in formato Smith (.ckt).',
+  'A file dropped on the window opens directly: .json as a project, anything else as a measurement.': 'Un file rilasciato sulla finestra si apre direttamente: .json come progetto, tutto il resto come misura.',
+  'The "Settings" panel (Options menu) sets the Z0 and frequency of a new project, the vertical schematic, the extended chart, the colors, the line widths, the slider range and the default E series. Settings are stored on this computer, not in the project. "Reset to defaults" returns to the starting palette, chosen to stay readable with color-vision deficiency.': 'Il pannello «Impostazioni» (menu Opzioni) definisce lo Z0 e la frequenza di un nuovo progetto, lo schema verticale, la carta estesa, i colori, gli spessori delle linee, l\'intervallo del cursore e la serie E predefinita. Le impostazioni sono salvate su questo computer, non nel progetto. «Ripristina i valori predefiniti» ripristina la tavolozza iniziale, scelta per restare leggibile anche con deficit della visione dei colori.',
+  'Key': 'Tasto',
+  'Action': 'Azione',
+  'Undo, redo': 'Annulla, ripeti',
+  'Save, open a project': 'Salva, apri un progetto',
+  'Delete the selected element': 'Elimina l\'elemento selezionato',
+  'Deselect, close a menu': 'Deseleziona, chiudi un menu',
+  '<kbd>+</kbd>, <kbd>-</kbd>, <kbd>0</kbd> and arrows on the chart': '<kbd>+</kbd>, <kbd>-</kbd>, <kbd>0</kbd> e frecce sulla carta',
+  'Zoom, fit, pan': 'Zoom, adatta, sposta',
+  'This documentation': 'Questa documentazione',
+  'Γ = (Z - Z0) / (Z + Z0), with Z0 real. VSWR = (1 + |Γ|) / (1 - |Γ|). Return loss = -20 · log|Γ|, positive.': 'Γ = (Z - Z0) / (Z + Z0), con Z0 reale. VSWR = (1 + |Γ|) / (1 - |Γ|). Perdita di ritorno = -20 · log|Γ|, positiva.',
+  'Q of a point = |X| / R.': 'Q di un punto = |X| / R.',
+  'A series element moves the point along an r circle; a shunt element, along a g circle.': 'Un elemento in serie sposta il punto lungo un cerchio r; un elemento in parallelo, lungo un cerchio g.',
+  'A line keeps its physical length when the frequency varies; its electrical length is defined at a reference frequency. Losses α are in dB per metre.': 'Una linea mantiene la sua lunghezza fisica al variare della frequenza; la sua lunghezza elettrica è definita a una frequenza di riferimento. Le perdite α sono in dB al metro.',
+  'During a sweep, a fixed impedance stays fixed, an R-L-C circuit varies, a table is interpolated.': 'Durante uno sweep, un\'impedenza fissa resta fissa, un circuito R-L-C varia, una tabella viene interpolata.',
+  'Known limitations': 'Limiti noti',
+  'The characteristic impedance of a lossy line stays real.': 'L\'impedenza caratteristica di una linea con perdite resta reale.',
+  'Automatic matching assumes lossless elements and matches at f0 only.': 'L\'adattamento automatico presuppone elementi senza perdite e adatta solo a f0.',
+  'Touchstone 1.x files with one or two ports; no version 2.0. Only one block is read from a CITI file.': 'File Touchstone 1.x a una o due porte; nessuna versione 2.0. Di un file CITI viene letto un solo blocco.',
+  'The LTspice netlist is checked by an independent solver, not by LTspice itself.': 'La netlist LTspice è verificata da un risolutore indipendente, non da LTspice stesso.',
+  'Smith .xmlsc projects are not read.': 'I progetti Smith .xmlsc non vengono letti.',
+  'The direction of the transformer ratio could not be compared with Smith.': 'Il verso del rapporto del trasformatore non ha potuto essere confrontato con Smith.',
+  'Start an empty project: 50 Ω load, no element (can be undone)': 'Avvia un progetto vuoto: carico 50 Ω, nessun elemento (si può annullare)',
+  'Labels on the chart': 'Etichette sulla carta',
+  'Load (DP)': 'Carico (DP)',
+  'Transformed points (TP)': 'Punti trasformati (TP)',
+  'Display': 'Visualizzazione',
+  'Extended chart (r < 0, up to |Γ| = 2)': 'Carta estesa (r < 0, fino a |Γ| = 2)',
+  'Colors': 'Colori',
+  'Sweep': 'Sweep',
+  'Trajectories': 'Traiettorie',
+  'The default colors were chosen to stay distinguishable with color-vision deficiency; "Reset to defaults" restores them.': 'I colori predefiniti sono stati scelti per restare distinguibili anche con deficit della visione dei colori; «Ripristina i valori predefiniti» li ripristina.',
+  'Line widths': 'Spessori delle linee',
+  'Grid': 'Griglia',
+  'Defaults': 'Valori predefiniti',
+  'Slider': 'Cursore',
+  '± 20 %': '± 20 %',
+  '÷ 2 … × 2': '÷ 2 … × 2',
+  '÷ 10 … × 10': '÷ 10 … × 10',
+  'E series': 'Serie E',
+  'E12': 'E12',
+  'E24': 'E24',
+  'E96': 'E96',
+  'These settings, the display mode and the label choices are saved on this computer.': 'Queste impostazioni, la modalità di visualizzazione e la scelta delle etichette sono salvate su questo computer.',
+  'Import .s1p, .s2p, CITI or CSV…': 'Importa .s1p, .s2p, CITI o CSV…',
+  'Circles CSV': 'Cerchi CSV',
+  'Smith Chart documentation': 'Documentazione di Carta di Smith',
+  'Close': 'Chiudi',
+  'About': 'Informazioni',
+  'Interactive Smith chart and impedance matching tool, built for the SysRF course at HEIG-VD.': 'Carta di Smith interattiva e strumento di adattamento di impedenza, realizzato per il corso SysRF della HEIG-VD.',
+  'Author: Thomas Blatti': 'Autore: Thomas Blatti',
+  '© 2026 Thomas Blatti. Released under the MIT license.': '© 2026 Thomas Blatti. Rilasciato con licenza MIT.',
+  'Independent rewrite, inspired by the Smith software by Fritz Dellsperger. No code from that software is used.': 'Riscrittura indipendente, ispirata al software Smith di Fritz Dellsperger. Nessun codice di quel software è utilizzato.',
+  'The desktop application is built with Electron.': 'L\'applicazione desktop è realizzata con Electron.',
 });
 
 // español
@@ -1488,7 +2064,6 @@ SmithI18n.register('es', {
   'Normalized graduations': 'Graduaciones normalizadas',
   'Graduations in ohms and siemens': 'Graduaciones en ohmios y siemens',
   'New project': 'Nuevo proyecto',
-  'Start an empty project (50 Ω load)': 'Iniciar un proyecto vacío (carga 50 Ω)',
   'Shows the r or g circle followed by each element, its Δx or Δb, and the impedance / admittance symmetry': 'Muestra el círculo r o g seguido por cada elemento, su Δx o Δb y la simetría impedancia / admitancia',
   'Course mode': 'Modo curso',
   'Undo (Ctrl+Z)': 'Deshacer (Ctrl+Z)',
@@ -1552,7 +2127,6 @@ SmithI18n.register('es', {
   'Save': 'Guardar',
   'Copy link': 'Copiar el enlace',
   'Measured load': 'Carga medida',
-  'Import .s1p, .s2p or CSV…': 'Importar .s1p, .s2p o CSV…',
   'Parameter used for a two-port file': 'Parámetro usado para un archivo de dos puertos',
   'S11 of the .s2p': 'S11 del .s2p',
   'S22 of the .s2p': 'S22 del .s2p',
@@ -1774,12 +2348,167 @@ SmithI18n.register('es', {
   'Turn on the frequency sweep first.': 'Active primero el barrido en frecuencia.',
   'Project loaded from the link.': 'Proyecto cargado desde el enlace.',
   'Language': 'Idioma',
+  'Unreadable frequency segment in the CITI file: "{0}"': 'Segmento de frecuencia ilegible en el archivo CITI: «{0}»',
+  'Unreadable line in the CITI file: "{0}"': 'Línea ilegible en el archivo CITI: «{0}»',
+  'This is not a CITI file (no CITIFILE line).': 'Este no es un archivo CITI (falta la línea CITIFILE).',
+  'No frequency in the CITI file.': 'No hay ninguna frecuencia en el archivo CITI.',
+  'Incomplete CITI file: data blocks are missing.': 'Archivo CITI incompleto: faltan bloques de datos.',
+  'CITI file: {0} values for {1}, {2} frequencies.': 'Archivo CITI: {0} valores para {1}, {2} frecuencias.',
+  'CITI format "{0}" is not supported for {1}.': 'El formato CITI «{0}» no es compatible para {1}.',
+  'The CITI file does not contain S[1,1].': 'El archivo CITI no contiene S[1,1].',
+  'Invalid reference impedance in the CITI file.': 'Impedancia de referencia no válida en el archivo CITI.',
+  'Whole locus': 'Todo el lugar geométrico',
+  '.s2p file, per frequency': 'Archivo .s2p, por frecuencia',
+  'Load the S parameters at this frequency': 'Cargar los parámetros S a esta frecuencia',
+  'Logarithmic frequency axis': 'Eje de frecuencia logarítmico',
+  'Gain (dB): MAG ───  MSG ─ ─': 'Ganancia (dB): MAG ───  MSG ─ ─',
+  'Stability: K ───  μ ─ ─': 'Estabilidad: K ───  μ ─ ─',
+  'Return loss (dB): S11 ───  S22 ─ ─': 'Pérdida de retorno (dB): S11 ───  S22 ─ ─',
+  'Hover a plot to read the values; click a table row to load its S parameters.': 'Pase el cursor sobre un gráfico para leer los valores; haga clic en una fila de la tabla para cargar sus parámetros S.',
+  'Could not read the file.': 'No se pudo leer el archivo.',
+  'No circle to export: add a VSWR, Q or amplifier circle.': 'Ningún círculo que exportar: añada un círculo de VSWR, de Q o de amplificador.',
+  'File': 'Archivo',
+  'Open project…': 'Abrir proyecto…',
+  'Save project': 'Guardar proyecto',
+  'Copy project link': 'Copiar el enlace del proyecto',
+  'Import a measurement (.s1p, .s2p, CITI, CSV)…': 'Importar una medida (.s1p, .s2p, CITI, CSV)…',
+  'Export chart as SVG': 'Exportar la carta como SVG',
+  'Export chart as PNG': 'Exportar la carta como PNG',
+  'Copy chart image': 'Copiar la imagen de la carta',
+  'Export schematic as SVG': 'Exportar el esquema como SVG',
+  'Export points (CSV)': 'Exportar puntos (CSV)',
+  'Export sweep (CSV)': 'Exportar barrido (CSV)',
+  'Export circles (CSV)': 'Exportar círculos (CSV)',
+  'LTspice netlist (.cir)': 'Netlist de LTspice (.cir)',
+  'Smith-format netlist (.ckt)': 'Netlist en formato Smith (.ckt)',
+  'Edit': 'Edición',
+  'Delete selected element': 'Eliminar el elemento seleccionado',
+  'Del': 'Supr',
+  'Deselect': 'Deseleccionar',
+  'Esc': 'Esc',
+  'View': 'Ver',
+  'Z plane': 'Plano Z',
+  'Y plane': 'Plano Y',
+  'Z and Y planes': 'Planos Z e Y',
+  'Extended chart': 'Carta extendida',
+  'Vertical schematic': 'Esquema vertical',
+  'Fit view': 'Ajustar la vista',
+  'Dark theme': 'Tema oscuro',
+  'Options': 'Opciones',
+  'Settings…': 'Ajustes…',
+  'Reset to defaults': 'Restablecer valores por defecto',
+  'Help': 'Ayuda',
+  'Documentation': 'Documentación',
+  'Keyboard shortcuts': 'Atajos de teclado',
+  'RF conventions': 'Convenciones de RF',
+  'About Smith Chart': 'Acerca de Carta de Smith',
+  'Getting started': 'Primeros pasos',
+  'Smith Chart is an interactive Smith chart for impedance matching. You describe a load, add elements to it one by one, and the chart shows the path followed by the impedance up to the network input.': 'Carta de Smith es una carta de Smith interactiva para la adaptación de impedancias. Usted describe una carga, le añade elementos uno a uno, y la carta muestra el camino seguido por la impedancia hasta la entrada de la red.',
+  'The tool starts on an empty project: a 50 Ω load, no element. <b>File, New project</b> returns to it at any time.': 'La herramienta arranca con un proyecto vacío: una carga de 50 Ω, ningún elemento. <b>Archivo, Nuevo proyecto</b> vuelve a él en cualquier momento.',
+  'Building a network': 'Construir una red',
+  'The network is built <b>from the load towards the source</b>. The first element touches the load; the input impedance is the one seen after the last element.': 'La red se construye <b>de la carga hacia la fuente</b>. El primer elemento toca la carga; la impedancia de entrada es la que se ve después del último elemento.',
+  'Set <b>Z0</b> and <b>f0</b> in the top bar.': 'Fije <b>Z0</b> y <b>f0</b> en la barra superior.',
+  'Click the load in the schematic and enter it: Z, Y, normalized values, Γ, S11, R-L-C circuit, or imported Z(f) table.': 'Haga clic en la carga del esquema e introdúzcala: Z, Y, valores normalizados, Γ, S11, circuito R-L-C o tabla Z(f) importada.',
+  'Add elements with the "Series" and "Shunt" buttons. The new element is inserted after the selected element, on the source side.': 'Añada elementos con los botones «Serie» y «Paralelo». El elemento nuevo se inserta después del elemento seleccionado, del lado de la fuente.',
+  'Available elements: R, L and C in series or in shunt, transmission line (lossless or lossy), open or short-circuited stub, ideal transformer, compound R-L-C. A transformer of ratio n gives Zin = n² · Z.': 'Elementos disponibles: R, L y C en serie o en paralelo, línea de transmisión (sin pérdidas o con pérdidas), stub abierto o en cortocircuito, transformador ideal, R-L-C compuesto. Un transformador de relación n da Zin = n² · Z.',
+  'Entering and tuning a value': 'Introducir y ajustar un valor',
+  'Entry accepts engineering notation: <code>6.8p</code>, <code>6,8 pF</code>, <code>15n</code>, <code>869M</code>, <code>2k2</code>, <code>4R7</code>, <code>1e-9</code>. Prefixes are case-sensitive: <code>m</code> is milli, <code>M</code> is mega.': 'La entrada acepta la notación de ingeniería: <code>6.8p</code>, <code>6,8 pF</code>, <code>15n</code>, <code>869M</code>, <code>2k2</code>, <code>4R7</code>, <code>1e-9</code>. Los prefijos distinguen mayúsculas de minúsculas: <code>m</code> es mili, <code>M</code> es mega.',
+  'Gesture': 'Gesto',
+  'Effect': 'Efecto',
+  'Mouse wheel or up and down arrows on a field': 'Rueda del ratón o flechas arriba y abajo sobre un campo',
+  'Plus or minus 1 % (1° for an angle). Shift multiplies the step by 10, Alt divides it by 10.': 'Más o menos 1 % (1° para un ángulo). Mayús multiplica el paso por 10, Alt lo divide por 10.',
+  '"Adjustment" slider': 'Deslizador «Ajuste»',
+  '"Whole locus" range: the two ends of the slider are the two ends of the element locus. Narrower ranges are offered next to it.': 'Rango «Todo el lugar geométrico»: los dos extremos del deslizador son los dos extremos del lugar geométrico del elemento. Junto a él se ofrecen rangos más estrechos.',
+  'Drag a TP point on the chart': 'Arrastrar un punto TP sobre la carta',
+  'Tunes the element that ends at this point, along its locus.': 'Ajusta el elemento que termina en este punto, a lo largo de su lugar geométrico.',
+  'Drag DP1': 'Arrastrar DP1',
+  'Moves a fixed load.': 'Mueve una carga fija.',
+  '"Normalize" buttons E12, E24, E96': 'Botones «Normalizar» E12, E24, E96',
+  'Round the value to the chosen series, after a free adjustment.': 'Redondean el valor a la serie elegida, tras un ajuste libre.',
+  'Reading the chart': 'Leer la carta',
+  'The Z plane is red, the Y plane blue, the sweep green. Trajectories, circles and selection are drawn in ink. These colors can be changed in the settings.': 'El plano Z es rojo, el plano Y azul, el barrido verde. Las trayectorias, los círculos y la selección se dibujan en tinta. Estos colores se pueden cambiar en los ajustes.',
+  'Wheel: zoom. Drag the background: pan. Double-click or key <kbd>0</kbd>: fit the view.': 'Rueda: zoom. Arrastrar el fondo: desplazar. Doble clic o tecla <kbd>0</kbd>: ajustar la vista.',
+  'The readout panel gives Z, Y, Γ, VSWR, return loss, mismatch loss, Q, the normalized values and the equivalent components of the hovered point, or of the network input by default.': 'El panel de lectura da Z, Y, Γ, VSWR, pérdida de retorno, pérdida por desadaptación, Q, los valores normalizados y los componentes equivalentes del punto bajo el cursor, o de la entrada de la red por defecto.',
+  'Points are called DP (load), TP (transformed points) and SP (sweep points), as in Smith.': 'Los puntos se llaman DP (carga), TP (puntos transformados) y SP (puntos de barrido), como en Smith.',
+  '<b>Extended chart</b> (View menu) shows the negative-resistance region, up to |Γ| = 2.': 'La <b>carta extendida</b> (menú Ver) muestra la región de resistencia negativa, hasta |Γ| = 2.',
+  'Right-hand panels': 'Paneles de la derecha',
+  'Panel': 'Panel',
+  'Role': 'Función',
+  'Value, losses and tuning of the selected element or load.': 'Valor, pérdidas y ajuste del elemento o de la carga seleccionados.',
+  'Table of the DP and TP points with Z and Q.': 'Tabla de los puntos DP y TP con Z y Q.',
+  'Proposes L, π, T, stub, quarter-wave or line-and-reactance networks, ranked by bandwidth or by Q.': 'Propone redes en L, π, T, stub, cuarto de onda o línea y reactancia, ordenadas por ancho de banda o por Q.',
+  'Rounds all R, L and C to an E series and shows the effect on the match.': 'Redondea todos los R, L y C a una serie E y muestra el efecto sobre la adaptación.',
+  'Plots the network input over a frequency range, with the |S11|, VSWR and phase plots.': 'Traza la entrada de la red en un rango de frecuencias, con los gráficos de |S11|, VSWR y fase.',
+  'VSWR circles and Q loci, with presets, and the choice of displayed labels.': 'Círculos de VSWR y lugares geométricos de Q, con preajustes, y elección de las etiquetas mostradas.',
+  'Stability, gain and noise of a two-port described by its S parameters; table and per-frequency plots after importing an .s2p or CITI file.': 'Estabilidad, ganancia y ruido de un cuadripolo descrito por sus parámetros S; tabla y gráficos por frecuencia tras importar un archivo .s2p o CITI.',
+  'Settings': 'Ajustes',
+  'Defaults, display, colors and line widths.': 'Valores por defecto, visualización, colores y grosores de línea.',
+  'Project, imported measurements, exports.': 'Proyecto, medidas importadas, exportaciones.',
+  'Files': 'Archivos',
+  '<b>Project</b>: Save produces a JSON file; Open reads it back. "Copy link" encodes the project in an address.': '<b>Proyecto</b>: Guardar produce un archivo JSON; Abrir lo lee de nuevo. «Copiar el enlace» codifica el proyecto en una dirección.',
+  '<b>Measurements</b>: Touchstone .s1p and .s2p files, CITI files, or a CSV table "frequency, R, X". The measurement becomes the load of the project.': '<b>Medidas</b>: archivos Touchstone .s1p y .s2p, archivos CITI o una tabla CSV «frecuencia, R, X». La medida pasa a ser la carga del proyecto.',
+  '<b>Exports</b>: chart as SVG or PNG, schematic as SVG, points, sweep and circles as CSV, LTspice netlist (.cir) and Smith-format netlist (.ckt).': '<b>Exportaciones</b>: carta como SVG o PNG, esquema como SVG, puntos, barrido y círculos como CSV, netlist de LTspice (.cir) y netlist en formato Smith (.ckt).',
+  'A file dropped on the window opens directly: .json as a project, anything else as a measurement.': 'Un archivo soltado sobre la ventana se abre directamente: .json como proyecto, cualquier otro como medida.',
+  'The "Settings" panel (Options menu) sets the Z0 and frequency of a new project, the vertical schematic, the extended chart, the colors, the line widths, the slider range and the default E series. Settings are stored on this computer, not in the project. "Reset to defaults" returns to the starting palette, chosen to stay readable with color-vision deficiency.': 'El panel «Ajustes» (menú Opciones) fija la Z0 y la frecuencia de un proyecto nuevo, el esquema vertical, la carta extendida, los colores, los grosores de línea, el rango del deslizador y la serie E por defecto. Los ajustes se guardan en este ordenador, no en el proyecto. «Restablecer valores por defecto» devuelve la paleta inicial, elegida para seguir siendo legible con deficiencia de visión del color.',
+  'Key': 'Tecla',
+  'Action': 'Acción',
+  'Undo, redo': 'Deshacer, rehacer',
+  'Save, open a project': 'Guardar, abrir un proyecto',
+  'Delete the selected element': 'Eliminar el elemento seleccionado',
+  'Deselect, close a menu': 'Deseleccionar, cerrar un menú',
+  '<kbd>+</kbd>, <kbd>-</kbd>, <kbd>0</kbd> and arrows on the chart': '<kbd>+</kbd>, <kbd>-</kbd>, <kbd>0</kbd> y flechas sobre la carta',
+  'Zoom, fit, pan': 'Zoom, ajustar, desplazar',
+  'This documentation': 'Esta documentación',
+  'Γ = (Z - Z0) / (Z + Z0), with Z0 real. VSWR = (1 + |Γ|) / (1 - |Γ|). Return loss = -20 · log|Γ|, positive.': 'Γ = (Z - Z0) / (Z + Z0), con Z0 real. VSWR = (1 + |Γ|) / (1 - |Γ|). Pérdida de retorno = -20 · log|Γ|, positiva.',
+  'Q of a point = |X| / R.': 'Q de un punto = |X| / R.',
+  'A series element moves the point along an r circle; a shunt element, along a g circle.': 'Un elemento en serie desplaza el punto a lo largo de un círculo r; un elemento en paralelo, a lo largo de un círculo g.',
+  'A line keeps its physical length when the frequency varies; its electrical length is defined at a reference frequency. Losses α are in dB per metre.': 'Una línea conserva su longitud física cuando varía la frecuencia; su longitud eléctrica se define a una frecuencia de referencia. Las pérdidas α se dan en dB por metro.',
+  'During a sweep, a fixed impedance stays fixed, an R-L-C circuit varies, a table is interpolated.': 'Durante un barrido, una impedancia fija permanece fija, un circuito R-L-C varía y una tabla se interpola.',
+  'Known limitations': 'Limitaciones conocidas',
+  'The characteristic impedance of a lossy line stays real.': 'La impedancia característica de una línea con pérdidas sigue siendo real.',
+  'Automatic matching assumes lossless elements and matches at f0 only.': 'La adaptación automática supone elementos sin pérdidas y adapta solo a f0.',
+  'Touchstone 1.x files with one or two ports; no version 2.0. Only one block is read from a CITI file.': 'Archivos Touchstone 1.x de uno o dos puertos; no la versión 2.0. De un archivo CITI se lee un solo bloque.',
+  'The LTspice netlist is checked by an independent solver, not by LTspice itself.': 'La netlist de LTspice se verifica con un solucionador independiente, no con el propio LTspice.',
+  'Smith .xmlsc projects are not read.': 'Los proyectos .xmlsc de Smith no se leen.',
+  'The direction of the transformer ratio could not be compared with Smith.': 'El sentido de la relación del transformador no se pudo comparar con Smith.',
+  'Start an empty project: 50 Ω load, no element (can be undone)': 'Iniciar un proyecto vacío: carga 50 Ω, ningún elemento (se puede deshacer)',
+  'Labels on the chart': 'Etiquetas en la carta',
+  'Load (DP)': 'Carga (DP)',
+  'Transformed points (TP)': 'Puntos transformados (TP)',
+  'Display': 'Visualización',
+  'Extended chart (r < 0, up to |Γ| = 2)': 'Carta extendida (r < 0, hasta |Γ| = 2)',
+  'Colors': 'Colores',
+  'Sweep': 'Barrido',
+  'Trajectories': 'Trayectorias',
+  'The default colors were chosen to stay distinguishable with color-vision deficiency; "Reset to defaults" restores them.': 'Los colores por defecto se eligieron para seguir siendo distinguibles con deficiencia de visión del color; «Restablecer valores por defecto» los restaura.',
+  'Line widths': 'Grosores de línea',
+  'Grid': 'Cuadrícula',
+  'Defaults': 'Valores por defecto',
+  'Slider': 'Deslizador',
+  '± 20 %': '± 20 %',
+  '÷ 2 … × 2': '÷ 2 … × 2',
+  '÷ 10 … × 10': '÷ 10 … × 10',
+  'E series': 'Serie E',
+  'E12': 'E12',
+  'E24': 'E24',
+  'E96': 'E96',
+  'These settings, the display mode and the label choices are saved on this computer.': 'Estos ajustes, el modo de visualización y la elección de etiquetas se guardan en este ordenador.',
+  'Import .s1p, .s2p, CITI or CSV…': 'Importar .s1p, .s2p, CITI o CSV…',
+  'Circles CSV': 'Círculos CSV',
+  'Smith Chart documentation': 'Documentación de Carta de Smith',
+  'Close': 'Cerrar',
+  'About': 'Acerca de',
+  'Interactive Smith chart and impedance matching tool, built for the SysRF course at HEIG-VD.': 'Herramienta interactiva de carta de Smith y adaptación de impedancias, creada para el curso SysRF de la HEIG-VD.',
+  'Author: Thomas Blatti': 'Autor: Thomas Blatti',
+  '© 2026 Thomas Blatti. Released under the MIT license.': '© 2026 Thomas Blatti. Publicado bajo la licencia MIT.',
+  'Independent rewrite, inspired by the Smith software by Fritz Dellsperger. No code from that software is used.': 'Reescritura independiente, inspirada en el software Smith de Fritz Dellsperger. No se usa ningún código de ese software.',
+  'The desktop application is built with Electron.': 'La aplicación de escritorio está creada con Electron.',
 });
 </script>
 
 <script id="smith-core">
 /* ============================================================================
- * smith-core — numerical engine.
+ * smith-core - numerical engine.
  *
  * Pure code: no access to the page, no I/O, no logging. tests.mjs extracts this
  * block verbatim and runs it in a bare VM context, so what is tested is exactly
@@ -2104,7 +2833,7 @@ const SmithCore = (() => {
   /** Format a number with an SI prefix: formatEng(6.8e-12, 'F') -> "6.8 pF". */
   const formatEng = (value, unit = '', sig = 4) => {
     const tail = unit ? ` ${unit}` : '';
-    if (value == null || Number.isNaN(value)) return '—';
+    if (value == null || Number.isNaN(value)) return '-';
     if (!Number.isFinite(value)) return `${value < 0 ? '-' : ''}∞${tail}`;
     if (value === 0) return `0${tail}`;
     const digits = (x) => String(Number(x.toPrecision(sig)));
@@ -2117,7 +2846,7 @@ const SmithCore = (() => {
 
   /** Format a complex number the way the course writes it: "0.6 + j0.8". */
   const formatCx = (z, sig = 4) => {
-    if (!z || hasNaN(z)) return '—';
+    if (!z || hasNaN(z)) return '-';
     if (!isFiniteCx(z)) return '∞';
     const num = (x) => String(Number(x.toPrecision(sig)));
     return `${num(z.re)} ${z.im < 0 ? '-' : '+'} j${num(Math.abs(z.im))}`;
@@ -2346,7 +3075,9 @@ const SmithCore = (() => {
    *  consecutive points are closer than `maxStep` in the gamma plane. */
   const trajectory = (project, index, f = project.f0, opts = {}) => {
     const maxStep = opts.maxStep ?? 0.02;
-    const maxDepth = opts.maxDepth ?? 10;
+    // An element pushed to an extreme value does all its travel in a tiny part of [0, 1]:
+    // the bisection must be allowed to go deep there (it only descends where the path moves).
+    const maxDepth = opts.maxDepth ?? 44;
     const el = project.elements[index];
     let st0 = loadState(project.load, f, project.z0);
     for (let k = 0; k < index; k += 1) st0 = applyElement(st0, project.elements[k], f);
@@ -2489,7 +3220,7 @@ const SmithCore = (() => {
   };
 
   /* ==========================================================================
-   * § network — synthesis of matching networks
+   * § network - synthesis of matching networks
    *
    * Every function takes the impedance to transform `zl` (what the network is
    * attached to), the impedance wanted at its input `zt`, and the frequency.
@@ -2893,6 +3624,79 @@ const SmithCore = (() => {
     return { ports, z0, param, format, points, noise };
   };
 
+  /** Parse a CITI file (CITIFILE A.01.xx, as written by network analysers and
+   *  ADS) into the same shape as parseTouchstone. Only the first package of the
+   *  file is read. Used: S[i,j], PortZ[1] (reference impedance) and, when all
+   *  three are present, Sopt, Rn (ohms) and NFmin (dB). Frequencies are in Hz. */
+  const parseCiti = (text) => {
+    const decl = [];                 // DATA declarations, in file order
+    const blocks = [];               // one array of numeric rows per BEGIN ... END
+    const freqs = [];
+    let seen = false;
+    let mode = '';                   // '', 'var', 'seg' or 'data'
+    for (const raw of String(text).split(/\r?\n/)) {
+      const line = raw.trim();
+      if (!line || line[0] === '#' || line[0] === '!') continue;
+      const tok = line.split(/[\s,]+/).filter(Boolean);
+      const key = tok[0].toUpperCase();
+      if (key === 'CITIFILE') { if (seen) break; seen = true; continue; }
+      if (key === 'VAR_LIST_BEGIN') { mode = 'var'; continue; }
+      if (key === 'SEG_LIST_BEGIN') { mode = 'seg'; continue; }
+      if (key === 'BEGIN') { mode = 'data'; blocks.push([]); continue; }
+      if (key === 'VAR_LIST_END' || key === 'SEG_LIST_END' || key === 'END') { mode = ''; continue; }
+      if (mode === 'seg') {
+        const [start, stop, count] = tok.slice(1).map(Number);
+        if (!(count >= 1) || Number.isNaN(start) || Number.isNaN(stop)) throw new Error(t('Unreadable frequency segment in the CITI file: "{0}"', line.slice(0, 40)));
+        for (let i = 0; i < count; i += 1) freqs.push(count === 1 ? start : start + (stop - start) * i / (count - 1));
+        continue;
+      }
+      if (mode === 'var' || mode === 'data') {
+        const nums = tok.map(Number);
+        if (nums.some((v) => Number.isNaN(v))) throw new Error(t('Unreadable line in the CITI file: "{0}"', line.slice(0, 40)));
+        if (mode === 'var') freqs.push(nums[0]); else blocks[blocks.length - 1].push(nums);
+        continue;
+      }
+      if (key === 'DATA') {
+        const words = line.split(/\s+/);          // a name such as S[1,1] holds a comma: split on blanks only
+        if (words.length >= 2) decl.push({ name: words[1].toUpperCase(), format: (words[2] || 'RI').toUpperCase() });
+      }
+    }
+    if (!seen) throw new Error(t('This is not a CITI file (no CITIFILE line).'));
+    if (!freqs.length) throw new Error(t('No frequency in the CITI file.'));
+    if (blocks.length < decl.length) throw new Error(t('Incomplete CITI file: data blocks are missing.'));
+    const column = (name) => {
+      const at = decl.findIndex((d) => d.name === name);
+      if (at < 0) return null;
+      const rows = blocks[at];
+      const fmt = decl[at].format;
+      if (rows.length !== freqs.length) throw new Error(t('CITI file: {0} values for {1}, {2} frequencies.', rows.length, name, freqs.length));
+      return rows.map((r) => {
+        if (r.length < 2) return cx(r[0], 0);
+        if (fmt === 'RI') return cx(r[0], r[1]);
+        if (fmt === 'MAGANGLE' || fmt === 'LINANGLE') return polar(r[0], r[1]);
+        if (fmt === 'DBANGLE') return polar(10 ** (r[0] / 20), r[1]);
+        throw new Error(t('CITI format "{0}" is not supported for {1}.', fmt, name));
+      });
+    };
+    const s11 = column('S[1,1]');
+    const s12 = column('S[1,2]');
+    const s21 = column('S[2,1]');
+    const s22 = column('S[2,2]');
+    if (!s11) throw new Error(t('The CITI file does not contain S[1,1].'));
+    const ports = s12 && s21 && s22 ? 2 : 1;
+    const portZ = column('PORTZ[1]');
+    const z0 = portZ ? portZ[0].re : 50;
+    if (!(z0 > 0)) throw new Error(t('Invalid reference impedance in the CITI file.'));
+    const points = freqs.map((f, i) => ({ f, s: ports === 2 ? { s11: s11[i], s21: s21[i], s12: s12[i], s22: s22[i] } : s11[i] }));
+    const sopt = column('SOPT');
+    const rn = column('RN');
+    const nfmin = column('NFMIN');
+    const noise = ports === 2 && sopt && rn && nfmin ? freqs.map((f, i) => ({ f, nfmin: nfmin[i].re, gopt: sopt[i], rn: rn[i].re / z0 })) : [];
+    points.sort((a, b) => a.f - b.f);
+    noise.sort((a, b) => a.f - b.f);
+    return { ports, z0, param: 'S', format: 'CITI', points, noise };
+  };
+
   /** Reflection coefficient seen at one port of a two-port whose other port is
    *  closed on a reflection coefficient `gammaOther` (0 = matched). */
   const terminated = (s, port, gammaOther) => {
@@ -3074,6 +3878,43 @@ const SmithCore = (() => {
     const s = pick(ts.points, (a, b, u) => ({ s11: lerp(a.s.s11, b.s.s11, u), s12: lerp(a.s.s12, b.s.s12, u), s21: lerp(a.s.s21, b.s.s21, u), s22: lerp(a.s.s22, b.s.s22, u) }));
     const noise = pick(ts.noise || [], (a, b, u) => ({ nfmin: a.nfmin + (b.nfmin - a.nfmin) * u, gopt: lerp(a.gopt, b.gopt, u), rn: a.rn + (b.rn - a.rn) * u }));
     return { s, noise };
+  };
+
+  /** Stability factors, maximum gains and return losses at every frequency of
+   *  a parsed two-port Touchstone file. `magDb` is null where K < 1. */
+  const ampTable = (ts) => ts.points.map((pt) => {
+    const fig = ampFigures(pt.s);
+    return {
+      f: pt.f, k: fig.k, mu: fig.muLoad, magDb: fig.magDb, msgDb: fig.msgDb, s21Db: fig.s21Db,
+      s12Db: db10(abs2(pt.s.s12)), rl11: -db10(abs2(pt.s.s11)), rl22: -db10(abs2(pt.s.s22)),
+    };
+  });
+
+  /** Every circle of the project as CSV rows: centre and radius in the gamma
+   *  plane (unit disc), so that another tool can redraw them. `sep` is the
+   *  column separator. A Q locus gives two rows, one per arc. */
+  const circlesCsv = (project, sep = ';') => {
+    const cell = (v) => (typeof v === 'number' ? String(Number(v.toPrecision(9))) : v);
+    const rows = [['type', 'value', 'plane', 'center_re', 'center_im', 'radius', 'note'].join(sep)];
+    const put = (kind, value, plane, c, note) => {
+      if (c && Number.isFinite(c.rad)) rows.push([kind, value, plane, c.cx, c.cy, c.rad, note].map(cell).join(sep));
+    };
+    for (const s of project.circles.vswr) put('VSWR', s, '', vswrCircle(s), '');
+    for (const q of project.circles.q) {
+      put('Q', q, '', qArc(q, true), 'arc Im(gamma) > 0');
+      put('Q', q, '', qArc(q, false), 'arc Im(gamma) < 0');
+    }
+    const a = project.amp;
+    if (a) {
+      for (const plane of ['source', 'load']) {
+        if (!a.stab[plane]) continue;
+        const c = stabilityCircle(a.s, plane);
+        put('stability', '', plane, c, c && c.stableInside ? 'stable inside' : 'stable outside');
+      }
+      for (const g of a.gains) put(`gain ${g.kind}`, g.db, g.kind === 'available' || g.kind === 'unilateral-source' ? 'source' : 'load', gainCircle(a.s, g.kind, g.db), 'dB');
+      if (a.noise) for (const nf of a.nfs) put('noise', nf, 'source', noiseCircle(a.noise, nf), 'dB');
+    }
+    return `${rows.join('\n')}\n`;
   };
 
   /* --- Netlists ------------------------------------------------------------------- */
@@ -3290,6 +4131,35 @@ const SmithCore = (() => {
   /** A well-formed project from anything that was read from a file or a link:
    *  only known fields are kept, and every value is checked. Throws when the
    *  input is not a project at all. */
+  /** User preferences, kept apart from the project. `normalizePrefs` keeps
+   *  only known fields with valid values, so that stored preferences written
+   *  by another version (or damaged) can never break the tool. A colour of
+   *  null means "the colour of the theme". */
+  const normalizePrefs = (raw) => {
+    const src = raw && typeof raw === 'object' ? raw : {};
+    const sub = (key) => (src[key] && typeof src[key] === 'object' ? src[key] : {});
+    const color = (v) => (typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v) ? v.toLowerCase() : null);
+    const width = (v) => (typeof v === 'number' && v >= 0.4 && v <= 4 ? v : 1);
+    const pick = (v, allowed, fallback) => (allowed.includes(v) ? v : fallback);
+    const flag = (v) => v !== false;
+    const colors = sub('colors');
+    const widths = sub('widths');
+    const labels = sub('labels');
+    return {
+      z0: posNum(src.z0, 50),
+      f0: posNum(src.f0, 1e9),
+      colors: { z: color(colors.z), y: color(colors.y), sweep: color(colors.sweep), traj: color(colors.traj), ring: color(colors.ring) },
+      widths: { grid: width(widths.grid), traj: width(widths.traj), ring: width(widths.ring), sweep: width(widths.sweep) },
+      slider: pick(src.slider, [0, 1.2, 2, 10], 0),
+      eseries: pick(src.eseries, ['E12', 'E24', 'E96'], 'E24'),
+      mode: pick(src.mode, ['z', 'y', 'zy'], 'zy'),
+      units: pick(src.units, ['norm', 'abs'], 'norm'),
+      labels: { dp: flag(labels.dp), tp: flag(labels.tp), rings: flag(labels.rings) },
+      schemVertical: src.schemVertical === true,
+      extended: src.extended === true,
+    };
+  };
+
   const normalizeProject = (raw) => {
     const src = raw && typeof raw === 'object' && raw.project && typeof raw.project === 'object' ? raw.project : raw;
     if (!src || typeof src !== 'object' || Array.isArray(src)) throw new Error(t('This file does not contain a project.'));
@@ -3388,15 +4258,15 @@ const SmithCore = (() => {
     net: { applyElement, branchOf, loadState, loadCovers, evaluate, solve, inputAt, frequencyList, sweep, trajectory, stepInfo, defaultElement, primaryKey, tuneToward },
     match: { synthesize, assess, character, throughLine, stubLength },
     eseries: { values: (name) => E_SERIES[name], snap: snapValue, snapElements },
-    amp: { figures: ampFigures, stabilityCircle, gainCircle, noiseCircle, noiseFigure, conjugateMatch, powerGains, deviceAt },
-    io: { stringify, parse: parseJson, parseTouchstone, terminated, touchstoneToTable, parseImpedanceTable, toCir, toCkt, normalizeProject, exportProject, importProject, encodeLink, decodeLink },
+    amp: { figures: ampFigures, stabilityCircle, gainCircle, noiseCircle, noiseFigure, conjugateMatch, powerGains, deviceAt, table: ampTable },
+    io: { stringify, parse: parseJson, parseTouchstone, parseCiti, terminated, touchstoneToTable, parseImpedanceTable, toCir, toCkt, circlesCsv, normalizeProject, normalizePrefs, exportProject, importProject, encodeLink, decodeLink },
   };
 })();
 </script>
 
 <script id="smith-chart">
 /* ============================================================================
- * smith-chart — chart geometry (section "chart-render").
+ * smith-chart - chart geometry (section "chart-render").
  *
  * Pure: a view and numbers in, SVG path data and label positions out. No page
  * access, so tests.mjs runs this block right after smith-core.
@@ -3469,16 +4339,39 @@ const SmithChart = (() => {
     return `M${num(p0.x)} ${num(p0.y)}${arcTo(p0, pm, p1, c.rad * view.k, toPx(view, K.make(c.cx, c.cy)))}`;
   };
 
-  /** Polyline through gamma points; non-finite or far-away points break it. */
+  /** Polyline through gamma points; non-finite or far-away points break it.
+   *  The path stays light whatever the number of points: a point closer than
+   *  POLY_STEP pixels to the last one drawn is skipped, and so is a segment
+   *  whose two ends lie beyond the same edge of the view (it cannot be seen). */
+  const POLY_STEP = 0.6;
+  const POLY_PAD = 60;
   const polyD = (view, gammas) => {
+    const w = view.w > 0 ? view.w : Infinity;
+    const h = view.h > 0 ? view.h : Infinity;
+    const side = (p) => (p.x < -POLY_PAD ? 1 : p.x > w + POLY_PAD ? 2 : 0) | (p.y < -POLY_PAD ? 4 : p.y > h + POLY_PAD ? 8 : 0);
     let d = '';
-    let pen = false;
+    let prev = null;        // previous valid point
+    let prevSide = 0;
+    let last = null;        // last point written, null while the pen is up
+    let tail = null;        // last point skipped since `last`
+    const lift = () => {
+      if (last && tail) d += `L${num(tail.x)} ${num(tail.y)}`;
+      last = null; tail = null;
+    };
     for (const g of gammas) {
-      if (!K.isFinite(g) || Math.abs(g.re) > 40 || Math.abs(g.im) > 40) { pen = false; continue; }
+      if (!K.isFinite(g) || Math.abs(g.re) > 40 || Math.abs(g.im) > 40) { lift(); prev = null; continue; }
       const p = toPx(view, g);
-      d += `${pen ? 'L' : 'M'}${num(p.x)} ${num(p.y)}`;
-      pen = true;
+      const s = side(p);
+      if (prev) {
+        if (prevSide & s) lift();
+        else {
+          if (!last) { d += `M${num(prev.x)} ${num(prev.y)}`; last = prev; }
+          if (Math.abs(p.x - last.x) >= POLY_STEP || Math.abs(p.y - last.y) >= POLY_STEP) { d += `L${num(p.x)} ${num(p.y)}`; last = p; tail = null; } else tail = p;
+        }
+      }
+      prev = p; prevSide = s;
     }
+    lift();
     return d;
   };
 
@@ -3692,13 +4585,53 @@ const SmithChart = (() => {
     return out;
   };
 
-  return { makeView, toPx, toGamma, planePoint, arcTo, circleD, rSeg, xSeg, qArcD, polyD, pointAlong, arrowD, visibleRange, grid, nice, ticks };
+  /** Grid of the region outside the unit disc, where the resistance (or the
+   *  conductance, sign < 0) is negative: an active one-port. Drawn up to
+   *  |gamma| = limit. Constant-r circles for a few negative values, and the
+   *  continuation of the main x arcs. Returns path data and the r labels. */
+  const OUTER_R = [-0.2, -0.5, -1, -2, -5];
+  const OUTER_X = [0.2, 0.5, 1, 2, 5];
+  const outerGrid = (view, sign, opts = {}) => {
+    const limit = opts.limit ?? 2;
+    const NONE = K.make(NaN, NaN);
+    const keep = (re, im) => { const m = Math.hypot(re, im); return m > 1 + 1e-9 && m <= limit; };
+    const out = { d: '', labels: [] };
+    const text = (v) => (opts.units === 'abs' ? eng.format(sign > 0 ? v * opts.z0 : v / opts.z0, '', 3).replace(' ', '') : String(v)).replace('-', '−');
+    // a full circle, sampled, with the part inside the disc or beyond the limit left out
+    const ring = (cx, cy, rad, label) => {
+      const pts = [];
+      let top = null;
+      for (let i = 0; i <= 360; i += 1) {
+        const a = (i / 360) * 2 * Math.PI;
+        const re = cx + rad * Math.cos(a);
+        const im = cy + rad * Math.sin(a);
+        if (!keep(re, im)) { pts.push(NONE); continue; }
+        pts.push(K.make(sign * re, sign * im));
+        if (label != null && (!top || im > top.im)) top = { re, im };
+      }
+      out.d += polyD(view, pts);
+      if (top) { const p = toPx(view, K.make(sign * top.re, sign * top.im)); out.labels.push({ x: p.x, y: p.y - sign * 8, text: text(label) }); }
+    };
+    for (const r of OUTER_R) {
+      if (r === -1) {
+        // r = -1 is the straight line Re(gamma) = 1
+        const h = Math.sqrt(limit * limit - 1);
+        out.d += polyD(view, [K.make(sign, sign * 1e-6), K.make(sign, sign * h)]) + polyD(view, [K.make(sign, -sign * 1e-6), K.make(sign, -sign * h)]);
+        const p = toPx(view, K.make(sign, sign * h));
+        out.labels.push({ x: p.x, y: p.y - sign * 8, text: text(-1) });
+      } else ring(r / (r + 1), 0, 1 / Math.abs(r + 1), r);
+    }
+    for (const x of OUTER_X) { ring(1, 1 / x, 1 / x, null); ring(1, -1 / x, 1 / x, null); }
+    return out;
+  };
+
+  return { makeView, toPx, toGamma, planePoint, arcTo, circleD, rSeg, xSeg, qArcD, polyD, pointAlong, arrowD, visibleRange, grid, outerGrid, nice, ticks };
 })();
 </script>
 
 <script id="smith-app">
 /* ============================================================================
- * smith-app — page logic (sections "ui" and "io").
+ * smith-app - page logic (sections "ui" and "io").
  * ========================================================================== */
 (() => {
   'use strict';
@@ -3711,14 +4644,14 @@ const SmithChart = (() => {
   /* --- Formatting ---------------------------------------------------------------- */
 
   const sig = (v, n = 4) => {
-    if (v == null || Number.isNaN(v)) return '—';
+    if (v == null || Number.isNaN(v)) return '-';
     if (!Number.isFinite(v)) return v < 0 ? '−∞' : '∞';
     return String(Number(v.toPrecision(n))).replace('-', '−');
   };
   const fmtCx = (z, n = 4) => eng.formatCx(z, n).replace(/-/g, '−');
   const fmtZ = (z) => (K.isFinite(z) ? `${fmtCx(z, 5)} Ω` : '∞');
   const fmtY = (y) => (K.isFinite(y) ? `${fmtCx(K.scale(y, 1e3), 5)} mS` : '∞');
-  const fmtDb = (v) => (v == null ? '—' : `${sig(v)} dB`);
+  const fmtDb = (v) => (v == null ? '-' : `${sig(v)} dB`);
   const fmtJ = (x, unit) => `${x < 0 ? '−' : '+'}j${eng.format(Math.abs(x), unit)}`;
 
   const degAt = (el, f0) => (el.fref > 0 ? el.deg * f0 / el.fref : el.deg);
@@ -3776,9 +4709,15 @@ const SmithChart = (() => {
 
   /* --- Empty project ---------------------------------------------------------------------- */
 
-  const F1 = 1e9;
-  const newProject = () => ({
-    z0: 50, f0: F1, load: { kind: 'z', z: { re: 50, im: 0 } }, elements: [],
+  /* Preferences: kept on this computer, apart from the project. */
+  const PREFS_KEY = 'smith.prefs';
+  const prefs = (() => {
+    try { return io.normalizePrefs(JSON.parse(localStorage.getItem(PREFS_KEY) || 'null')); } catch (err) { return io.normalizePrefs(null); }
+  })();
+
+  /** The project the tool starts with, and the one "Nouveau" gives: a matched load, no element. */
+  const emptyProject = () => ({
+    z0: prefs.z0, f0: prefs.f0, load: { kind: 'z', z: { re: prefs.z0, im: 0 } }, elements: [],
     markers: [], circles: { vswr: [], q: [] },
     sweep: { on: false, start: 500e6, stop: 1500e6, points: 201, scale: 'lin' },
   });
@@ -3786,9 +4725,9 @@ const SmithChart = (() => {
   /* --- State and history ---------------------------------------------------------------- */
 
   const state = {
-    project: newProject(),
-    mode: 'zy',          // 'z' | 'y' | 'zy'
-    units: 'norm',       // grid labels: 'norm' | 'abs'
+    project: emptyProject(),
+    mode: prefs.mode,    // 'z' | 'y' | 'zy'
+    units: prefs.units,  // grid labels: 'norm' | 'abs'
     view: null,
     fitted: true,        // the view follows the size of its container
     hover: null,         // { x, y, gamma, node }
@@ -3797,7 +4736,7 @@ const SmithChart = (() => {
     flip: false,         // schematic: load on the left
     plots: true,
     loadFmt: 'z',        // how a fixed load is typed in
-    slider: { ratio: 2, span: 45, center: null },
+    slider: { ratio: prefs.slider, span: 45, center: null },
     nodePx: [],
   };
   let model = { nodes: [], paths: [], steps: [], sweep: null };
@@ -3849,14 +4788,32 @@ const SmithChart = (() => {
 
   const svg = $('chart');
   const MARGIN = 38;
+  const EXTENT = 2;        // |gamma| shown by the extended chart
+  const reach = () => (prefs.extended ? EXTENT : 1);
 
   const fitView = () => {
     const w = svg.clientWidth || 600;
     const h = svg.clientHeight || 600;
-    state.view = CR.makeView(w, h, Math.max(40, (Math.min(w, h) - 2 * MARGIN) / 2));
+    state.view = CR.makeView(w, h, Math.max(40, (Math.min(w, h) - 2 * MARGIN) / 2 / reach()));
     state.fitted = true;
   };
-  const fitScale = () => Math.max(40, (Math.min(state.view.w, state.view.h) - 2 * MARGIN) / 2);
+  const fitScale = () => Math.max(40, (Math.min(state.view.w, state.view.h) - 2 * MARGIN) / 2 / reach());
+
+  /** Wrap fn so that it runs at most once per displayed frame, with the latest
+   *  arguments. A burst of wheel or pointer events (a mouse may send a thousand
+   *  per second) then costs one redraw. `flush` runs a pending call at once. */
+  const perFrame = (fn) => {
+    let args = null;
+    let handle = 0;
+    const run = () => { handle = 0; const a = args; args = null; if (a) fn(...a); };
+    const call = (...a) => {
+      args = a;
+      if (document.hidden) { run(); return; }       // no frame is displayed: do not wait for one
+      if (!handle) handle = requestAnimationFrame(run);
+    };
+    call.flush = () => { if (handle) { cancelAnimationFrame(handle); run(); } };
+    return call;
+  };
 
   const zoomAt = (x, y, factor) => {
     const v = state.view;
@@ -3879,13 +4836,32 @@ const SmithChart = (() => {
     };
     const z = state.mode !== 'y' ? plane(1, 'gz') : { paths: '', labels: '' };
     const y = state.mode !== 'z' ? plane(-1, 'gy') : { paths: '', labels: '' };
+    let outer = '';
+    if (prefs.extended) {
+      // region of negative resistance, outside the unit disc
+      for (const [sign, target, cls] of [[1, z, 'gz'], [-1, y, 'gy']]) {
+        if (state.mode === (sign > 0 ? 'y' : 'z')) continue;
+        const g = CR.outerGrid(v, sign, { units: state.units, z0: state.project.z0, limit: EXTENT });
+        target.paths += `<path class="${cls} med" d="${g.d}"/>`;
+        target.labels += g.labels.map((l) => `<text class="gl gl-${sign > 0 ? 'z' : 'y'}" x="${l.x.toFixed(1)}" y="${l.y.toFixed(1)}" text-anchor="middle" dominant-baseline="central">${esc(l.text)}</text>`).join('');
+      }
+      const l0 = CR.toPx(v, K.make(-EXTENT, 0));
+      const l1 = CR.toPx(v, K.make(EXTENT, 0));
+      outer = `<line class="axis" x1="${l0.x}" y1="${l0.y}" x2="${l1.x}" y2="${l1.y}"/><path class="axis" fill="none" d="${CR.circleD(v, { cx: 0, cy: 0, rad: EXTENT })}"/>`;
+    }
     $('l-grid-z').innerHTML = z.paths;
     $('l-grid-y').innerHTML = y.paths;
     $('l-labels').innerHTML = z.labels + y.labels;
     const a = CR.toPx(v, K.make(-1, 0));
     const b = CR.toPx(v, K.make(1, 0));
-    $('l-rim').innerHTML = `<line class="axis" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"/><path class="rim" d="${CR.circleD(v, { cx: 0, cy: 0, rad: 1 })}"/>`;
+    $('l-rim').innerHTML = `${outer}<line class="axis" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"/><path class="rim" d="${CR.circleD(v, { cx: 0, cy: 0, rad: 1 })}"/>`;
   };
+
+  const RING_PRESETS = { vswr: [1.2, 1.5, 2, 3, 5, 10], q: [0.2, 0.5, 1, 2, 5, 10] };
+  /* Which labels are drawn on the chart: load, transformed points, circles. A
+   * display choice, like the Z / Y mode: it is not stored in the project. */
+  state.labels = prefs.labels;
+  const ringText = (svg) => (state.labels.rings ? svg : svg.replace(/<text class="ring-label"[^>]*>[^<]*<\/text>/g, ''));
 
   /** Label next to a point, in the first corner that is free. */
   const placeLabel = (boxes, p, text, cls) => {
@@ -3919,7 +4895,7 @@ const SmithChart = (() => {
         rings += `<path class="ring" d="${CR.qArcD(v, q, upper)}"/><text class="ring-label" x="${apex.x.toFixed(1)}" y="${(apex.y + (upper ? -5 : 13)).toFixed(1)}" text-anchor="middle">Q ${esc(sig(q))}</text>`;
       }
     }
-    $('l-rings').innerHTML = rings;
+    $('l-rings').innerHTML = ringText(rings);
 
     let sweep = '';
     if (model.sweep) {
@@ -3961,7 +4937,7 @@ const SmithChart = (() => {
       pts += i === 0
         ? `<rect class="${cls}" x="${(q.x - 4.5).toFixed(1)}" y="${(q.y - 4.5).toFixed(1)}" width="9" height="9"/>`
         : `<circle class="${cls}" cx="${q.x.toFixed(1)}" cy="${q.y.toFixed(1)}" r="4.5"/>`;
-      pts += placeLabel(boxes, q, state.course ? courseLabel(i) : nodeName(i), '');
+      if (i === 0 ? state.labels.dp : state.labels.tp) pts += placeLabel(boxes, q, state.course ? courseLabel(i) : nodeName(i), '');
     });
     $('l-points').innerHTML = pts;
     state.nodePx = nodePx;
@@ -4071,11 +5047,27 @@ const SmithChart = (() => {
     body += `<text class="s-name" x="${xPort}" y="${TOP - 10}" text-anchor="middle">${tr('input')}</text>`;
 
     const el = $('schem');
-    el.setAttribute('width', total);
-    el.setAttribute('height', H);
-    el.setAttribute('viewBox', `0 0 ${total} ${H}`);
-    // the drawing sits above the hit areas but lets the pointer through to them
-    el.innerHTML = `${hits}<g pointer-events="none">${body}</g>`;
+    if (prefs.schemVertical) {
+      // Quarter turn: the chain runs downwards, the top rail ends up on the right.
+      // Every text is turned back; what was above the top rail now extends to the
+      // right, what was below the bottom rail to the left.
+      const LEFT = 104; const RIGHT = 74;
+      const upright = body.replace(/<text ([^>]*?)x="(-?[\d.]+)" y="(-?[\d.]+)"([^>]*)>/g, (m, pre, x, y, post) => {
+        const side = Number(y) < TOP ? 'start' : Number(y) > BOT ? 'end' : 'middle';
+        const rest = `${pre}${post}`.replace(/\s*text-anchor="[^"]*"/, '').replace(/\s*transform="[^"]*"/, '');
+        return `<text ${rest.trim()} x="${x}" y="${y}" text-anchor="${side}" dominant-baseline="central" transform="rotate(-90 ${x} ${y})">`;
+      });
+      el.setAttribute('width', H + LEFT + RIGHT);
+      el.setAttribute('height', total);
+      el.setAttribute('viewBox', `0 0 ${H + LEFT + RIGHT} ${total}`);
+      el.innerHTML = `<g transform="matrix(0 1 -1 0 ${H + LEFT} 0)">${hits}<g pointer-events="none">${upright}</g></g>`;
+    } else {
+      el.setAttribute('width', total);
+      el.setAttribute('height', H);
+      el.setAttribute('viewBox', `0 0 ${total} ${H}`);
+      // the drawing sits above the hit areas but lets the pointer through to them
+      el.innerHTML = `${hits}<g pointer-events="none">${body}</g>`;
+    }
     if (had != null) {
       const again = el.querySelector(`[data-node="${had}"]`);
       if (again) again.focus();
@@ -4131,7 +5123,7 @@ const SmithChart = (() => {
     fields.set('slider', { ...def, additive });
     const opts = additive
       ? [[10, '± 10°'], [45, '± 45°'], [180, '± 180°']].map(([v, t]) => `<option value="${v}"${v === s.span ? ' selected' : ''}>${t}</option>`).join('')
-      : [[1.2, '± 20 %'], [2, '÷ 2 … × 2'], [10, '÷ 10 … × 10']].map(([v, t]) => `<option value="${v}"${v === s.ratio ? ' selected' : ''}>${t}</option>`).join('');
+      : [[0, tr('Whole locus')], [1.2, '± 20 %'], [2, '÷ 2 … × 2'], [10, '÷ 10 … × 10']].map(([v, t]) => `<option value="${v}"${v === s.ratio ? ' selected' : ''}>${t}</option>`).join('');
     return `<div class="row"><label for="slider">${tr('Adjustment')}</label><input type="range" id="slider" min="-1" max="1" step="0.002" value="0" aria-label="${esc(tr('Fine adjustment of the value'))}"><select class="narrow" data-act="slider-range" aria-label="${esc(tr('Adjustment range'))}">${opts}</select></div>`;
   };
 
@@ -4372,7 +5364,10 @@ const SmithChart = (() => {
       const s = state.slider;
       if (s.center == null) s.center = def.get();
       const x = Number(t.value);
-      const next = def.additive ? Math.max(0, s.center + x * s.span) : s.center * s.ratio ** x;
+      // 'Tout le lieu' (ratio 0): the two ends of the slider are the two ends of the locus,
+      // value 0 and value infinite, with the starting value in the middle.
+      const xc = Math.max(-0.998, Math.min(0.998, x));
+      const next = def.additive ? Math.max(0, s.center + x * s.span) : s.ratio === 0 ? s.center * (1 + xc) / (1 - xc) : s.center * s.ratio ** x;
       state.sliding = true;
       if (next > 0 || def.additive) change(() => def.set(next), `slide:${state.selected}`);
     }
@@ -4470,7 +5465,7 @@ const SmithChart = (() => {
   /* --- Inspector panels ---------------------------------------------------------------------- */
 
   const equivalent = (eq, joiner) => {
-    if (!eq) return '—';
+    if (!eq) return '-';
     const r = eng.format(eq.r, 'Ω');
     if (!eq.reactive) return r;
     return `${r} ${joiner} ${eng.format(eq.reactive.value, eq.reactive.kind === 'L' ? 'H' : 'F')}`;
@@ -4565,6 +5560,12 @@ const SmithChart = (() => {
     };
     chips(p.circles.vswr, 'chips-vswr');
     chips(p.circles.q, 'chips-q');
+    // the usual values of Smith V3.10, as toggles
+    const presets = (list, id, values) => {
+      $(id).innerHTML = values.map((val) => `<button type="button" class="btn sm" data-v="${val}" aria-pressed="${list.includes(val)}">${esc(sig(val))}</button>`).join('');
+    };
+    presets(p.circles.vswr, 'pre-vswr', RING_PRESETS.vswr);
+    presets(p.circles.q, 'pre-q', RING_PRESETS.q);
 
     for (const [id, unit, val] of [['in-z0', 'Ω', p.z0], ['in-f0', 'Hz', p.f0]]) {
       const input = $(id);
@@ -4653,7 +5654,7 @@ const SmithChart = (() => {
       const x = fx(m.f);
       const v = ys[n].vals[i];
       const yv = Number.isFinite(v) ? Math.max(mg.t, Math.min(H - mg.b, ys[n].fy(v))) : null;
-      g.innerHTML = `<line class="p-cross" x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${mg.t}" y2="${H - mg.b}"/>${yv == null ? '' : `<circle class="p-dot" cx="${x.toFixed(1)}" cy="${yv.toFixed(1)}" r="4"/>`}<text class="p-read" x="${W - mg.r}" y="14" text-anchor="end">${esc(Number.isFinite(v) ? pl.text(v) : '—')} · ${esc(eng.format(m.f, 'Hz'))}</text>`;
+      g.innerHTML = `<line class="p-cross" x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${mg.t}" y2="${H - mg.b}"/>${yv == null ? '' : `<circle class="p-dot" cx="${x.toFixed(1)}" cy="${yv.toFixed(1)}" r="4"/>`}<text class="p-read" x="${W - mg.r}" y="14" text-anchor="end">${esc(Number.isFinite(v) ? pl.text(v) : '-')} · ${esc(eng.format(m.f, 'Hz'))}</text>`;
     });
   };
 
@@ -4682,7 +5683,7 @@ const SmithChart = (() => {
   const families = () => [['L', tr('L network')], ['pi', tr('π network, specified Q')], ['T', tr('T network, specified Q')], ['stub', tr('Line + stub')], ['stub2', tr('Double stub')], ['quarter', tr('Quarter-wave')], ['line', tr('Line + reactance')]];
   const character = (c) => ({ lowpass: tr('low-pass'), highpass: tr('high-pass'), mixed: tr('mixed'), lines: tr('lines') })[c];
   state.match = { family: 'L', rt: null, xt: 0, q: 5, zcLine: null, zcStub: null, spacing: 45, rlMin: 10, sort: 'bw', results: [], reason: '', preview: -1, previewPaths: null, formKey: '' };
-  state.eseries = 'E24';
+  state.eseries = prefs.eseries;
 
   const computeMatch = () => {
     const ms = state.match;
@@ -4732,7 +5733,7 @@ const SmithChart = (() => {
     ms.results.forEach((r, i) => {
       const sc = r.score;
       const open = sc.openLow || sc.openHigh;
-      const band = sc.bw > 0 ? `${open ? '> ' : ''}${eng.format(sc.bw, 'Hz', 3)} (${sig(sc.fbw * 100, 3)} %)` : '—';
+      const band = sc.bw > 0 ? `${open ? '> ' : ''}${eng.format(sc.bw, 'Hz', 3)} (${sig(sc.fbw * 100, 3)} %)` : '-';
       const chain = r.elements.map((e) => describe(e, p.f0)).join(' → ');
       out += `<div class="sol" data-sol="${i}" tabindex="0"><div class="sol-main"><div class="sol-title">${esc(chain)}</div><div class="sol-meta">${tr('{0} · Q {1} · band {2}', character(sc.character), esc(sig(sc.qMax, 3)), esc(band))}</div></div>${button(`m-apply-${i}`, tr('Apply'), () => applySolution(i))}</div>`;
     });
@@ -4779,7 +5780,7 @@ const SmithChart = (() => {
     if (!$('card-eseries').open) { box.innerHTML = ''; return; }
     const p = state.project;
     const { elements, changes } = eseries.snapElements(p.elements, state.eseries);
-    let out = selectRow('e-series', tr('Series'), [['E12', 'E12 (10 %)'], ['E24', 'E24 (5 %)'], ['E96', 'E96 (1 %)']], state.eseries, (v) => { state.eseries = v; drawSide(true); });
+    let out = selectRow('e-series', tr('Series'), [['E12', 'E12 (10 %)'], ['E24', 'E24 (5 %)'], ['E96', 'E96 (1 %)']], state.eseries, (v) => { state.eseries = v; savePrefs(); drawSide(true); });
     if (!changes.length) out += `<p class="info">${tr('All R, L and C of the network are already in this series.')}</p>`;
     else {
       const before = model.nodes[model.nodes.length - 1];
@@ -4808,24 +5809,114 @@ const SmithChart = (() => {
   state.ampKind = 'available';
   state.device = null;
 
+  /* Table and plots over the frequencies of the imported .s2p file. Ink only:
+   * the two curves of a plot differ by their dash pattern, named in the title. */
+  state.ampLog = false;
+  const AF = { W: 300, H: 118, mg: { l: 34, r: 8, t: 18, b: 17 }, fx: null, rows: null };
+  const afPlot = (id, title, rows, series, lo, hi, ref) => {
+    const { W, H, mg, fx } = AF;
+    const fy = (v) => mg.t + (hi - v) / (hi - lo) * (H - mg.t - mg.b);
+    let s = `<defs><clipPath id="clip-${id}"><rect x="${mg.l}" y="${mg.t}" width="${W - mg.l - mg.r}" height="${H - mg.t - mg.b}"/></clipPath></defs>`;
+    for (const v of CR.ticks(lo, hi, 3)) s += `<line class="p-grid" x1="${mg.l}" x2="${W - mg.r}" y1="${fy(v).toFixed(1)}" y2="${fy(v).toFixed(1)}"/><text class="p-tick" x="${mg.l - 4}" y="${(fy(v) + 3).toFixed(1)}" text-anchor="end">${esc(sig(v, 3))}</text>`;
+    s += `<line class="p-axis" x1="${mg.l}" x2="${W - mg.r}" y1="${H - mg.b}" y2="${H - mg.b}"/>`;
+    s += `<text class="p-tick" x="${mg.l}" y="${H - 4}">${esc(eng.format(rows[0].f, 'Hz', 3))}</text><text class="p-tick" x="${W - mg.r}" y="${H - 4}" text-anchor="end">${esc(eng.format(rows[rows.length - 1].f, 'Hz', 3))}</text>`;
+    if (ref != null && ref > lo && ref < hi) s += `<line class="af-ref" x1="${mg.l}" x2="${W - mg.r}" y1="${fy(ref).toFixed(1)}" y2="${fy(ref).toFixed(1)}"/>`;
+    series.forEach((get, n) => {
+      let d = '';
+      let pen = false;
+      for (const row of rows) {
+        const v = get(row);
+        if (v == null || !Number.isFinite(v)) { pen = false; continue; }
+        d += `${pen ? 'L' : 'M'}${fx(row.f).toFixed(1)} ${fy(Math.max(lo - (hi - lo), Math.min(hi + (hi - lo), v))).toFixed(1)}`;
+        pen = true;
+      }
+      s += `<path class="${n ? 'af-b' : 'af-a'}" clip-path="url(#clip-${id})" d="${d}"/>`;
+    });
+    s += `<text class="p-title" x="${mg.l}" y="12">${esc(title)}</text><line class="p-cross af-cur" x1="0" x2="0" y1="${mg.t}" y2="${H - mg.b}" visibility="hidden"/>`;
+    return `<svg class="af-plot" id="${id}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(title)}">${s}</svg>`;
+  };
+  const afSpan = (vals, step) => {
+    const fin = vals.filter((v) => v != null && Number.isFinite(v));
+    if (!fin.length) return [0, step];
+    const lo = Math.floor(Math.min(...fin) / step) * step;
+    const hi = Math.ceil(Math.max(...fin) / step) * step;
+    return hi > lo ? [lo, hi] : [lo, lo + step];
+  };
+  const afRead = (row) => `${eng.format(row.f, 'Hz')} : K = ${sig(row.k)}, μ = ${sig(row.mu)}, ${row.magDb != null ? `MAG = ${sig(row.magDb)}` : `MSG = ${sig(row.msgDb)}`} dB, RL S11 = ${sig(row.rl11)} dB, RL S22 = ${sig(row.rl22)} dB`;
+  const ampFileHtml = () => {
+    const rows = amp.table(state.device);
+    AF.rows = rows;
+    if (!rows.length) return '';
+    let out = `<div class="sub-head">${tr('.s2p file, per frequency')}</div>`;
+    out += `<div class="af-table"><table><thead><tr><th>f</th><th>K</th><th>μ</th><th>MAG dB</th><th>MSG dB</th><th>|S21|² dB</th></tr></thead><tbody>${rows.map((r, i) => `<tr data-af-row="${i}" title="${esc(tr('Load the S parameters at this frequency'))}"><td>${esc(eng.format(r.f, 'Hz', 4))}</td><td>${esc(sig(r.k, 3))}</td><td>${esc(sig(r.mu, 3))}</td><td>${r.magDb == null ? '-' : esc(sig(r.magDb, 4))}</td><td>${esc(sig(r.msgDb, 4))}</td><td>${esc(sig(r.s21Db, 4))}</td></tr>`).join('')}</tbody></table></div>`;
+    if (rows.length < 2) return out;
+    const f0 = rows[0].f;
+    const f1 = rows[rows.length - 1].f;
+    const log = state.ampLog && f0 > 0;
+    AF.fx = (f) => AF.mg.l + (log ? Math.log(f / f0) / Math.log(f1 / f0) : (f - f0) / (f1 - f0)) * (AF.W - AF.mg.l - AF.mg.r);
+    actions.set('amp-log', (value, checked) => { state.ampLog = checked; drawSide(true); });
+    out += `<label class="check"><input type="checkbox" data-act="amp-log"${state.ampLog ? ' checked' : ''}> ${tr('Logarithmic frequency axis')}</label>`;
+    const [g0, g1] = afSpan(rows.flatMap((r) => [r.magDb, r.msgDb]), 10);
+    out += afPlot('af-gain', tr('Gain (dB): MAG ───  MSG ─ ─'), rows, [(r) => r.magDb, (r) => r.msgDb], g0, g1, null);
+    const ks = rows.flatMap((r) => [r.k, r.mu]).filter(Number.isFinite);
+    out += afPlot('af-k', tr('Stability: K ───  μ ─ ─'), rows, [(r) => r.k, (r) => r.mu], Math.min(0, Math.floor(Math.min(0, ...ks))), Math.min(5, Math.max(2, Math.ceil(Math.max(0, ...ks)))), 1);
+    const [r0, r1] = afSpan(rows.flatMap((r) => [r.rl11, r.rl22]), 10);
+    out += afPlot('af-rl', tr('Return loss (dB): S11 ───  S22 ─ ─'), rows, [(r) => r.rl11, (r) => r.rl22], Math.min(0, r0), r1, null);
+    out += `<p class="info" id="af-read">${tr('Hover a plot to read the values; click a table row to load its S parameters.')}</p>`;
+    return out;
+  };
+  const ampFromDevice = (old, f) => {
+    const d = amp.deviceAt(state.device, f);
+    const s = {};
+    for (const key of ['s11', 's12', 's21', 's22']) s[key] = plainCx(d.s[key]);
+    return {
+      s, noise: d.noise ? { nfmin: d.noise.nfmin, gopt: plainCx(d.noise.gopt), rn: d.noise.rn } : null,
+      stab: old ? old.stab : { source: true, load: true }, gains: old ? old.gains : [], nfs: old && d.noise ? old.nfs : [],
+    };
+  };
+  const bindAmpFile = () => {
+    const box = $('amp-box');
+    for (const tr of box.querySelectorAll('tr[data-af-row]')) {
+      tr.addEventListener('click', () => { const f = AF.rows[Number(tr.dataset.afRow)].f; change((q) => { q.amp = ampFromDevice(q.amp, f); }); });
+    }
+    const plots = [...box.querySelectorAll('.af-plot')];
+    const mark = (i) => {
+      for (const svg of plots) {
+        const cur = svg.querySelector('.af-cur');
+        if (i < 0) { cur.setAttribute('visibility', 'hidden'); continue; }
+        const x = AF.fx(AF.rows[i].f).toFixed(1);
+        cur.setAttribute('x1', x); cur.setAttribute('x2', x); cur.setAttribute('visibility', 'visible');
+      }
+      if (i >= 0 && $('af-read')) $('af-read').textContent = afRead(AF.rows[i]);
+    };
+    for (const svg of plots) {
+      svg.addEventListener('pointermove', (ev) => {
+        const r = svg.getBoundingClientRect();
+        const x = (ev.clientX - r.left) * (AF.W / r.width);
+        let best = 0;
+        let dBest = Infinity;
+        AF.rows.forEach((row, i) => { const d = Math.abs(AF.fx(row.f) - x); if (d < dBest) { dBest = d; best = i; } });
+        mark(best);
+      });
+      svg.addEventListener('pointerleave', () => mark(-1));
+    }
+  };
+
   const drawAmp = () => {
     const box = $('amp-box');
     if (!$('card-amp').open) { box.innerHTML = ''; return; }
     const p = state.project;
     const A = () => state.project.amp;
     let out = '';
+    const fileHtml = state.device ? ampFileHtml() : '';
     if (!p.amp) {
       out += `<p class="info">${tr('Stability, gain and noise figure circles of a two-port (transistor) described by its S parameters.')}</p><div class="actions">`;
       out += button('amp-example', tr('Example: BFG33G at 2 GHz'), () => change((q) => { q.amp = exampleDevice(); }));
       if (state.device) {
-        out += button('amp-device', tr('From the imported .s2p, at f₀'), () => change((q) => {
-          const d = amp.deviceAt(state.device, q.f0);
-          const s = {};
-          for (const key of ['s11', 's12', 's21', 's22']) s[key] = plainCx(d.s[key]);
-          q.amp = { s, noise: d.noise ? { nfmin: d.noise.nfmin, gopt: plainCx(d.noise.gopt), rn: d.noise.rn } : null, stab: { source: true, load: true }, gains: [], nfs: [] };
-        }));
+        out += button('amp-device', tr('From the imported .s2p, at f₀'), () => change((q) => { q.amp = ampFromDevice(null, q.f0); }));
       }
-      box.innerHTML = `${out}</div>`;
+      box.innerHTML = `${out}</div>${fileHtml}`;
+      bindAmpFile();
       return;
     }
     const degText = (v) => `${sig(v, 5).replace('−', '-')}°`;
@@ -4893,7 +5984,8 @@ const SmithChart = (() => {
       out += chipList(p.amp.nfs, (nf) => `NF ${sig(nf)} dB`, 'amp-nf-del');
     }
     out += `<div class="actions">${button('amp-remove', tr('Remove amplifier'), () => change((q) => { q.amp = null; }))}</div>`;
-    box.innerHTML = out;
+    box.innerHTML = out + fileHtml;
+    bindAmpFile();
   };
   $('amp-box').addEventListener('keydown', (ev) => {
     const t = ev.target;
@@ -4929,7 +6021,7 @@ const SmithChart = (() => {
       const q = CR.toPx(v, a.noise.gopt);
       out += `<path class="amp-stab" d="M${(q.x - 4).toFixed(1)} ${q.y.toFixed(1)}h8M${q.x.toFixed(1)} ${(q.y - 4).toFixed(1)}v8"/><text class="ring-label" x="${(q.x + 7).toFixed(1)}" y="${(q.y - 6).toFixed(1)}">Γopt</text>`;
     }
-    layer.innerHTML = out;
+    layer.innerHTML = ringText(out);
   };
 
   const drawSide = (force = false) => {
@@ -5081,12 +6173,14 @@ const SmithChart = (() => {
     reader.onerror = () => say(tr('Cannot read the file.'), true);
     reader.readAsText(file);
   };
-  $('file-project').addEventListener('change', (ev) => readFile(ev.target, (text, name) => loadProject(io.importProject(text), tr('Project "{0}" opened.', name))));
-  $('file-data').addEventListener('change', (ev) => readFile(ev.target, (text, name) => {
+  const openProjectText = (text, name) => loadProject(io.importProject(text), tr('Project "{0}" opened.', name));
+  $('file-project').addEventListener('change', (ev) => readFile(ev.target, openProjectText));
+  const importDataText = (text, name) => {
     let points;
     let note;
-    if (/\.s\dp$/i.test(name) || /^\s*[#!]/m.test(text)) {
-      const ts = io.parseTouchstone(text);
+    const citi = /\.c(?:i)?ti$/i.test(name) || /^\s*CITIFILE\b/m.test(text);   // tested first: a CITI file may start with '#'
+    if (citi || /\.s\dp$/i.test(name) || /^\s*[#!]/m.test(text)) {
+      const ts = citi ? io.parseCiti(text) : io.parseTouchstone(text);
       const port = Number($('sel-port').value);
       points = io.touchstoneToTable(ts, { port });
       state.device = ts.ports === 2 ? ts : null;
@@ -5105,7 +6199,26 @@ const SmithChart = (() => {
       if (hi > lo) p.sweep = { ...p.sweep, on: true, start: lo, stop: hi };
     });
     say(tr('"{0}": {1} points imported as load ({2}).', name, points.length, note));
-  }));
+  };
+  $('file-data').addEventListener('change', (ev) => readFile(ev.target, importDataText));
+
+  /* A file dropped anywhere on the page: a .json is a project, anything else is measured data. */
+  const hasFiles = (ev) => Boolean(ev.dataTransfer) && Array.from(ev.dataTransfer.types || []).includes('Files');
+  document.addEventListener('dragover', (ev) => { if (hasFiles(ev)) { ev.preventDefault(); document.body.classList.add('dropping'); } });
+  document.addEventListener('dragleave', (ev) => { if (!ev.relatedTarget) document.body.classList.remove('dropping'); });
+  document.addEventListener('drop', (ev) => {
+    document.body.classList.remove('dropping');
+    const dropped = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+    if (!dropped) return;
+    ev.preventDefault();
+    const reader = new FileReader();
+    reader.onload = () => {
+      try { (/\.json$/i.test(dropped.name) ? openProjectText : importDataText)(String(reader.result), dropped.name); } catch (err) { say(err.message, true); }
+      $('card-files').open = true;
+    };
+    reader.onerror = () => say(tr('Could not read the file.'), true);
+    reader.readAsText(dropped);
+  });
 
   const copyText = async (text) => {
     try { await navigator.clipboard.writeText(text); return true; } catch (err) { /* fall through */ }
@@ -5152,6 +6265,10 @@ const SmithChart = (() => {
     'f-schem': () => download(`${stamp()}-schematic.svg`, standaloneSvg($('schem'), '.s-hit', '--panel').text, 'image/svg+xml'),
     'f-points': () => download(`${stamp()}-points.csv`, pointsCsv(), 'text/csv'),
     'f-sweep': () => { if (model.sweep) download(`${stamp()}-sweep.csv`, sweepCsv(), 'text/csv'); else say(tr('Turn on the frequency sweep first.'), true); },
+    'f-circles': () => {
+      const text = io.circlesCsv(state.project);
+      if (text.trim().includes('\n')) download(`${stamp()}-circles.csv`, text, 'text/csv'); else say(tr('No circle to export: add a VSWR, Q or amplifier circle.'), true);
+    },
     'f-cir': () => download(`${stamp()}.cir`, io.toCir(state.project), 'text/plain'),
     'f-ckt': () => download(`${stamp()}.ckt`, io.toCkt(state.project), 'text/plain'),
   };
@@ -5210,8 +6327,7 @@ const SmithChart = (() => {
     try { svg.setPointerCapture(ev.pointerId); } catch (err) { /* no capture: the drag still works inside the chart */ }
     svg.focus({ preventScroll: true });
   });
-  svg.addEventListener('pointermove', (ev) => {
-    const { x, y } = localXY(ev);
+  const pointerMoved = perFrame((x, y) => {
     if (drag) {
       if (!drag.moved && Math.hypot(x - drag.x, y - drag.y) < 4) return;
       if (!drag.moved && drag.kind && state.selected !== drag.node) { state.selected = drag.node; state.slider.center = null; }
@@ -5239,7 +6355,9 @@ const SmithChart = (() => {
     state.sweepIdx = node < 0 ? nearestSweep(x, y) : -1;
     drawCursor(); drawPlotCursor(); showReadout();
   });
+  svg.addEventListener('pointermove', (ev) => { const { x, y } = localXY(ev); pointerMoved(x, y); });
   svg.addEventListener('pointerup', (ev) => {
+    pointerMoved.flush();
     if (!drag) return;
     const { x, y } = localXY(ev);
     if (!drag.moved) {
@@ -5249,17 +6367,21 @@ const SmithChart = (() => {
     try { svg.releasePointerCapture(drag.id); } catch (err) { /* was not captured */ }
     drag = null;
   });
-  svg.addEventListener('pointercancel', () => { drag = null; });
+  svg.addEventListener('pointercancel', () => { pointerMoved.flush(); drag = null; });
   svg.addEventListener('pointerleave', () => {
+    pointerMoved.flush();
     if (drag) return;
     state.hover = null;
     state.sweepIdx = -1;
     drawCursor(); drawPlotCursor(); showReadout();
   });
+  let wheelFactor = 1;                              // zoom steps gathered since the last frame
+  const wheelZoom = perFrame((x, y) => { const f = wheelFactor; wheelFactor = 1; zoomAt(x, y, f); });
   svg.addEventListener('wheel', (ev) => {
     ev.preventDefault();
     const { x, y } = localXY(ev);
-    zoomAt(x, y, Math.exp(-ev.deltaY * (ev.deltaMode === 1 ? 0.05 : 0.0016)));
+    wheelFactor *= Math.exp(-ev.deltaY * (ev.deltaMode === 1 ? 0.05 : 0.0016));
+    wheelZoom(x, y);
   }, { passive: false });
   svg.addEventListener('dblclick', () => { fitView(); drawAll(); });
   svg.addEventListener('keydown', (ev) => {
@@ -5296,13 +6418,13 @@ const SmithChart = (() => {
   $('seg-mode').addEventListener('click', (ev) => {
     const b = ev.target.closest('button');
     if (!b) return;
-    state.mode = b.dataset.mode;
+    state.mode = b.dataset.mode; savePrefs();
     drawGrid(); drawPanels();
   });
   $('seg-units').addEventListener('click', (ev) => {
     const b = ev.target.closest('button');
     if (!b) return;
-    state.units = b.dataset.units;
+    state.units = b.dataset.units; savePrefs();
     drawGrid(); drawPanels();
   });
 
@@ -5338,6 +6460,17 @@ const SmithChart = (() => {
       if (b) change(() => list().splice(Number(b.dataset.i), 1));
     });
   };
+  for (const [id, key] of [['pre-vswr', 'vswr'], ['pre-q', 'q']]) {
+    $(id).addEventListener('click', (ev) => {
+      const b = ev.target.closest('button');
+      if (!b) return;
+      const v = Number(b.dataset.v);
+      change((p) => { const list = p.circles[key]; const at = list.indexOf(v); if (at < 0) list.push(v); else list.splice(at, 1); });
+    });
+  }
+  for (const [id, key] of [['lab-dp', 'dp'], ['lab-tp', 'tp'], ['lab-rings', 'rings']]) {
+    $(id).addEventListener('change', (ev) => { state.labels[key] = ev.target.checked; savePrefs(); drawData(); });
+  }
   bindRing('in-vswr', 'chips-vswr', () => state.project.circles.vswr, (v) => v > 1 && Number.isFinite(v));
   bindRing('in-q', 'chips-q', () => state.project.circles.q, (v) => v > 0 && Number.isFinite(v));
 
@@ -5350,7 +6483,7 @@ const SmithChart = (() => {
 
   $('btn-new').addEventListener('click', () => {
     state.selected = -1;
-    change(() => { state.project = newProject(); });
+    change(() => { state.project = emptyProject(); });
   });
 
   $('btn-undo').addEventListener('click', undo);
@@ -5374,7 +6507,61 @@ const SmithChart = (() => {
     const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
     root.dataset.theme = dark ? 'light' : 'dark';
     try { localStorage.setItem('smith.theme', root.dataset.theme); } catch (err) { /* storage unavailable */ }
+    showPrefs();
   });
+
+  /* --- Settings ----------------------------------------------------------------------------- */
+
+  const COLOR_PREFS = [['z', 'pc-z', '--z'], ['y', 'pc-y', '--y'], ['sweep', 'pc-sweep', '--sweep'], ['traj', 'pc-traj', '--ink'], ['ring', 'pc-ring', '--ink-2']];
+  const WIDTH_PREFS = ['grid', 'traj', 'ring', 'sweep'];
+  /** Push the preferences to the style sheet: a custom property per colour and per width. */
+  const applyPrefs = () => {
+    const setVar = (name, value) => { if (value == null) root.style.removeProperty(name); else root.style.setProperty(name, value); };
+    const c = prefs.colors;
+    setVar('--z', c.z); setVar('--z-text', c.z);
+    setVar('--y', c.y); setVar('--y-text', c.y);
+    setVar('--sweep', c.sweep); setVar('--traj-c', c.traj); setVar('--ring-c', c.ring);
+    for (const key of WIDTH_PREFS) setVar(`--w-${key}`, prefs.widths[key] === 1 ? null : String(prefs.widths[key]));
+    document.body.classList.toggle('schem-v', prefs.schemVertical);
+  };
+  function savePrefs() {
+    prefs.mode = state.mode; prefs.units = state.units; prefs.eseries = state.eseries;
+    try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch (err) { /* storage unavailable */ }
+  }
+  const themeColor = (name) => { const v = getComputedStyle(root).getPropertyValue(name).trim(); return /^#[0-9a-f]{6}$/i.test(v) ? v : '#000000'; };
+  function showPrefs() {
+    $('pf-z0').value = eng.format(prefs.z0, 'Ω', 6);
+    $('pf-f0').value = eng.format(prefs.f0, 'Hz', 6);
+    for (const [key, id, cssVar] of COLOR_PREFS) $(id).value = prefs.colors[key] || themeColor(cssVar);
+    for (const key of WIDTH_PREFS) { $(`pw-${key}`).value = prefs.widths[key]; $(`po-${key}`).textContent = `× ${prefs.widths[key]}`; }
+    $('pf-slider').value = String(prefs.slider);
+    $('pf-eseries').value = prefs.eseries;
+    $('pf-vertical').checked = prefs.schemVertical; $('pf-extended').checked = prefs.extended;
+    $('lab-dp').checked = state.labels.dp; $('lab-tp').checked = state.labels.tp; $('lab-rings').checked = state.labels.rings;
+  }
+  for (const [id, key, unit] of [['pf-z0', 'z0', 'Ω'], ['pf-f0', 'f0', 'Hz']]) {
+    $(id).addEventListener('change', (ev) => {
+      const v = eng.parse(ev.target.value, unit);
+      if (!(v > 0) || !Number.isFinite(v)) { ev.target.setAttribute('aria-invalid', 'true'); return; }
+      ev.target.removeAttribute('aria-invalid');
+      prefs[key] = v; savePrefs(); showPrefs();
+    });
+  }
+  for (const [key, id] of COLOR_PREFS) $(id).addEventListener('input', (ev) => { prefs.colors[key] = ev.target.value; applyPrefs(); savePrefs(); });
+  for (const key of WIDTH_PREFS) {
+    $(`pw-${key}`).addEventListener('input', (ev) => { prefs.widths[key] = Number(ev.target.value); $(`po-${key}`).textContent = `× ${prefs.widths[key]}`; applyPrefs(); savePrefs(); });
+  }
+  $('pf-slider').addEventListener('change', (ev) => { prefs.slider = Number(ev.target.value); state.slider.ratio = prefs.slider; savePrefs(); drawEditor(true); });
+  $('pf-eseries').addEventListener('change', (ev) => { state.eseries = ev.target.value; savePrefs(); drawSide(true); });
+  $('pf-vertical').addEventListener('change', (ev) => { prefs.schemVertical = ev.target.checked; applyPrefs(); savePrefs(); drawSchematic(); });
+  $('pf-extended').addEventListener('change', (ev) => { prefs.extended = ev.target.checked; savePrefs(); fitView(); drawAll(); });
+  $('pf-reset').addEventListener('click', () => {
+    Object.assign(prefs, io.normalizePrefs(null));
+    state.labels = prefs.labels; state.mode = prefs.mode; state.units = prefs.units; state.eseries = prefs.eseries; state.slider.ratio = prefs.slider;
+    applyPrefs(); savePrefs(); showPrefs(); fitView(); refresh();
+  });
+  applyPrefs();
+  showPrefs();
 
   // a project carried by the link takes precedence over the default example
   if (/^#p1\./.test(location.hash)) {
@@ -5389,6 +6576,7 @@ const SmithChart = (() => {
 
   const langSelect = $('sel-lang');
   langSelect.innerHTML = SmithI18n.LANGS.map(([code, name]) => `<option value="${code}">${esc(name)}</option>`).join('');
+  const langHooks = [];             // run after each language change (menus, documentation)
   const applyLang = (code) => {
     SmithI18n.setLang(code);
     root.lang = SmithI18n.lang;
@@ -5400,6 +6588,7 @@ const SmithChart = (() => {
     $('plot-s11').setAttribute('aria-label', tr('Magnitude of S11 in decibels versus frequency'));
     $('plot-vswr').setAttribute('aria-label', tr('VSWR versus frequency'));
     $('plot-phase').setAttribute('aria-label', tr('Phase of the reflection coefficient versus frequency'));
+    for (const hook of langHooks) hook();
   };
   let savedLang = null;
   try { savedLang = localStorage.getItem('smith.lang'); } catch (err) { /* storage unavailable */ }
@@ -5415,7 +6604,247 @@ const SmithChart = (() => {
 
   fitView();
   refresh();
-  window.SmithApp = { state, history, refresh, change, select, undo, redo, fitView, zoomAt, drawAll, drawSide, addElement, newProject, chartSvg, svgToPng, pointsCsv, linkOf, get model() { return model; } };
+  /* --- Menu bar, documentation and about ---------------------------------------------------- */
+
+  const press = (id) => () => $(id).click();
+  const openPrefs = () => { for (const d of document.querySelectorAll('.inspector details')) if (d.id !== 'card-prefs') d.open = false; $('card-prefs').open = true; $('card-prefs').scrollIntoView({ block: 'start' }); };
+  /** Scroll the documentation to a heading, inside its own pane only. */
+  const goToHelp = (anchor) => { const pane = $('help-text'); pane.scrollTop = Math.max(0, $(anchor).offsetTop - 16); };
+  const showSheet = (id, anchor) => {
+    const dlg = $(id);
+    if (!dlg.open) dlg.showModal();
+    if (anchor && $(anchor)) goToHelp(anchor);
+  };
+  const pickSeg = (seg, key, value) => () => document.querySelector(`#${seg} [data-${key}="${value}"]`).click();
+  const isDark = () => (root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches);
+  // an entry: [label, action, { key, on: () => checked, off: () => disabled }] ; null is a separator
+  const buildMenus = () => [
+    [tr('File'), [
+      [tr('New project'), press('btn-new')],
+      [tr('Open project…'), () => FILE_ACTIONS['f-open'](), { key: 'Ctrl+O' }],
+      [tr('Save project'), () => FILE_ACTIONS['f-save'](), { key: 'Ctrl+S' }],
+      [tr('Copy project link'), () => FILE_ACTIONS['f-link']()],
+      null,
+      [tr('Import a measurement (.s1p, .s2p, CITI, CSV)…'), () => FILE_ACTIONS['f-import']()],
+      null,
+      [tr('Export chart as SVG'), () => FILE_ACTIONS['f-svg']()],
+      [tr('Export chart as PNG'), () => FILE_ACTIONS['f-png']()],
+      [tr('Copy chart image'), () => FILE_ACTIONS['f-copy']()],
+      [tr('Export schematic as SVG'), () => FILE_ACTIONS['f-schem']()],
+      null,
+      [tr('Export points (CSV)'), () => FILE_ACTIONS['f-points']()],
+      [tr('Export sweep (CSV)'), () => FILE_ACTIONS['f-sweep'](), { off: () => !model.sweep }],
+      [tr('Export circles (CSV)'), () => FILE_ACTIONS['f-circles']()],
+      [tr('LTspice netlist (.cir)'), () => FILE_ACTIONS['f-cir']()],
+      [tr('Smith-format netlist (.ckt)'), () => FILE_ACTIONS['f-ckt']()],
+    ]],
+    [tr('Edit'), [
+      [tr('Undo'), undo, { key: 'Ctrl+Z', off: () => !history.undo.length }],
+      [tr('Redo'), redo, { key: 'Ctrl+Y', off: () => !history.redo.length }],
+      null,
+      [tr('Delete selected element'), () => removeElement(state.selected - 1), { key: tr('Del'), off: () => !(state.selected > 0) }],
+      [tr('Deselect'), () => select(-1), { key: tr('Esc'), off: () => state.selected < 0 }],
+    ]],
+    [tr('View'), [
+      [tr('Z plane'), pickSeg('seg-mode', 'mode', 'z'), { on: () => state.mode === 'z' }],
+      [tr('Y plane'), pickSeg('seg-mode', 'mode', 'y'), { on: () => state.mode === 'y' }],
+      [tr('Z and Y planes'), pickSeg('seg-mode', 'mode', 'zy'), { on: () => state.mode === 'zy' }],
+      null,
+      [tr('Normalized graduations'), pickSeg('seg-units', 'units', 'norm'), { on: () => state.units === 'norm' }],
+      [tr('Graduations in ohms and siemens'), pickSeg('seg-units', 'units', 'abs'), { on: () => state.units === 'abs' }],
+      null,
+      [tr('Extended chart'), press('pf-extended'), { on: () => prefs.extended }],
+      [tr('Vertical schematic'), press('pf-vertical'), { on: () => prefs.schemVertical }],
+      [tr('Flip schematic'), press('btn-flip'), { on: () => Boolean(state.flip) }],
+      [tr('Course mode'), press('btn-course'), { on: () => Boolean(state.course) }],
+      [tr('Frequency plots'), press('btn-plots'), { on: () => state.plots }],
+      null,
+      [tr('Fit view'), () => { fitView(); drawAll(); }, { key: '0' }],
+      [tr('Dark theme'), press('btn-theme'), { on: isDark }],
+    ]],
+    [tr('Options'), [
+      [tr('Settings…'), openPrefs],
+      [tr('Reset to defaults'), press('pf-reset')],
+    ]],
+    [tr('Help'), [
+      [tr('Documentation'), () => showSheet('dlg-help', 'h-start'), { key: 'F1' }],
+      [tr('Keyboard shortcuts'), () => showSheet('dlg-help', 'h-keys')],
+      [tr('RF conventions'), () => showSheet('dlg-help', 'h-rf')],
+      null,
+      [tr('About Smith Chart'), () => showSheet('dlg-about')],
+    ]],
+  ];
+  let MENUS = buildMenus();
+  const menubar = $('menubar');
+  const menuPop = $('menu-pop');
+  let menuOpen = -1;
+  const closeMenu = () => {
+    if (menuOpen < 0) return;
+    menubar.children[menuOpen].setAttribute('aria-expanded', 'false');
+    menuPop.hidden = true;
+    menuOpen = -1;
+  };
+  const openMenu = (index, focusFirst = false) => {
+    closeMenu();
+    const head = menubar.children[index];
+    const items = MENUS[index][1];
+    menuPop.innerHTML = items.map((item, n) => {
+      if (!item) return '<hr>';
+      const [label, , opt = {}] = item;
+      const on = opt.on ? opt.on() : false;
+      return `<button type="button" role="${opt.on ? 'menuitemcheckbox' : 'menuitem'}" data-item="${n}"${opt.on ? ` aria-checked="${on}"` : ''}${opt.off && opt.off() ? ' disabled' : ''}><span class="tick">${on ? '✓' : ''}</span><span class="lbl">${esc(label)}</span><span class="key">${esc(opt.key || '')}</span></button>`;
+    }).join('');
+    const r = head.getBoundingClientRect();
+    menuPop.style.left = `${Math.round(r.left)}px`;
+    menuPop.style.top = `${Math.round(r.bottom + 2)}px`;
+    menuPop.hidden = false;
+    head.setAttribute('aria-expanded', 'true');
+    menuOpen = index;
+    if (focusFirst) { const first = menuPop.querySelector('button:not(:disabled)'); if (first) first.focus(); }
+  };
+  menubar.addEventListener('click', (ev) => {
+    const b = ev.target.closest('button[data-menu]');
+    if (!b) return;
+    const i = Number(b.dataset.menu);
+    if (menuOpen === i) closeMenu(); else openMenu(i);
+  });
+  menubar.addEventListener('pointerover', (ev) => {
+    const b = ev.target.closest('button[data-menu]');
+    if (b && menuOpen >= 0 && Number(b.dataset.menu) !== menuOpen) openMenu(Number(b.dataset.menu));
+  });
+  menuPop.addEventListener('click', (ev) => {
+    const b = ev.target.closest('button[data-item]');
+    if (!b || b.disabled) return;
+    const action = MENUS[menuOpen][1][Number(b.dataset.item)][1];
+    closeMenu();
+    action();
+  });
+  document.addEventListener('pointerdown', (ev) => { if (menuOpen >= 0 && !ev.target.closest('#menubar, #menu-pop')) closeMenu(); });
+  window.addEventListener('blur', closeMenu);
+  window.addEventListener('resize', closeMenu);
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'F1') { ev.preventDefault(); closeMenu(); showSheet('dlg-help', 'h-start'); return; }
+    if (menuOpen < 0) {
+      if (ev.target.closest && ev.target.closest('#menubar') && (ev.key === 'ArrowDown' || ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); openMenu(Number(ev.target.dataset.menu), true); }
+      return;
+    }
+    const live = [...menuPop.querySelectorAll('button:not(:disabled)')];
+    const at = live.indexOf(document.activeElement);
+    if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); const head = menubar.children[menuOpen]; closeMenu(); head.focus(); }
+    else if (ev.key === 'ArrowDown') { ev.preventDefault(); (live[(at + 1) % live.length] || live[0]).focus(); }
+    else if (ev.key === 'ArrowUp') { ev.preventDefault(); (live[(at - 1 + live.length) % live.length] || live[0]).focus(); }
+    else if (ev.key === 'ArrowRight') { ev.preventDefault(); openMenu((menuOpen + 1) % MENUS.length, true); }
+    else if (ev.key === 'ArrowLeft') { ev.preventDefault(); openMenu((menuOpen - 1 + MENUS.length) % MENUS.length, true); }
+  }, true);
+
+  /* Documentation: every sentence is a translatable key; the HTML inside a key is kept as it is. */
+  const helpHtml = () => {
+    const P = (s) => `<p>${s}</p>`;
+    const H = (id, s) => `<h3 id="${id}">${s}</h3>`;
+    const LIST = (tag, items) => `<${tag}>${items.map((s) => `<li>${s}</li>`).join('')}</${tag}>`;
+    const TABLE = (head, rows) => `<table><tr>${head.map((h) => `<th>${h}</th>`).join('')}</tr>${rows.map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join('')}</tr>`).join('')}</table>`;
+    return [
+      H('h-start', tr('Getting started')),
+      P(tr('Smith Chart is an interactive Smith chart for impedance matching. You describe a load, add elements to it one by one, and the chart shows the path followed by the impedance up to the network input.')),
+      P(tr('The tool starts on an empty project: a 50 Ω load, no element. <b>File, New project</b> returns to it at any time.')),
+
+      H('h-build', tr('Building a network')),
+      P(tr('The network is built <b>from the load towards the source</b>. The first element touches the load; the input impedance is the one seen after the last element.')),
+      LIST('ol', [
+        tr('Set <b>Z0</b> and <b>f0</b> in the top bar.'),
+        tr('Click the load in the schematic and enter it: Z, Y, normalized values, Γ, S11, R-L-C circuit, or imported Z(f) table.'),
+        tr('Add elements with the "Series" and "Shunt" buttons. The new element is inserted after the selected element, on the source side.'),
+      ]),
+      P(tr('Available elements: R, L and C in series or in shunt, transmission line (lossless or lossy), open or short-circuited stub, ideal transformer, compound R-L-C. A transformer of ratio n gives Zin = n² · Z.')),
+
+      H('h-values', tr('Entering and tuning a value')),
+      P(tr('Entry accepts engineering notation: <code>6.8p</code>, <code>6,8 pF</code>, <code>15n</code>, <code>869M</code>, <code>2k2</code>, <code>4R7</code>, <code>1e-9</code>. Prefixes are case-sensitive: <code>m</code> is milli, <code>M</code> is mega.')),
+      TABLE([tr('Gesture'), tr('Effect')], [
+        [tr('Mouse wheel or up and down arrows on a field'), tr('Plus or minus 1 % (1° for an angle). Shift multiplies the step by 10, Alt divides it by 10.')],
+        [tr('"Adjustment" slider'), tr('"Whole locus" range: the two ends of the slider are the two ends of the element locus. Narrower ranges are offered next to it.')],
+        [tr('Drag a TP point on the chart'), tr('Tunes the element that ends at this point, along its locus.')],
+        [tr('Drag DP1'), tr('Moves a fixed load.')],
+        [tr('"Normalize" buttons E12, E24, E96'), tr('Round the value to the chosen series, after a free adjustment.')],
+      ]),
+
+      H('h-chart', tr('Reading the chart')),
+      P(tr('The Z plane is red, the Y plane blue, the sweep green. Trajectories, circles and selection are drawn in ink. These colors can be changed in the settings.')),
+      LIST('ul', [
+        tr('Wheel: zoom. Drag the background: pan. Double-click or key <kbd>0</kbd>: fit the view.'),
+        tr('The readout panel gives Z, Y, Γ, VSWR, return loss, mismatch loss, Q, the normalized values and the equivalent components of the hovered point, or of the network input by default.'),
+        tr('Points are called DP (load), TP (transformed points) and SP (sweep points), as in Smith.'),
+        tr('<b>Extended chart</b> (View menu) shows the negative-resistance region, up to |Γ| = 2.'),
+      ]),
+
+      H('h-panels', tr('Right-hand panels')),
+      TABLE([tr('Panel'), tr('Role')], [
+        [tr('Element'), tr('Value, losses and tuning of the selected element or load.')],
+        [tr('Points'), tr('Table of the DP and TP points with Z and Q.')],
+        [tr('Automatic matching'), tr('Proposes L, π, T, stub, quarter-wave or line-and-reactance networks, ranked by bandwidth or by Q.')],
+        [tr('Preferred values'), tr('Rounds all R, L and C to an E series and shows the effect on the match.')],
+        [tr('Frequency sweep'), tr('Plots the network input over a frequency range, with the |S11|, VSWR and phase plots.')],
+        [tr('Circles'), tr('VSWR circles and Q loci, with presets, and the choice of displayed labels.')],
+        [tr('Amplifier (S-parameters)'), tr('Stability, gain and noise of a two-port described by its S parameters; table and per-frequency plots after importing an .s2p or CITI file.')],
+        [tr('Settings'), tr('Defaults, display, colors and line widths.')],
+        [tr('Files and exports'), tr('Project, imported measurements, exports.')],
+      ]),
+
+      H('h-files', tr('Files')),
+      LIST('ul', [
+        tr('<b>Project</b>: Save produces a JSON file; Open reads it back. "Copy link" encodes the project in an address.'),
+        tr('<b>Measurements</b>: Touchstone .s1p and .s2p files, CITI files, or a CSV table "frequency, R, X". The measurement becomes the load of the project.'),
+        tr('<b>Exports</b>: chart as SVG or PNG, schematic as SVG, points, sweep and circles as CSV, LTspice netlist (.cir) and Smith-format netlist (.ckt).'),
+        tr('A file dropped on the window opens directly: .json as a project, anything else as a measurement.'),
+      ]),
+
+      H('h-prefs', tr('Settings')),
+      P(tr('The "Settings" panel (Options menu) sets the Z0 and frequency of a new project, the vertical schematic, the extended chart, the colors, the line widths, the slider range and the default E series. Settings are stored on this computer, not in the project. "Reset to defaults" returns to the starting palette, chosen to stay readable with color-vision deficiency.')),
+
+      H('h-keys', tr('Keyboard shortcuts')),
+      TABLE([tr('Key'), tr('Action')], [
+        ['<kbd>Ctrl</kbd> + <kbd>Z</kbd>, <kbd>Ctrl</kbd> + <kbd>Y</kbd>', tr('Undo, redo')],
+        ['<kbd>Ctrl</kbd> + <kbd>S</kbd>, <kbd>Ctrl</kbd> + <kbd>O</kbd>', tr('Save, open a project')],
+        [`<kbd>${tr('Del')}</kbd>`, tr('Delete the selected element')],
+        [`<kbd>${tr('Esc')}</kbd>`, tr('Deselect, close a menu')],
+        [tr('<kbd>+</kbd>, <kbd>-</kbd>, <kbd>0</kbd> and arrows on the chart'), tr('Zoom, fit, pan')],
+        ['<kbd>F1</kbd>', tr('This documentation')],
+      ]),
+
+      H('h-rf', tr('RF conventions')),
+      LIST('ul', [
+        tr('Γ = (Z - Z0) / (Z + Z0), with Z0 real. VSWR = (1 + |Γ|) / (1 - |Γ|). Return loss = -20 · log|Γ|, positive.'),
+        tr('Q of a point = |X| / R.'),
+        tr('A series element moves the point along an r circle; a shunt element, along a g circle.'),
+        tr('A line keeps its physical length when the frequency varies; its electrical length is defined at a reference frequency. Losses α are in dB per metre.'),
+        tr('During a sweep, a fixed impedance stays fixed, an R-L-C circuit varies, a table is interpolated.'),
+      ]),
+
+      H('h-limits', tr('Known limitations')),
+      LIST('ul', [
+        tr('The characteristic impedance of a lossy line stays real.'),
+        tr('Automatic matching assumes lossless elements and matches at f0 only.'),
+        tr('Touchstone 1.x files with one or two ports; no version 2.0. Only one block is read from a CITI file.'),
+        tr('The LTspice netlist is checked by an independent solver, not by LTspice itself.'),
+        tr('Smith .xmlsc projects are not read.'),
+        tr('The direction of the transformer ratio could not be compared with Smith.'),
+      ]),
+    ].join('');
+  };
+  const renderMenubar = () => {
+    menubar.innerHTML = MENUS.map(([name], i) => `<button type="button" role="menuitem" aria-haspopup="true" aria-expanded="false" data-menu="${i}">${esc(name)}</button>`).join('');
+  };
+  const renderHelp = () => {
+    $('help-text').innerHTML = helpHtml();
+    $('help-toc').innerHTML = [...$('help-text').querySelectorAll('h3')].map((h) => `<button type="button" data-goto="${h.id}">${esc(h.textContent)}</button>`).join('');
+  };
+  langHooks.push(() => { closeMenu(); MENUS = buildMenus(); renderMenubar(); renderHelp(); });
+  langHooks[langHooks.length - 1]();
+  $('help-toc').addEventListener('click', (ev) => { const b = ev.target.closest('button[data-goto]'); if (b) goToHelp(b.dataset.goto); });
+  for (const dlg of document.querySelectorAll('dialog.sheet')) {
+    dlg.addEventListener('click', (ev) => { if (ev.target === dlg || ev.target.closest('[data-close]')) dlg.close(); });
+  }
+
+  window.SmithApp = { state, history, refresh, change, select, undo, redo, fitView, zoomAt, drawAll, drawSide, addElement, emptyProject, chartSvg, svgToPng, pointsCsv, linkOf, get model() { return model; } };
 })();
 </script>
 </body>

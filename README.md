@@ -51,7 +51,7 @@ You can also skip the installer: download the repository and open `index.html` i
 
 | File | Role |
 |---|---|
-| `index.html` | The complete tool: open this file in a browser |
+| `index.html` | The complete tool, documentation included: open this file in a browser |
 | `tests.mjs` | Tests of the calculation engine: `node tests.mjs` (Node ≥ 18, no dependency) |
 | `i18n-check.mjs` | Checks that every UI string is translated in every language: `node i18n-check.mjs` |
 | `SPEC.md` | Specification: functions taken from Smith, added, excluded, and why |
@@ -60,8 +60,13 @@ You can also skip the installer: download the repository and open `index.html` i
 
 ## Usage
 
-Open `index.html`: an empty project with a 50 Ω load. "New project" resets it. The "Language" menu switches the interface language (the browser language
+Open `index.html`: an empty project with a 50 Ω load. "New project" (button or File menu) resets it. The "Language" menu switches the interface language (the browser language
 is used by default, and the choice is remembered).
+
+**Menu bar.** File (open, save, link, import, exports), Edit (undo, redo, delete), View (planes, graduations,
+extended chart, vertical schematic, course mode, plots, theme), Options (settings) and Help (documentation,
+keyboard shortcuts, RF conventions, About). `F1` opens the built-in documentation, which follows the
+interface language.
 
 **Build a network.** The network is built **from the load towards the source**: the first element touches
 the load, and the input impedance is seen after the last element.
@@ -81,7 +86,7 @@ rejected.
 | Gesture | Effect |
 |---|---|
 | Mouse wheel or ↑ ↓ arrows on a field | ± 1 % (± 1° for an angle); Shift: × 10; Alt: ÷ 10 |
-| "Tuning" slider | Sweeps around the value; returns to the centre when released |
+| "Adjustment" slider | Sweeps the range chosen next to it (by default the whole locus, from zero to infinity); returns to the centre when released |
 | Drag a TP point on the chart | Tunes the element that ends at this point, along its locus |
 | Drag DP1 | Moves a fixed load |
 
@@ -90,10 +95,21 @@ values and the equivalent components, for the cursor, a hovered point, a sweep s
 the network input. Wheel: zoom; drag the background: pan; double-click or `0`: fit.
 
 **Inspector panels** (collapsible): automatic matching, preferred values E12/E24/E96, frequency sweep,
-VSWR and Q circles, amplifier (stability, gain, noise), files and exports.
+VSWR and Q circles (with preset buttons and switches for the chart labels), amplifier (stability, gain,
+noise; for an imported .s2p or CITI file, a gain table with K, μ, MAG, MSG and plots of gain, stability and
+return loss against frequency), settings, files and exports.
 
-**Keyboard.** `Ctrl+Z` / `Ctrl+Y` undo and redo; `Ctrl+S` save the project; `Ctrl+O` open;
-`Del` delete the selected element; `Esc` deselect; ← → arrows in the schematic;
+**Settings.** Default Z0 and frequency of a new project, vertical schematic, extended chart (r < 0, up to
+|Γ| = 2), colors, line widths, default slider range and E series. They are stored on this computer, not in
+the project. "Reset to defaults" restores the starting palette.
+
+**Files.** Touchstone `.s1p` / `.s2p`, CITI files and CSV tables "frequency, R, X" are imported as the load;
+a file dropped on the window opens directly (`.json` as a project, anything else as a measurement).
+Exports: chart (SVG, PNG, clipboard), schematic (SVG), points, sweep and circles (CSV), LTspice netlist and
+Smith-format netlist.
+
+**Keyboard.** `F1` documentation; `Ctrl+Z` / `Ctrl+Y` undo and redo; `Ctrl+S` save the project; `Ctrl+O` open;
+`Del` delete the selected element; `Esc` deselect or close a menu; ← → arrows in the schematic;
 `+` `−` `0` and arrows on the chart.
 
 **Share.** The project is encoded in the page address: "Copy link" is enough. "Save" produces a JSON
@@ -124,7 +140,7 @@ file.
 ## Verification
 
 `node tests.mjs` extracts the `smith-core` and `smith-chart` blocks of `index.html` and runs them as
-they are: the tested code is the shipped code. Over 100 tests cover:
+they are: the tested code is the shipped code. 113 tests cover:
 
 - the 8 course vectors, the slide 17 chain (values displayed by Smith V3.10) and Dellsperger's examples
   1, 4, 9, 10, 11 and 13;
@@ -132,7 +148,8 @@ they are: the tested code is the shipped code. Over 100 tests cover:
   matrices, nodal solver for the LTspice netlist, gain and noise formulas evaluated on the circles;
 - every synthesized network, fed back into the forward engine;
 - edge cases (short circuit, open circuit, f = 0, |Γ| = 1, r < 0, zero or infinite values);
-- the SVG geometry (arc flags, grid density, labels).
+- the SVG geometry (arc flags, grid density, labels, the extended-chart grid, polyline thinning);
+- the readers and writers: Touchstone, CITI, CSV tables, circles CSV, project settings.
 
 The interface was validated by hand in a Chromium browser: slides 16 and 17 redone from start to finish,
 Dellsperger's example 13 reproduced, imports, exports and link checked.
@@ -149,7 +166,7 @@ Calculation
 - Matching synthesis assumes lossless elements and air-filled lines (εr = 1); it matches at f0 only.
   Double stub: both stubs are of the same type. π and T: two solutions.
 - E-series rounding takes the nearest value; lines are not rounded.
-- Amplifier: one frequency at a time; no unilateral figure of merit.
+- Amplifier: circles for one frequency at a time (the gain table and plots cover all the frequencies of an imported file); no unilateral figure of merit.
 
 Files
 - Touchstone 1.x with 1 or 2 ports only; no version 2.0, no H or G parameters, no Z or Y for 2 ports.
@@ -158,7 +175,7 @@ Files
   tabulated load is replaced there by its series equivalent at f0; line losses are constant.
 - Smith-format netlist: the transformer direction is not documented by Dellsperger, and the series
   resistances of components are not written.
-- Smith `.xmlsc` projects and CITI files are not read.
+- Smith `.xmlsc` projects are not read. A CITI file is read for its first data block only, and is not converted to Touchstone.
 - A link is limited to about 6000 characters: a large tabulated load goes through the JSON file.
 - The display mode (Z / Y, graduations, theme) and the undo history are not saved.
 
