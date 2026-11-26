@@ -1845,14 +1845,14 @@ test('trajectory of an element pushed to an extreme value: no jump and no sharp 
 });
 test('settings: defaults, valid fields kept, doubtful values discarded', () => {
   const d = io.normalizePrefs(null);
-  same(JSON.stringify(d), JSON.stringify({ z0: 50, f0: 1e9, colors: { z: null, y: null, sweep: null, traj: null, ring: null }, widths: { grid: 1, traj: 1, ring: 1, sweep: 1 }, slider: 0, eseries: 'E24', mode: 'zy', units: 'norm', labels: { dp: true, tp: true, rings: true }, schemVertical: false, extended: false }));
+  same(JSON.stringify(d), JSON.stringify({ z0: 50, f0: 1e9, colors: { z: null, y: null, sweep: null, traj: null, ring: null }, widths: { grid: 1, traj: 1, ring: 1, sweep: 1 }, slider: 0, eseries: 'E24', mode: 'zy', units: 'norm', labels: { dp: true, tp: true, rings: true }, schemVertical: false, extended: false, plots: ['logmag', 'vswr', 'phase'] }));
   same(JSON.stringify(io.normalizePrefs('x')), JSON.stringify(d));
   same(JSON.stringify(io.normalizePrefs({ colors: 3, widths: null, labels: 'no' })), JSON.stringify(d));
-  const good = { z0: 75, f0: 2.4e9, colors: { z: '#AA0011', y: '#0011aa', sweep: null, traj: '#123456', ring: '#abcdef' }, widths: { grid: 0.5, traj: 3, ring: 1.5, sweep: 2 }, slider: 10, eseries: 'E96', mode: 'y', units: 'abs', labels: { dp: false, tp: true, rings: false }, schemVertical: true, extended: true };
+  const good = { z0: 75, f0: 2.4e9, colors: { z: '#AA0011', y: '#0011aa', sweep: null, traj: '#123456', ring: '#abcdef' }, widths: { grid: 0.5, traj: 3, ring: 1.5, sweep: 2 }, slider: 10, eseries: 'E96', mode: 'y', units: 'abs', labels: { dp: false, tp: true, rings: false }, schemVertical: true, extended: true, plots: ['gd', 'zre', 'rl'] };
   const kept = io.normalizePrefs(JSON.parse(JSON.stringify(good)));
   same(JSON.stringify(kept), JSON.stringify({ ...good, colors: { ...good.colors, z: '#aa0011' } }));
   same(JSON.stringify(io.normalizePrefs(kept)), JSON.stringify(kept));                       // idempotent
-  const bad = io.normalizePrefs({ z0: -5, f0: 'abc', colors: { z: 'red', y: '#12345', sweep: 'url(x)', traj: '#12345g', ring: 7 }, widths: { grid: 0, traj: 99, ring: NaN, sweep: '2' }, slider: 3, eseries: 'E48', mode: 'both', units: 'ohm', labels: { dp: 0 }, schemVertical: 'yes', extended: 1, extra: { evil: true } });
+  const bad = io.normalizePrefs({ z0: -5, f0: 'abc', colors: { z: 'red', y: '#12345', sweep: 'url(x)', traj: '#12345g', ring: 7 }, widths: { grid: 0, traj: 99, ring: NaN, sweep: '2' }, slider: 3, eseries: 'E48', mode: 'both', units: 'ohm', labels: { dp: 0 }, schemVertical: 'yes', extended: 1, plots: ['smith', 7], extra: { evil: true } });
   same(JSON.stringify(bad), JSON.stringify(d));
 });
 test('extended chart: the outer grid stays between |Γ| = 1 and the limit, on r < 0 circles or x arcs', () => {
@@ -1880,6 +1880,170 @@ test('extended chart: the outer grid stays between |Γ| = 1 and the limit, on r 
     ok(onR > 200 && onX > 200, `unexpected split: ${onR} points on r, ${onX} on x`);
   }
   same(Chart.outerGrid(view, 1, { limit: 2, units: 'abs', z0: 50 }).labels.map((l) => l.text).join(' '), '−10 −25 −50 −100 −250');
+});
+
+/* ========================================================================== */
+group('18. Multi-band matching');
+
+/** |gamma| at the input of a cascade of series / shunt impedances and lines,
+ *  by ABCD matrices from the input towards the load (independent of the engine). */
+const gammaAbcd = (z0, zl, blocks) => {
+  let m = [c(1), c(0), c(0), c(1)];
+  for (const b of blocks) m = mMul(m, b);
+  const z = mZin(m, zl);
+  return Math.hypot(...Object.values(cdiv(csub(z, c(z0)), cadd(z, c(z0)))));
+};
+/** Lossless line of impedance zc, `deg` degrees at fref, seen at f, as an ABCD block. */
+const lineBlock = (zc, deg, fref, f) => mLine(zc, 0, (deg * Math.PI / 180) * (f / fref));
+
+test('worst reflection per band: engine against an ABCD cascade, sample by sample', () => {
+  const zl = c(20, -30);
+  const els = [L('series', 6e-9), C('shunt', 2.2e-12), TL(70, 40, 1e9)];
+  const p = project(50, 1e9, zl, els);
+  const bands = [{ start: 0.8e9, stop: 0.9e9 }, { start: 2.3e9, stop: 2.5e9 }, { start: 1.5e9, stop: 1.5e9 }];
+  const report = net.bandReport(p, bands, 41);
+  bands.forEach((b, k) => {
+    let worst = -1; let fWorst = 0;
+    const n = b.stop > b.start ? 41 : 1;
+    for (let i = 0; i < n; i += 1) {
+      const f = n === 1 ? b.start : b.start + (b.stop - b.start) * i / (n - 1);
+      // ABCD runs from the input: the last element (nearest the source) comes first
+      const g = gammaAbcd(50, zl, [lineBlock(70, 40, 1e9, f), mShunt(zCap(f, 2.2e-12)), mSeries(zInd(f, 6e-9))]);
+      if (g > worst) { worst = g; fWorst = f; }
+    }
+    close(report[k].gammaMax, worst, EXACT, `band ${k + 1} max |Γ|`);
+    close(report[k].fWorst, fWorst, EXACT, `band ${k + 1} worst frequency`);
+    close(report[k].rlMin, -20 * Math.log10(worst), EXACT, `band ${k + 1} RL`);
+    close(report[k].vswrMax, (1 + worst) / (1 - worst), EXACT, `band ${k + 1} VSWR`);
+  });
+});
+
+test('one narrow band: the optimizer finds the closed-form L network', () => {
+  // zl = 10 + j15, series X then shunt B into 50 ohm:
+  // G = 10 / (10² + (15 + X)²) = 1/50  ->  15 + X = 20, X = 5 ohm ; B = 20 / 500 = 0.04 S
+  const f = 1e9;
+  const w0 = 2 * Math.PI * f;
+  const p = project(50, f, c(10, 15), [{ ...L('series', 5e-9), opt: true }, { ...C('shunt', 2e-12), opt: true }]);
+  const r = net.optimize(p, { bands: [{ start: f * 0.9999, stop: f * 1.0001 }], indices: [0, 1] });
+  close(r.elements[0].value, 5 / w0, 1e-3, 'L');
+  close(r.elements[1].value, 0.04 / w0, 1e-3, 'C');
+  ok(r.after[0].rlMin > 40, `RL ${r.after[0].rlMin} dB`);
+});
+
+test('two bands: two-section dual-frequency transformer (Monzon), checked by ABCD', () => {
+  // Closed form (Monzon 2003): sections of equal length theta = pi / (1 + f2/f1) at f1,
+  // Z1 Z2 = Z0 RL. First check the formula itself through ABCD, then that the optimiser,
+  // started far from it, finds a network of that family matched at both frequencies.
+  const z0 = 50; const rl = 150; const f1 = 1e9; const f2 = 2.5e9;
+  const th = Math.PI / (1 + f2 / f1);
+  const a = z0 * (rl - z0) / (2 * Math.tan(th) ** 2);
+  const zSrc = Math.sqrt(a + Math.sqrt(a * a + z0 ** 3 * rl));     // section on the source side
+  const zLoad = z0 * rl / zSrc;
+  const deg = th * 180 / Math.PI;
+  for (const f of [f1, f2]) {
+    const g = gammaAbcd(z0, c(rl), [lineBlock(zSrc, deg, f1, f), lineBlock(zLoad, deg, f1, f)]);
+    ok(g < 1e-9, `closed form: |Γ| = ${g} at ${f} Hz`);
+  }
+  const p = project(z0, f1, c(rl), [{ ...TL(50, 45, f1), opt: true }, { ...TL(50, 45, f1), opt: true }]);
+  const r = net.optimize(p, { bands: [{ start: f1 * 0.999, stop: f1 * 1.001 }, { start: f2 * 0.999, stop: f2 * 1.001 }], indices: [0, 1] });
+  const [e0, e1] = r.elements;
+  for (const f of [f1, f2]) {
+    const g = gammaAbcd(z0, c(rl), [lineBlock(e1.zc, e1.deg, f1, f), lineBlock(e0.zc, e0.deg, f1, f)]);
+    ok(-20 * Math.log10(g) > 35, `optimizer: RL ${(-20 * Math.log10(g)).toFixed(1)} dB at ${f} Hz`);
+  }
+  close(e0.zc * e1.zc, z0 * rl, 0.02, 'Z1·Z2 = Z0·RL');
+});
+
+test('the optimizer only changes the elements asked for, stays in range and repeats itself', () => {
+  const els = [{ ...L('series', 8e-9), opt: true }, C('shunt', 3e-12), { ...L('series', 4e-9), off: true, opt: true }, { ...C('shunt', 1e-12), opt: true }];
+  const p = project(50, 868e6, c(20, -30), els);
+  const bands = [{ start: 863e6, stop: 870e6 }, { start: 2.4e9, stop: 2.4835e9 }];
+  const r1 = net.optimize(p, { bands, indices: [0, 2, 3], starts: 4 });
+  const r2 = net.optimize(p, { bands, indices: [0, 2, 3], starts: 4 });
+  same(JSON.stringify(r1.elements), JSON.stringify(r2.elements), 'same seed, same result');
+  same(r1.elements[1].value, 3e-12, 'unchecked element');
+  same(r1.elements[2].value, 4e-9, 'disabled element');
+  ok(r1.changes.every((ch) => ch.index === 0 || ch.index === 3), 'change outside the list');
+  same(p.elements[0].value, 8e-9, 'original project changed');
+  for (const ch of r1.changes) {
+    const range = net.optParams(p.elements[ch.index], p).find((q) => q.key === ch.key);
+    ok(ch.to >= range.lo && ch.to <= range.hi, `${ch.key} out of range: ${ch.to}`);
+  }
+  const worst = (rep) => Math.min(...rep.map((x) => x.rlMin));
+  ok(worst(r1.after) >= worst(r1.before), 'result worse than the start');
+  // the report of the result is the engine's own read-out of the returned network
+  const again = net.bandReport({ ...p, elements: r1.elements }, bands);
+  same(JSON.stringify(again), JSON.stringify(r1.after), 'report after');
+});
+
+test('optimizer without a band or an element: network unchanged, with a reason', () => {
+  const p = project(50, 1e9, c(20, 10), [C('shunt', 1e-12)]);
+  const a = net.optimize(p, { bands: [], indices: [0] });
+  ok(a.reason && a.elements === p.elements, 'no band');
+  const b = net.optimize(p, { bands: [{ start: 1e9, stop: 1.1e9 }], indices: [] });
+  ok(b.reason && b.elements === p.elements && b.changes.length === 0, 'no element');
+  same(net.optParams({ kind: 'RLC', conn: 'series', topology: 'series', r: 1, l: 1e-9, c: 1e-12 }, p).length, 0, 'RLC');
+  same(net.optParams({ ...C('shunt', 1e-12), off: true }, p).length, 0, 'disabled');
+});
+
+test('project: bands and "Optimize" flags kept, bad values dropped', () => {
+  const raw = {
+    z0: 50, f0: 1e9, load: { kind: 'z', z: { re: 30, im: 0 } },
+    elements: [{ kind: 'C', conn: 'shunt', value: 1e-12, opt: true }, { kind: 'L', conn: 'series', value: 1e-9, opt: 'yes' }],
+    bands: { on: true, rlGoal: 15, list: [{ start: 2e9, stop: 1e9 }, { start: -1, stop: 5 }, null, { start: 3e9, stop: 3.1e9 }] },
+  };
+  const n = io.normalizeProject(raw);
+  same(n.elements[0].opt, true, 'opt');
+  same('opt' in n.elements[1], false, 'non-boolean opt');
+  same(JSON.stringify(n.bands), JSON.stringify({ on: true, rlGoal: 15, list: [{ start: 1e9, stop: 2e9 }, { start: 3e9, stop: 3.1e9 }] }));
+  same(JSON.stringify(io.normalizeProject({ z0: 50, f0: 1e9 }).bands), JSON.stringify({ on: false, rlGoal: 10, list: [] }), 'older project');
+  same(io.normalizeProject({ bands: { on: true, list: [] } }).bands.on, false, 'on without a band');
+  same(JSON.stringify(io.decodeLink(io.encodeLink(n)).bands), JSON.stringify(n.bands), 'link');
+});
+
+group('19. Plot formats (group delay)');
+
+test('group delay: short-circuited line = 2·l / v, flat over frequency', () => {
+  // gamma = -exp(-j 2 beta l): tau = 2 * (deg / 360) / fref, here 90 deg at 1 GHz -> 0.5 ns
+  const p = project(50, 1e9, c(0), [TL(50, 90, 1e9)]);
+  const sw = net.sweep(p, { start: 0.5e9, stop: 3e9, points: 101, scale: 'lin' });
+  const tau = net.groupDelay(sw.map((m) => m.f), sw.map((m) => m.gamma));
+  for (const t of tau) close(t, 0.5e-9, 1e-9, "tau");
+});
+
+test('group delay: L-C cell, against the derivative of the phase computed by ABCD', () => {
+  const zl = c(20, -30);
+  const p = project(50, 1e9, zl, [L('series', 6e-9), C('shunt', 2.2e-12)]);
+  const fs = [0.9e9, 1e9, 1.1e9];
+  const gammas = fs.map((f) => {
+    let m = [c(1), c(0), c(0), c(1)];
+    for (const b of [mShunt(zCap(f, 2.2e-12)), mSeries(zInd(f, 6e-9))]) m = mMul(m, b);
+    const z = mZin(m, zl);
+    return cdiv(csub(z, c(50)), cadd(z, c(50)));
+  });
+  const tau = net.groupDelay(fs, gammas);
+  // independent: finite difference of the ABCD phase over a tiny step at 1 GHz
+  const ph = (f) => {
+    let m = [c(1), c(0), c(0), c(1)];
+    for (const b of [mShunt(zCap(f, 2.2e-12)), mSeries(zInd(f, 6e-9))]) m = mMul(m, b);
+    const z = mZin(m, zl);
+    const g = cdiv(csub(z, c(50)), cadd(z, c(50)));
+    return Math.atan2(g.im, g.re);
+  };
+  const exact = -(ph(1e9 + 1e3) - ph(1e9 - 1e3)) / (2 * Math.PI * 2e3);
+  ok(Math.abs(tau[1] - exact) < 0.05 * Math.abs(exact), `centre ${tau[1]} against ${exact}`);
+  ok(Number.isFinite(tau[0]) && Number.isFinite(tau[2]), 'ends');
+  const sw = net.sweep(p, { start: 0.9e9, stop: 1.1e9, points: 3, scale: 'lin' });
+  const viaEngine = net.groupDelay(sw.map((m) => m.f), sw.map((m) => m.gamma));
+  viaEngine.forEach((t, i) => close(t, tau[i], 1e-9, "engine"));
+});
+
+test('group delay: a zero or infinite Γ gives NaN without breaking its neighbours', () => {
+  const t = net.groupDelay([1, 2, 3, 4], [c(0.5), c(0), c(0.5, 0.1), c(0.5, 0.2)]);
+  ok(Number.isNaN(t[0]) && Number.isNaN(t[1]), 'gap');
+  ok(Number.isFinite(t[2]) && Number.isFinite(t[3]), 'resumes');
+  same(net.groupDelay([1], [c(0.5)]).length, 1);
+  ok(Number.isNaN(net.groupDelay([1], [c(0.5)])[0]), 'single point');
 });
 
 /* ========================================================================== */

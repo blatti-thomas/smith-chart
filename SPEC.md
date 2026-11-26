@@ -145,7 +145,8 @@ Decision: **R** = kept, **A** = kept and improved, **X** = excluded (reason in �
 | Automatic matching | L network (up to 4 solutions), π and T at imposed Q, single stub (open / short, 2 positions), double stub (imposed spacing, forbidden zone flagged), λ/4 transformer (real load, or approach line + λ/4 for a complex load), series line + reactance. Target: Z0 or any impedance (conjugate matching). |
 | Solution ranking | By maximum node Q and by actual bandwidth (band where RL ≥ threshold, computed by numerical sweep of the synthesized network), with low-pass / high-pass character and DC pass or block |
 | Preferred values | E12 / E24 / E96 rounding per element or global, with resulting Γ, RL and VSWR displayed before / after |
-| Linked graphs | \|S11\| dB, VSWR, phase of Γ versus f; hovering over a graph = cursor on the chart, and vice versa |
+| Multi-band matching | Up to 8 bands; trace per band on the chart, bands on the plots, worst RL / VSWR per band against an RL goal. Optimizer (request of 2026-11-26, feedback from the professor): tunes the elements checked "Optimize" in the user's topology to minimize the worst \|Γ\| over all the bands. Search: Nelder-Mead on a p = 10 norm of \|Γ\|, variables mapped to [0, 1] (log scale for R, L, C, Zc, n), start from the current values + 12 pseudo-random starts with a fixed seed; the candidate with the smallest true maximum is kept. Project: `bands` field { on, rlGoal, list } and `opt` flag per element |
+| Linked graphs | Three plots versus f, format chosen per plot (request of 2026-11-26): Log Mag \|S11\| dB, Lin Mag \|Γ\|, phase of Γ, VSWR, return loss, mismatch loss, Re / Im / \|Zin\|, group delay of Γ; formats stored in the settings (`prefs.plots`), not in the project; hovering over a graph = cursor on the chart, and vice versa |
 | "Course" mode | Constant r or constant g circle followed by each element, Δx / Δb label as on slides 7, 8, 13, 14; z ↔ y symmetry about the centre (slides 10, 12) |
 | Real components | Finite Q on L and C; losses on the stubs |
 | Active region | r < 0 drawn outside the disc, flagged "active / unstable" |
@@ -164,7 +165,7 @@ Decision: **R** = kept, **A** = kept and improved, **X** = excluded (reason in �
 | Dockable windows, remembered positions | Replaced by a fixed, adaptive layout ("clean" constraint) |
 | Licence, demo mode (5 elements / 5 points) | Not applicable |
 | Touchstone 2.0 (`[Version] 2.0`), files with more than 2 ports | Rare for this use; explicit error message on import |
-| Numerical optimizer, tolerance analysis (Monte Carlo), microstrip models (W/h → Zc, εr_eff) | Not requested; candidates for a later version |
+| Tolerance analysis (Monte Carlo), microstrip models (W/h → Zc, εr_eff) | Not requested; candidates for a later version. The optimizer, first excluded here, is now covered in § 4 (multi-band matching) |
 | Complex characteristic impedance of lossy lines | Zc remains real (low-loss approximation, as in Smith); listed in the limitations |
 
 ## 6. RF conventions

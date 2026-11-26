@@ -103,9 +103,21 @@ values and the equivalent components, for the cursor, a hovered point, a sweep s
 the network input. Wheel: zoom; drag the background: pan; double-click or `0`: fit.
 
 **Inspector panels** (collapsible): automatic matching, preferred values E12/E24/E96, frequency sweep,
-VSWR and Q circles (with preset buttons and switches for the chart labels), amplifier (stability, gain,
+multi-band, VSWR and Q circles (with preset buttons and switches for the chart labels), amplifier (stability, gain,
 noise; for an imported .s2p or CITI file, a gain table with K, μ, MAG, MSG and plots of gain, stability and
 return loss against frequency), settings, files and exports.
+
+**Plot formats.** Each of the three frequency plots has a format menu, as on a network analyzer: Log Mag
+(|S11| in dB), Lin Mag (|Γ|), phase, VSWR, return loss, mismatch loss, real part, imaginary part and
+magnitude of Zin, group delay of Γ (−dφ/dω, in ns). The choice is a user setting, kept from one session to
+the next; it is not part of the project.
+
+**Multi-band matching.** The "Multi-band" panel takes up to 8 bands (for example 863 … 870 MHz and
+2.4 … 2.4835 GHz) and an RL goal. Each band is traced on the chart (thick green stroke, label B1, B2…) and
+shaded on the plots; a table gives the worst RL and the worst VSWR of each band. Build a topology (for
+example two L-C cells, or two line sections), check "Optimize" in the editor of the elements to tune, then
+click "Optimize": the tool looks for the values that maximize the worst RL over all the bands at once. Undo
+the result with Ctrl+Z.
 
 **Settings.** Default Z0 and frequency of a new project, vertical schematic, extended chart (r < 0, up to
 |Γ| = 2), colors, line widths, default slider range and E series. They are stored on this computer, not in
@@ -148,13 +160,17 @@ file.
 ## Verification
 
 `node tests.mjs` extracts the `smith-core` and `smith-chart` blocks of `index.html` and runs them as
-they are: the tested code is the shipped code. 113 tests cover:
+they are: the tested code is the shipped code. 122 tests cover:
 
 - the 8 course vectors, the slide 17 chain (values displayed by Smith V3.10) and Dellsperger's examples
   1, 4, 9, 10, 11 and 13;
 - every formula through an independent path: series/parallel reduction, closed tanh equation, ABCD
   matrices, nodal solver for the LTspice netlist, gain and noise formulas evaluated on the circles;
 - every synthesized network, fed back into the forward engine;
+- the group delay: short-circuited line (exactly 2·l / v), L-C cell against the derivative of the phase
+  computed with ABCD matrices;
+- the multi-band optimizer: L network found again in closed form on a narrow band, two-section
+  dual-frequency transformer (Monzon) reached and checked with ABCD matrices;
 - edge cases (short circuit, open circuit, f = 0, |Γ| = 1, r < 0, zero or infinite values);
 - the SVG geometry (arc flags, grid density, labels, the extended-chart grid, polyline thinning);
 - the readers and writers: Touchstone, CITI, CSV tables, circles CSV, project settings.
@@ -173,6 +189,12 @@ Calculation
 - The series resistance of a finite-Q component does not vary with frequency.
 - Matching synthesis assumes lossless elements and air-filled lines (εr = 1); it matches at f0 only.
   Double stub: both stubs are of the same type. π and T: two solutions.
+- Multi-band optimizer: numerical search (Nelder-Mead from the current values and 12 random starting
+  points, fixed seed), with no guarantee of a global optimum. It tunes the value of R, L and C, the ratio
+  of a transformer, the length (0 to 360°) and the impedance (Z0/5 to 5·Z0) of lines and stubs; not R-L-C
+  circuits. 15 points per band during the search, 41 for the table; the match targets Z0. The search
+  blocks the interface for a few seconds with 4 elements or more. A starting value outside these ranges
+  (for example a line longer than 360°) is brought back into them: the element may then change slightly.
 - E-series rounding takes the nearest value; lines are not rounded.
 - Amplifier: circles for one frequency at a time (the gain table and plots cover all the frequencies of an imported file); no unilateral figure of merit.
 

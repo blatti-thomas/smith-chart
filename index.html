@@ -226,6 +226,15 @@ input[aria-invalid="true"] { border-color: var(--crit); }
 .ring-label { fill: var(--ink-2); font-size: 10.5px; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; }
 .sweep { fill: none; stroke: var(--sweep); stroke-width: calc(2px * var(--w-sweep, 1)); stroke-linejoin: round; stroke-linecap: round; }
 .sweep-head { fill: var(--sweep); }
+.band { fill: none; stroke: var(--sweep); stroke-width: calc(6px * var(--w-sweep, 1)); stroke-opacity: 0.45; stroke-linejoin: round; stroke-linecap: round; }
+.band-label { font-size: 11px; font-weight: 600; fill: var(--ink); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; }
+.p-band { fill: var(--ink); fill-opacity: 0.07; }
+.p-goal { stroke: var(--ink-2); stroke-width: 1; stroke-dasharray: 4 3; }
+/* Band rows: a short label (B1, B2…) leaves the width to both frequency fields. */
+.ed .row.band-row label { width: 24px; }
+.bands-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 6px; }
+.bands-table td, .bands-table th { padding: 2px 4px; text-align: left; }
+.bands-table .num { text-align: right; font-variant-numeric: tabular-nums; }
 .traj { fill: none; stroke: var(--traj-c, var(--ink)); stroke-width: calc(2px * var(--w-traj, 1)); stroke-linejoin: round; stroke-linecap: round; }
 .traj.sel { stroke-width: calc(3.2px * var(--w-traj, 1)); }
 .traj-head { fill: var(--ink); }
@@ -313,7 +322,15 @@ body.schem-v .plots { grid-column: 1 / -1; grid-row: 3; }
 /* ------------------------------------------------------------------ plots */
 .plots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0 14px 14px; }
 .plots[hidden] { display: none; }
-.plot { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.plot { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.plot-fmt {
+  position: absolute; left: 6px; top: 2px; max-width: 70%;
+  font: 600 11px/1.2 inherit; color: var(--ink-2); background: transparent;
+  border: 1px solid transparent; border-radius: 5px; padding: 1px 2px; cursor: pointer;
+}
+.plot-fmt:hover, .plot-fmt:focus-visible { border-color: var(--border); color: var(--ink); }
+.plot-fmt option { background: var(--surface); color: var(--ink); }
+.plot .p-title { display: none; }
 .plot svg { display: block; width: 100%; height: 150px; cursor: crosshair; touch-action: none; }
 .plots-empty { grid-column: 1 / -1; padding: 12px 14px; border: 1px dashed var(--border); border-radius: 10px; color: var(--muted); }
 .p-grid { stroke: var(--hair); stroke-width: 1; }
@@ -413,7 +430,8 @@ details.card > summary small { color: var(--muted); font-weight: 400; letter-spa
 body.dropping .chart-wrap, body.dropping #chart { outline: 2px dashed var(--muted); outline-offset: -6px; }
 .check { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
 @media print {
-  .topbar, .palette, .zoom, .hint, .inspector, .plots-empty, .menu-pop, dialog { display: none; }
+  .topbar, .palette, .zoom, .hint, .inspector, .plots-empty, .menu-pop, dialog, .plot-fmt { display: none; }
+  .plot .p-title { display: inline; }
   .app { display: block; height: auto; }
   body { background: #fff; }
   .chart-box { height: 170mm; }
@@ -496,10 +514,10 @@ body.dropping .chart-wrap, body.dropping #chart { outline: 2px dashed var(--mute
       <div class="hint">Wheel: zoom · drag background: pan · drag a point: tune · double-click: fit</div>
     </section>
     <section class="plots" id="plots" aria-label="Frequency plots">
-      <div class="plot"><svg id="plot-s11" data-i18n-skip role="img" aria-label="Magnitude of S11 in decibels versus frequency"></svg></div>
-      <div class="plot"><svg id="plot-vswr" data-i18n-skip role="img" aria-label="VSWR versus frequency"></svg></div>
-      <div class="plot"><svg id="plot-phase" data-i18n-skip role="img" aria-label="Phase of the reflection coefficient versus frequency"></svg></div>
-      <div class="plots-empty" id="plots-empty">Turn on the sweep (right panel) to plot |S11|, VSWR and phase versus frequency.</div>
+      <div class="plot"><select class="plot-fmt" id="fmt-0" data-i18n-skip aria-label="Format of plot 1"></select><svg id="plot-s11" data-i18n-skip role="img" aria-label="Plot 1 versus frequency"></svg></div>
+      <div class="plot"><select class="plot-fmt" id="fmt-1" data-i18n-skip aria-label="Format of plot 2"></select><svg id="plot-vswr" data-i18n-skip role="img" aria-label="Plot 2 versus frequency"></svg></div>
+      <div class="plot"><select class="plot-fmt" id="fmt-2" data-i18n-skip aria-label="Format of plot 3"></select><svg id="plot-phase" data-i18n-skip role="img" aria-label="Plot 3 versus frequency"></svg></div>
+      <div class="plots-empty" id="plots-empty">Turn on the sweep (right panel) to plot |S11|, VSWR, phase, Zin, group delay… versus frequency (format chosen on each plot).</div>
     </section>
   </main>
 
@@ -532,6 +550,11 @@ body.dropping .chart-wrap, body.dropping #chart { outline: 2px dashed var(--mute
     <details class="card ed">
       <summary>Frequency sweep</summary>
       <div id="sweep-box" data-i18n-skip></div>
+    </details>
+    <details class="card ed" id="card-bands">
+      <summary>Multi-band</summary>
+      <div id="bands-box" data-i18n-skip></div>
+      <div id="bands-report" data-i18n-skip></div>
     </details>
     <details class="card">
       <summary>Circles</summary>
@@ -754,10 +777,7 @@ SmithI18n.register('fr', {
   'Fit': 'Ajuster',
   'Wheel: zoom · drag background: pan · drag a point: tune · double-click: fit': 'Molette : zoom · glisser le fond : déplacer · glisser un point : régler · double-clic : ajuster',
   'Frequency plots': 'Graphes en fréquence',
-  'Magnitude of S11 in decibels versus frequency': 'Module de S11 en décibels en fonction de la fréquence',
-  'VSWR versus frequency': 'VSWR en fonction de la fréquence',
-  'Phase of the reflection coefficient versus frequency': 'Phase du coefficient de réflexion en fonction de la fréquence',
-  'Turn on the sweep (right panel) to plot |S11|, VSWR and phase versus frequency.': 'Activez le sweep (panneau de droite) pour tracer |S11|, le VSWR et la phase en fonction de la fréquence.',
+  'Turn on the sweep (right panel) to plot |S11|, VSWR, phase, Zin, group delay… versus frequency (format chosen on each plot).': 'Activez le sweep (panneau de droite) pour tracer en fonction de la fréquence |S11|, le VSWR, la phase, Zin, le retard de groupe… (format au choix sur chaque graphe).',
   'Inspector': 'Inspecteur',
   'Element': 'Élément',
   'Cursor': 'Curseur',
@@ -1085,7 +1105,7 @@ SmithI18n.register('fr', {
   'Table of the DP and TP points with Z and Q.': 'Tableau des points DP et TP avec Z et Q.',
   'Proposes L, π, T, stub, quarter-wave or line-and-reactance networks, ranked by bandwidth or by Q.': 'Propose des réseaux en L, en π, en T, à stub, quart d\'onde ou ligne et réactance, classés par bande passante ou par Q.',
   'Rounds all R, L and C to an E series and shows the effect on the match.': 'Arrondit tous les R, L et C à une série E et montre l\'effet sur l\'adaptation.',
-  'Plots the network input over a frequency range, with the |S11|, VSWR and phase plots.': 'Trace l\'entrée du réseau sur une plage de fréquences, avec les graphes de |S11|, du VSWR et de la phase.',
+  'Plots the network input over a frequency range, with three plots. The menu at the top left of each plot picks its format, as on a network analyzer: Log Mag (|S11| in dB), Lin Mag (|Γ|), phase, VSWR, return loss, mismatch loss, real part, imaginary part and magnitude of Zin, group delay of Γ.': 'Trace l\'entrée du réseau sur une plage de fréquences, avec trois graphes. Le menu en haut à gauche de chaque graphe choisit son format, comme sur un analyseur de réseau : Log Mag (|S11| en dB), Lin Mag (|Γ|), phase, VSWR, perte de retour, perte de désadaptation, partie réelle, partie imaginaire et module de Zin, retard de groupe de Γ.',
   'VSWR circles and Q loci, with presets, and the choice of displayed labels.': 'Cercles de VSWR et lieux de Q, avec préréglages, et choix des étiquettes affichées.',
   'Stability, gain and noise of a two-port described by its S parameters; table and per-frequency plots after importing an .s2p or CITI file.': 'Stabilité, gain et bruit d\'un quadripôle décrit par ses paramètres S ; tableau et graphes par fréquence après l\'import d\'un fichier .s2p ou CITI.',
   'Settings': 'Réglages',
@@ -1150,6 +1170,41 @@ SmithI18n.register('fr', {
   '© 2026 Thomas Blatti. Released under the MIT license.': '© 2026 Thomas Blatti. Publié sous licence MIT.',
   'Independent rewrite, inspired by the Smith software by Fritz Dellsperger. No code from that software is used.': 'Réécriture indépendante, inspirée du logiciel Smith de Fritz Dellsperger. Aucun code de ce logiciel n\'est utilisé.',
   'The desktop application is built with Electron.': 'L\'application de bureau est construite avec Electron.',
+  // multi-band matching, optimizer and plot formats
+  'No band defined.': 'Aucune bande définie.',
+  'Nothing to optimize: check "Optimize" on at least one R, L, C, line, stub or transformer.': 'Rien à optimiser : cochez « Optimiser » sur au moins un R, L, C, ligne, stub ou transformateur.',
+  '✓ Optimize': '✓ Optimiser',
+  'Optimize': 'Optimiser',
+  'Assess': 'Évaluer',
+  'bands on the chart and the plots': 'bandes sur l\'abaque et les graphes',
+  'Start of band {0}': 'Début de la bande {0}',
+  'Stop of band {0}': 'Fin de la bande {0}',
+  'Remove band {0}': 'Retirer la bande {0}',
+  'RL goal': 'RL visé',
+  'Add a band': 'Ajouter une bande',
+  'Band': 'Bande',
+  'Min RL': 'RL min',
+  'Max VSWR': 'VSWR max',
+  'Add the bands to cover (e.g. 863 … 870 MHz and 2.4 … 2.4835 GHz), check "Optimize" in the editor of the elements to tune, then run the optimizer: it looks for the values that maximize the worst RL over all the bands at once.': 'Ajoutez les bandes à couvrir (par ex. 863 … 870 MHz et 2.4 … 2.4835 GHz), cochez « Optimiser » dans l\'éditeur des éléments à régler, puis lancez l\'optimiseur : il cherche les valeurs qui maximisent le pire RL sur toutes les bandes à la fois.',
+  'Tuned by the optimizer: {0}.': 'Réglés par l\'optimiseur : {0}.',
+  'No element checked "Optimize" (element editor).': 'Aucun élément coché « Optimiser » (éditeur de l\'élément).',
+  'Add at least one band.': 'Ajoutez au moins une bande.',
+  'Check "Optimize" on at least one element (L, C, R, line, stub or transformer).': 'Cochez « Optimiser » sur au moins un élément (L, C, R, ligne, stub ou transformateur).',
+  'Computing…': 'Calcul…',
+  'No improvement found (worst RL {0}, {1} s). Try another topology or check other elements.': 'Pas d\'amélioration trouvée (pire RL {0}, {1} s). Essayez une autre topologie ou cochez d\'autres éléments.',
+  'Worst RL over the bands: {0} → <b>{1}</b> ({2} s, undo with Ctrl+Z).': 'Pire RL sur les bandes : {0} → <b>{1}</b> ({2} s, annulable par Ctrl+Z).',
+  'Log Mag (dB)': 'Log Mag (dB)',
+  'Phase (°)': 'Phase (°)',
+  'RL (dB)': 'RL (dB)',
+  'Return loss (dB)': 'Perte de retour (dB)',
+  'Mismatch (dB)': 'Désadapt. (dB)',
+  'Mismatch loss (dB)': 'Perte de désadaptation (dB)',
+  'Group delay (ns)': 'Retard gr. (ns)',
+  'Group delay of Γ (ns)': 'Retard de groupe de Γ (ns)',
+  'Format of plot {0}': 'Format du graphe {0}',
+  '{0} versus frequency': '{0} en fonction de la fréquence',
+  'Multi-band': 'Multi-bandes',
+  'Up to 8 bands to cover at once: trace of each band on the chart (B1, B2…), bands shaded on the plots, worst RL and VSWR per band against the RL goal. "Optimize" tunes the elements checked "Optimize" in their editor to maximize the worst RL over all the bands; the topology stays yours.': 'Jusqu\'à 8 bandes à couvrir en même temps : trace de chaque bande sur l\'abaque (B1, B2…), bandes grisées sur les graphes, pire RL et VSWR par bande face au RL visé. « Optimiser » règle les éléments cochés « Optimiser » dans leur éditeur pour maximiser le pire RL sur toutes les bandes ; la topologie reste la vôtre.',
 });
 
 // Deutsch
@@ -1205,10 +1260,7 @@ SmithI18n.register('de', {
   'Fit': 'Anpassen',
   'Wheel: zoom · drag background: pan · drag a point: tune · double-click: fit': 'Mausrad: Zoom · Hintergrund ziehen: verschieben · Punkt ziehen: abstimmen · Doppelklick: anpassen',
   'Frequency plots': 'Frequenzdiagramme',
-  'Magnitude of S11 in decibels versus frequency': 'Betrag von S11 in Dezibel über der Frequenz',
-  'VSWR versus frequency': 'VSWR über der Frequenz',
-  'Phase of the reflection coefficient versus frequency': 'Phase des Reflexionsfaktors über der Frequenz',
-  'Turn on the sweep (right panel) to plot |S11|, VSWR and phase versus frequency.': 'Frequenzdurchlauf (rechtes Feld) einschalten, um |S11|, VSWR und Phase über der Frequenz darzustellen.',
+  'Turn on the sweep (right panel) to plot |S11|, VSWR, phase, Zin, group delay… versus frequency (format chosen on each plot).': 'Frequenzdurchlauf (rechtes Feld) einschalten, um |S11|, VSWR, Phase, Zin, Gruppenlaufzeit… über der Frequenz darzustellen (Format in jedem Diagramm wählbar).',
   'Inspector': 'Inspektor',
   'Element': 'Element',
   'Cursor': 'Cursor',
@@ -1536,7 +1588,7 @@ SmithI18n.register('de', {
   'Table of the DP and TP points with Z and Q.': 'Tabelle der Punkte DP und TP mit Z und Q.',
   'Proposes L, π, T, stub, quarter-wave or line-and-reactance networks, ranked by bandwidth or by Q.': 'Schlägt L-, π-, T-, Stub-, Viertelwellen- oder Leitung-mit-Blindwiderstand-Netzwerke vor, geordnet nach Bandbreite oder Q.',
   'Rounds all R, L and C to an E series and shows the effect on the match.': 'Rundet alle R, L und C auf eine E-Reihe und zeigt die Wirkung auf die Anpassung.',
-  'Plots the network input over a frequency range, with the |S11|, VSWR and phase plots.': 'Stellt den Netzwerkeingang über einem Frequenzbereich dar, mit den Diagrammen |S11|, VSWR und Phase.',
+  'Plots the network input over a frequency range, with three plots. The menu at the top left of each plot picks its format, as on a network analyzer: Log Mag (|S11| in dB), Lin Mag (|Γ|), phase, VSWR, return loss, mismatch loss, real part, imaginary part and magnitude of Zin, group delay of Γ.': 'Stellt den Netzwerkeingang über einem Frequenzbereich in drei Diagrammen dar. Das Menü oben links in jedem Diagramm wählt dessen Format, wie bei einem Netzwerkanalysator: Log Mag (|S11| in dB), Lin Mag (|Γ|), Phase, VSWR, Rückflussdämpfung, Fehlanpassungsdämpfung, Real-, Imaginärteil und Betrag von Zin, Gruppenlaufzeit von Γ.',
   'VSWR circles and Q loci, with presets, and the choice of displayed labels.': 'VSWR-Kreise und Q-Ortskurven, mit Voreinstellungen, und die Wahl der angezeigten Beschriftungen.',
   'Stability, gain and noise of a two-port described by its S parameters; table and per-frequency plots after importing an .s2p or CITI file.': 'Stabilität, Verstärkung und Rauschen eines Zweitors, beschrieben durch seine S-Parameter; Tabelle und Diagramme pro Frequenz nach dem Import einer .s2p- oder CITI-Datei.',
   'Settings': 'Einstellungen',
@@ -1601,6 +1653,41 @@ SmithI18n.register('de', {
   '© 2026 Thomas Blatti. Released under the MIT license.': '© 2026 Thomas Blatti. Veröffentlicht unter der MIT-Lizenz.',
   'Independent rewrite, inspired by the Smith software by Fritz Dellsperger. No code from that software is used.': 'Unabhängige Neuentwicklung, inspiriert von der Software Smith von Fritz Dellsperger. Es wird kein Code dieser Software verwendet.',
   'The desktop application is built with Electron.': 'Die Desktop-Anwendung basiert auf Electron.',
+  // multi-band matching, optimizer and plot formats
+  'No band defined.': 'Kein Band definiert.',
+  'Nothing to optimize: check "Optimize" on at least one R, L, C, line, stub or transformer.': 'Nichts zu optimieren: „Optimieren“ bei mindestens einem R, L, C, Leitung, Stichleitung oder Transformator ankreuzen.',
+  '✓ Optimize': '✓ Optimieren',
+  'Optimize': 'Optimieren',
+  'Assess': 'Auswerten',
+  'bands on the chart and the plots': 'Bänder im Diagramm und in den Kurven',
+  'Start of band {0}': 'Anfang von Band {0}',
+  'Stop of band {0}': 'Ende von Band {0}',
+  'Remove band {0}': 'Band {0} entfernen',
+  'RL goal': 'RL-Ziel',
+  'Add a band': 'Band hinzufügen',
+  'Band': 'Band',
+  'Min RL': 'Min. RL',
+  'Max VSWR': 'Max. VSWR',
+  'Add the bands to cover (e.g. 863 … 870 MHz and 2.4 … 2.4835 GHz), check "Optimize" in the editor of the elements to tune, then run the optimizer: it looks for the values that maximize the worst RL over all the bands at once.': 'Die abzudeckenden Bänder hinzufügen (z. B. 863 … 870 MHz und 2.4 … 2.4835 GHz), „Optimieren“ im Editor der abzustimmenden Elemente ankreuzen und dann den Optimierer starten: Er sucht die Werte, die die schlechteste RL über alle Bänder zugleich maximieren.',
+  'Tuned by the optimizer: {0}.': 'Vom Optimierer abgestimmt: {0}.',
+  'No element checked "Optimize" (element editor).': 'Kein Element mit „Optimieren“ angekreuzt (Element-Editor).',
+  'Add at least one band.': 'Mindestens ein Band hinzufügen.',
+  'Check "Optimize" on at least one element (L, C, R, line, stub or transformer).': '„Optimieren“ bei mindestens einem Element ankreuzen (L, C, R, Leitung, Stichleitung oder Transformator).',
+  'Computing…': 'Berechnung…',
+  'No improvement found (worst RL {0}, {1} s). Try another topology or check other elements.': 'Keine Verbesserung gefunden (schlechteste RL {0}, {1} s). Eine andere Topologie versuchen oder andere Elemente ankreuzen.',
+  'Worst RL over the bands: {0} → <b>{1}</b> ({2} s, undo with Ctrl+Z).': 'Schlechteste RL über die Bänder: {0} → <b>{1}</b> ({2} s, rückgängig mit Strg+Z).',
+  'Log Mag (dB)': 'Log Mag (dB)',
+  'Phase (°)': 'Phase (°)',
+  'RL (dB)': 'RL (dB)',
+  'Return loss (dB)': 'Rückflussdämpfung (dB)',
+  'Mismatch (dB)': 'Fehlanp. (dB)',
+  'Mismatch loss (dB)': 'Fehlanpassungsdämpfung (dB)',
+  'Group delay (ns)': 'Gruppenlaufz. (ns)',
+  'Group delay of Γ (ns)': 'Gruppenlaufzeit von Γ (ns)',
+  'Format of plot {0}': 'Format von Diagramm {0}',
+  '{0} versus frequency': '{0} über der Frequenz',
+  'Multi-band': 'Mehrband',
+  'Up to 8 bands to cover at once: trace of each band on the chart (B1, B2…), bands shaded on the plots, worst RL and VSWR per band against the RL goal. "Optimize" tunes the elements checked "Optimize" in their editor to maximize the worst RL over all the bands; the topology stays yours.': 'Bis zu 8 gleichzeitig abzudeckende Bänder: Verlauf jedes Bands im Diagramm (B1, B2…), schattierte Bänder in den Kurven, schlechteste RL und VSWR je Band gegenüber dem RL-Ziel. „Optimieren“ stimmt die in ihrem Editor mit „Optimieren“ angekreuzten Elemente so ab, dass die schlechteste RL über alle Bänder maximal wird; die Topologie bleibt Ihre.',
 });
 
 // italiano
@@ -1656,10 +1743,7 @@ SmithI18n.register('it', {
   'Fit': 'Adatta',
   'Wheel: zoom · drag background: pan · drag a point: tune · double-click: fit': 'Rotellina: zoom · trascina lo sfondo: sposta · trascina un punto: regola · doppio clic: adatta',
   'Frequency plots': 'Grafici in frequenza',
-  'Magnitude of S11 in decibels versus frequency': 'Modulo di S11 in decibel in funzione della frequenza',
-  'VSWR versus frequency': 'VSWR in funzione della frequenza',
-  'Phase of the reflection coefficient versus frequency': 'Fase del coefficiente di riflessione in funzione della frequenza',
-  'Turn on the sweep (right panel) to plot |S11|, VSWR and phase versus frequency.': 'Attiva lo sweep (pannello di destra) per tracciare |S11|, VSWR e fase in funzione della frequenza.',
+  'Turn on the sweep (right panel) to plot |S11|, VSWR, phase, Zin, group delay… versus frequency (format chosen on each plot).': 'Attiva lo sweep (pannello di destra) per tracciare |S11|, VSWR, fase, Zin, ritardo di gruppo… in funzione della frequenza (formato a scelta su ogni grafico).',
   'Inspector': 'Ispettore',
   'Element': 'Elemento',
   'Cursor': 'Cursore',
@@ -1987,7 +2071,7 @@ SmithI18n.register('it', {
   'Table of the DP and TP points with Z and Q.': 'Tabella dei punti DP e TP con Z e Q.',
   'Proposes L, π, T, stub, quarter-wave or line-and-reactance networks, ranked by bandwidth or by Q.': 'Propone reti ad L, a π, a T, a stub, a quarto d\'onda o a linea e reattanza, ordinate per larghezza di banda o per Q.',
   'Rounds all R, L and C to an E series and shows the effect on the match.': 'Arrotonda tutti gli R, L e C a una serie E e mostra l\'effetto sull\'adattamento.',
-  'Plots the network input over a frequency range, with the |S11|, VSWR and phase plots.': 'Traccia l\'ingresso della rete su un intervallo di frequenza, con i grafici di |S11|, VSWR e fase.',
+  'Plots the network input over a frequency range, with three plots. The menu at the top left of each plot picks its format, as on a network analyzer: Log Mag (|S11| in dB), Lin Mag (|Γ|), phase, VSWR, return loss, mismatch loss, real part, imaginary part and magnitude of Zin, group delay of Γ.': 'Traccia l\'ingresso della rete su un intervallo di frequenza, con tre grafici. Il menu in alto a sinistra di ogni grafico ne sceglie il formato, come su un analizzatore di reti: Log Mag (|S11| in dB), Lin Mag (|Γ|), fase, VSWR, perdita di ritorno, perdita di disadattamento, parte reale, parte immaginaria e modulo di Zin, ritardo di gruppo di Γ.',
   'VSWR circles and Q loci, with presets, and the choice of displayed labels.': 'Cerchi di VSWR e luoghi di Q, con preimpostazioni, e scelta delle etichette visualizzate.',
   'Stability, gain and noise of a two-port described by its S parameters; table and per-frequency plots after importing an .s2p or CITI file.': 'Stabilità, guadagno e rumore di un doppio bipolo descritto dai suoi parametri S; tabella e grafici per frequenza dopo l\'importazione di un file .s2p o CITI.',
   'Settings': 'Impostazioni',
@@ -2052,6 +2136,41 @@ SmithI18n.register('it', {
   '© 2026 Thomas Blatti. Released under the MIT license.': '© 2026 Thomas Blatti. Rilasciato con licenza MIT.',
   'Independent rewrite, inspired by the Smith software by Fritz Dellsperger. No code from that software is used.': 'Riscrittura indipendente, ispirata al software Smith di Fritz Dellsperger. Nessun codice di quel software è utilizzato.',
   'The desktop application is built with Electron.': 'L\'applicazione desktop è realizzata con Electron.',
+  // multi-band matching, optimizer and plot formats
+  'No band defined.': 'Nessuna banda definita.',
+  'Nothing to optimize: check "Optimize" on at least one R, L, C, line, stub or transformer.': 'Niente da ottimizzare: spunta «Ottimizza» su almeno un R, L, C, linea, stub o trasformatore.',
+  '✓ Optimize': '✓ Ottimizza',
+  'Optimize': 'Ottimizza',
+  'Assess': 'Valuta',
+  'bands on the chart and the plots': 'bande sulla carta e sui grafici',
+  'Start of band {0}': 'Inizio della banda {0}',
+  'Stop of band {0}': 'Fine della banda {0}',
+  'Remove band {0}': 'Rimuovi la banda {0}',
+  'RL goal': 'RL obiettivo',
+  'Add a band': 'Aggiungi una banda',
+  'Band': 'Banda',
+  'Min RL': 'RL min',
+  'Max VSWR': 'VSWR max',
+  'Add the bands to cover (e.g. 863 … 870 MHz and 2.4 … 2.4835 GHz), check "Optimize" in the editor of the elements to tune, then run the optimizer: it looks for the values that maximize the worst RL over all the bands at once.': 'Aggiungi le bande da coprire (ad es. 863 … 870 MHz e 2.4 … 2.4835 GHz), spunta «Ottimizza» nell\'editor degli elementi da regolare, poi avvia l\'ottimizzatore: cerca i valori che massimizzano il peggior RL su tutte le bande insieme.',
+  'Tuned by the optimizer: {0}.': 'Regolati dall\'ottimizzatore: {0}.',
+  'No element checked "Optimize" (element editor).': 'Nessun elemento con «Ottimizza» spuntato (editor dell\'elemento).',
+  'Add at least one band.': 'Aggiungi almeno una banda.',
+  'Check "Optimize" on at least one element (L, C, R, line, stub or transformer).': 'Spunta «Ottimizza» su almeno un elemento (L, C, R, linea, stub o trasformatore).',
+  'Computing…': 'Calcolo…',
+  'No improvement found (worst RL {0}, {1} s). Try another topology or check other elements.': 'Nessun miglioramento trovato (peggior RL {0}, {1} s). Prova un\'altra topologia o spunta altri elementi.',
+  'Worst RL over the bands: {0} → <b>{1}</b> ({2} s, undo with Ctrl+Z).': 'Peggior RL sulle bande: {0} → <b>{1}</b> ({2} s, annullabile con Ctrl+Z).',
+  'Log Mag (dB)': 'Log Mag (dB)',
+  'Phase (°)': 'Fase (°)',
+  'RL (dB)': 'RL (dB)',
+  'Return loss (dB)': 'Perdita di ritorno (dB)',
+  'Mismatch (dB)': 'Disadatt. (dB)',
+  'Mismatch loss (dB)': 'Perdita di disadattamento (dB)',
+  'Group delay (ns)': 'Ritardo gr. (ns)',
+  'Group delay of Γ (ns)': 'Ritardo di gruppo di Γ (ns)',
+  'Format of plot {0}': 'Formato del grafico {0}',
+  '{0} versus frequency': '{0} in funzione della frequenza',
+  'Multi-band': 'Multibanda',
+  'Up to 8 bands to cover at once: trace of each band on the chart (B1, B2…), bands shaded on the plots, worst RL and VSWR per band against the RL goal. "Optimize" tunes the elements checked "Optimize" in their editor to maximize the worst RL over all the bands; the topology stays yours.': 'Fino a 8 bande da coprire insieme: traccia di ogni banda sulla carta (B1, B2…), bande ombreggiate sui grafici, peggior RL e VSWR per banda rispetto all\'RL obiettivo. «Ottimizza» regola gli elementi spuntati «Ottimizza» nel loro editor per massimizzare il peggior RL su tutte le bande; la topologia resta la tua.',
 });
 
 // español
@@ -2107,10 +2226,7 @@ SmithI18n.register('es', {
   'Fit': 'Ajustar',
   'Wheel: zoom · drag background: pan · drag a point: tune · double-click: fit': 'Rueda: zoom · arrastrar el fondo: desplazar · arrastrar un punto: ajustar · doble clic: ajustar',
   'Frequency plots': 'Gráficos en frecuencia',
-  'Magnitude of S11 in decibels versus frequency': 'Módulo de S11 en decibelios en función de la frecuencia',
-  'VSWR versus frequency': 'VSWR en función de la frecuencia',
-  'Phase of the reflection coefficient versus frequency': 'Fase del coeficiente de reflexión en función de la frecuencia',
-  'Turn on the sweep (right panel) to plot |S11|, VSWR and phase versus frequency.': 'Active el barrido (panel derecho) para trazar |S11|, VSWR y fase en función de la frecuencia.',
+  'Turn on the sweep (right panel) to plot |S11|, VSWR, phase, Zin, group delay… versus frequency (format chosen on each plot).': 'Active el barrido (panel derecho) para trazar |S11|, VSWR, fase, Zin, retardo de grupo… en función de la frecuencia (formato a elegir en cada gráfico).',
   'Inspector': 'Inspector',
   'Element': 'Elemento',
   'Cursor': 'Cursor',
@@ -2438,7 +2554,7 @@ SmithI18n.register('es', {
   'Table of the DP and TP points with Z and Q.': 'Tabla de los puntos DP y TP con Z y Q.',
   'Proposes L, π, T, stub, quarter-wave or line-and-reactance networks, ranked by bandwidth or by Q.': 'Propone redes en L, π, T, stub, cuarto de onda o línea y reactancia, ordenadas por ancho de banda o por Q.',
   'Rounds all R, L and C to an E series and shows the effect on the match.': 'Redondea todos los R, L y C a una serie E y muestra el efecto sobre la adaptación.',
-  'Plots the network input over a frequency range, with the |S11|, VSWR and phase plots.': 'Traza la entrada de la red en un rango de frecuencias, con los gráficos de |S11|, VSWR y fase.',
+  'Plots the network input over a frequency range, with three plots. The menu at the top left of each plot picks its format, as on a network analyzer: Log Mag (|S11| in dB), Lin Mag (|Γ|), phase, VSWR, return loss, mismatch loss, real part, imaginary part and magnitude of Zin, group delay of Γ.': 'Traza la entrada de la red en un rango de frecuencias, con tres gráficos. El menú arriba a la izquierda de cada gráfico elige su formato, como en un analizador de redes: Log Mag (|S11| en dB), Lin Mag (|Γ|), fase, VSWR, pérdida de retorno, pérdida por desadaptación, parte real, parte imaginaria y módulo de Zin, retardo de grupo de Γ.',
   'VSWR circles and Q loci, with presets, and the choice of displayed labels.': 'Círculos de VSWR y lugares geométricos de Q, con preajustes, y elección de las etiquetas mostradas.',
   'Stability, gain and noise of a two-port described by its S parameters; table and per-frequency plots after importing an .s2p or CITI file.': 'Estabilidad, ganancia y ruido de un cuadripolo descrito por sus parámetros S; tabla y gráficos por frecuencia tras importar un archivo .s2p o CITI.',
   'Settings': 'Ajustes',
@@ -2503,6 +2619,41 @@ SmithI18n.register('es', {
   '© 2026 Thomas Blatti. Released under the MIT license.': '© 2026 Thomas Blatti. Publicado bajo la licencia MIT.',
   'Independent rewrite, inspired by the Smith software by Fritz Dellsperger. No code from that software is used.': 'Reescritura independiente, inspirada en el software Smith de Fritz Dellsperger. No se usa ningún código de ese software.',
   'The desktop application is built with Electron.': 'La aplicación de escritorio está creada con Electron.',
+  // multi-band matching, optimizer and plot formats
+  'No band defined.': 'Ninguna banda definida.',
+  'Nothing to optimize: check "Optimize" on at least one R, L, C, line, stub or transformer.': 'Nada que optimizar: marque «Optimizar» en al menos un R, L, C, línea, stub o transformador.',
+  '✓ Optimize': '✓ Optimizar',
+  'Optimize': 'Optimizar',
+  'Assess': 'Evaluar',
+  'bands on the chart and the plots': 'bandas en la carta y en los gráficos',
+  'Start of band {0}': 'Inicio de la banda {0}',
+  'Stop of band {0}': 'Fin de la banda {0}',
+  'Remove band {0}': 'Quitar la banda {0}',
+  'RL goal': 'RL objetivo',
+  'Add a band': 'Añadir una banda',
+  'Band': 'Banda',
+  'Min RL': 'RL mín.',
+  'Max VSWR': 'VSWR máx.',
+  'Add the bands to cover (e.g. 863 … 870 MHz and 2.4 … 2.4835 GHz), check "Optimize" in the editor of the elements to tune, then run the optimizer: it looks for the values that maximize the worst RL over all the bands at once.': 'Añada las bandas que cubrir (p. ej. 863 … 870 MHz y 2.4 … 2.4835 GHz), marque «Optimizar» en el editor de los elementos que ajustar y lance el optimizador: busca los valores que maximizan el peor RL sobre todas las bandas a la vez.',
+  'Tuned by the optimizer: {0}.': 'Ajustados por el optimizador: {0}.',
+  'No element checked "Optimize" (element editor).': 'Ningún elemento marcado «Optimizar» (editor del elemento).',
+  'Add at least one band.': 'Añada al menos una banda.',
+  'Check "Optimize" on at least one element (L, C, R, line, stub or transformer).': 'Marque «Optimizar» en al menos un elemento (L, C, R, línea, stub o transformador).',
+  'Computing…': 'Calculando…',
+  'No improvement found (worst RL {0}, {1} s). Try another topology or check other elements.': 'No se encontró mejora (peor RL {0}, {1} s). Pruebe otra topología o marque otros elementos.',
+  'Worst RL over the bands: {0} → <b>{1}</b> ({2} s, undo with Ctrl+Z).': 'Peor RL sobre las bandas: {0} → <b>{1}</b> ({2} s, se deshace con Ctrl+Z).',
+  'Log Mag (dB)': 'Log Mag (dB)',
+  'Phase (°)': 'Fase (°)',
+  'RL (dB)': 'RL (dB)',
+  'Return loss (dB)': 'Pérdida de retorno (dB)',
+  'Mismatch (dB)': 'Desadapt. (dB)',
+  'Mismatch loss (dB)': 'Pérdida por desadaptación (dB)',
+  'Group delay (ns)': 'Retardo gr. (ns)',
+  'Group delay of Γ (ns)': 'Retardo de grupo de Γ (ns)',
+  'Format of plot {0}': 'Formato del gráfico {0}',
+  '{0} versus frequency': '{0} en función de la frecuencia',
+  'Multi-band': 'Multibanda',
+  'Up to 8 bands to cover at once: trace of each band on the chart (B1, B2…), bands shaded on the plots, worst RL and VSWR per band against the RL goal. "Optimize" tunes the elements checked "Optimize" in their editor to maximize the worst RL over all the bands; the topology stays yours.': 'Hasta 8 bandas que cubrir a la vez: traza de cada banda en la carta (B1, B2…), bandas sombreadas en los gráficos, peor RL y VSWR por banda frente al RL objetivo. «Optimizar» ajusta los elementos marcados «Optimizar» en su editor para maximizar el peor RL sobre todas las bandas; la topología sigue siendo suya.',
 });
 </script>
 
@@ -3070,6 +3221,31 @@ const SmithCore = (() => {
     return metrics(states[node < 0 ? states.length + node : node], project.z0, f);
   });
 
+  /** Group delay of a reflection over a sweep, tau = -d(arg gamma)/d(omega) in
+   *  seconds. The phase is unwrapped point to point; central differences inside,
+   *  one-sided at the ends and next to a gap. NaN where gamma is zero or not
+   *  finite, or where no neighbour is usable. */
+  const groupDelay = (fs, gammas) => {
+    const n = fs.length;
+    const ph = new Array(n).fill(NaN);
+    let prev = NaN;
+    for (let i = 0; i < n; i += 1) {
+      const g = gammas[i];
+      if (!g || !Number.isFinite(g.re) || !Number.isFinite(g.im) || (g.re === 0 && g.im === 0)) { prev = NaN; continue; }
+      let a = Math.atan2(g.im, g.re);
+      if (Number.isFinite(prev)) a += 2 * Math.PI * Math.round((prev - a) / (2 * Math.PI));
+      ph[i] = a;
+      prev = a;
+    }
+    return ph.map((p, i) => {
+      if (!Number.isFinite(p)) return NaN;
+      const a = i > 0 && Number.isFinite(ph[i - 1]) ? i - 1 : i;
+      const b = i < n - 1 && Number.isFinite(ph[i + 1]) ? i + 1 : i;
+      if (a === b || fs[b] === fs[a]) return NaN;
+      return -(ph[b] - ph[a]) / (2 * Math.PI * (fs[b] - fs[a]));
+    });
+  };
+
   /** Path drawn on the chart by element `index` as it grows from nothing to its
    *  full value: [{ t, gamma }], t from 0 to 1. Sampling is refined until
    *  consecutive points are closer than `maxStep` in the gamma plane. */
@@ -3217,6 +3393,170 @@ const SmithCore = (() => {
       else { a = c1; c1 = c2; d1 = d2; c2 = a + PHI * (b - a); d2 = dist(at(c2)); }
     }
     return at((a + b) / 2);
+  };
+
+  /* --- Multi-band matching -------------------------------------------------------- */
+
+  /** Frequencies sampled in one band { start, stop }, evenly spaced, ends included. */
+  const bandFrequencies = (band, points = 21) => (band.stop > band.start
+    ? frequencyList({ start: band.start, stop: band.stop, points: Math.max(2, points) })
+    : [band.start]);
+
+  /** |gamma| at the input against z0; Infinity when the state is not defined. */
+  const inputGammaMag = (project, f) => {
+    const states = evaluate(project, f);
+    const g = stGamma(states[states.length - 1], project.z0);
+    return isFiniteCx(g) ? abs(g) : Infinity;
+  };
+
+  /** Worst reflection at the input inside each band:
+   *  [{ start, stop, gammaMax, rlMin (dB), vswrMax, fWorst }]. */
+  const bandReport = (project, bands, points = 41) => bands.map((band) => {
+    let worst = -1;
+    let fWorst = band.start;
+    for (const f of bandFrequencies(band, points)) {
+      const m = inputGammaMag(project, f);
+      if (m > worst) { worst = m; fWorst = f; }
+    }
+    return {
+      start: band.start, stop: band.stop, gammaMax: worst, fWorst,
+      rlMin: worst > 0 ? -20 * Math.log10(worst) : Infinity,
+      vswrMax: worst < 1 ? (1 + worst) / (1 - worst) : Infinity,
+    };
+  });
+
+  /** Values the optimiser may change on an element, each with its search range:
+   *  [{ key, lo, hi, log }]. The ranges are wide because the search is global.
+   *  A line or stub is free in length (0 to 360° at its fref) and in impedance. */
+  const optParams = (el, project) => {
+    if (!el || el.off) return [];
+    const { z0, f0 } = project;
+    const w = TWO_PI * f0;
+    const decades = (ref) => ({ key: 'value', lo: ref * 1e-3, hi: ref * 1e3, log: true });
+    switch (el.kind) {
+      case 'R': return [decades(z0)];
+      case 'L': return [decades(z0 / w)];
+      case 'C': return [decades(1 / (w * z0))];
+      case 'TL': case 'STUB': return [{ key: 'deg', lo: 0, hi: 360, log: false }, { key: 'zc', lo: z0 / 5, hi: z0 * 5, log: true }];
+      case 'XFMR': return [{ key: 'n', lo: 0.05, hi: 20, log: true }];
+      default: return [];
+    }
+  };
+
+  /** Small deterministic generator (mulberry32), so that a run can be repeated. */
+  const randomFrom = (seed) => {
+    let s = seed >>> 0;
+    return () => {
+      s = (s + 0x6D2B79F5) >>> 0;
+      let t = s;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  };
+
+  /** Nelder-Mead minimisation of fn from x0, simplex edge `step`. */
+  const nelderMead = (fn, x0, { step = 0.1, maxIter = 400, tol = 1e-10 } = {}) => {
+    const n = x0.length;
+    let pts = [x0.slice()];
+    for (let i = 0; i < n; i += 1) {
+      const p = x0.slice();
+      p[i] += p[i] + step <= 1 ? step : -step;
+      pts.push(p);
+    }
+    let vals = pts.map(fn);
+    const blend = (a, b, k) => a.map((v, i) => v + k * (b[i] - v));
+    for (let it = 0; it < maxIter; it += 1) {
+      const order = vals.map((v, i) => i).sort((a, b) => vals[a] - vals[b]);
+      pts = order.map((i) => pts[i]);
+      vals = order.map((i) => vals[i]);
+      if (Math.abs(vals[n] - vals[0]) <= tol * (Math.abs(vals[0]) + tol)) break;
+      const centre = new Array(n).fill(0);
+      for (let k = 0; k < n; k += 1) for (let i = 0; i < n; i += 1) centre[i] += pts[k][i] / n;
+      const xr = blend(centre, pts[n], -1);
+      const fr = fn(xr);
+      if (fr < vals[0]) {
+        const xe = blend(centre, pts[n], -2);
+        const fe = fn(xe);
+        if (fe < fr) { pts[n] = xe; vals[n] = fe; } else { pts[n] = xr; vals[n] = fr; }
+      } else if (fr < vals[n - 1]) { pts[n] = xr; vals[n] = fr; }
+      else {
+        const xc = fr < vals[n] ? blend(centre, xr, 0.5) : blend(centre, pts[n], 0.5);
+        const fc = fn(xc);
+        if (fc < Math.min(fr, vals[n])) { pts[n] = xc; vals[n] = fc; }
+        else {
+          for (let k = 1; k <= n; k += 1) { pts[k] = blend(pts[0], pts[k], 0.5); vals[k] = fn(pts[k]); }
+        }
+      }
+    }
+    let best = 0;
+    for (let k = 1; k <= n; k += 1) if (vals[k] < vals[best]) best = k;
+    return { x: pts[best], value: vals[best] };
+  };
+
+  /** Tune the values of the elements listed in `indices` so that the worst
+   *  reflection over all the bands is as small as possible. The topology is
+   *  kept. Search: Nelder-Mead on a smooth p-norm of |gamma| over the band
+   *  samples, from the present values and from `starts` random points, each
+   *  variable mapped to [0, 1] over its range (log for R, L, C, Zc and n).
+   *  The candidate kept is the one with the smallest true maximum.
+   *  Returns { elements, changes: [{ index, key, from, to }], before, after, reason? }. */
+  const optimize = (project, { bands = [], indices = [], points = 15, starts = 12, seed = 1, iterations = 150 } = {}) => {
+    const params = [];
+    for (const index of indices) for (const p of optParams(project.elements[index], project)) params.push({ ...p, index });
+    const usableBands = bands.filter((b) => b && b.start > 0 && b.stop >= b.start);
+    const before = bandReport(project, usableBands);
+    const same = { elements: project.elements, changes: [], before, after: before };
+    if (!usableBands.length) return { ...same, reason: t('No band defined.') };
+    if (!params.length) return { ...same, reason: t('Nothing to optimize: check "Optimize" on at least one R, L, C, line, stub or transformer.') };
+
+    const freqs = usableBands.flatMap((b) => bandFrequencies(b, points));
+    const clamp01 = (u) => Math.min(1, Math.max(0, u));
+    const toU = (p, v) => clamp01(p.log ? Math.log(v / p.lo) / Math.log(p.hi / p.lo) : (v - p.lo) / (p.hi - p.lo));
+    const fromU = (p, u) => (p.log ? p.lo * (p.hi / p.lo) ** clamp01(u) : p.lo + (p.hi - p.lo) * clamp01(u));
+    const build = (u) => {
+      const els = project.elements.map((e) => ({ ...e }));
+      params.forEach((p, k) => { els[p.index][p.key] = fromU(p, u[k]); });
+      return els;
+    };
+    const P = 10;
+    const cost = (u) => {
+      let out = 0;
+      for (const v of u) out += Math.max(0, -v, v - 1);                    // leaving the range costs
+      const proj = { ...project, elements: build(u) };
+      let acc = 0;
+      for (const f of freqs) {
+        const m = inputGammaMag(proj, f);
+        if (!Number.isFinite(m)) return Infinity;
+        acc += m ** P;
+      }
+      return out + (acc / freqs.length) ** (1 / P);
+    };
+    const worst = (u) => {
+      const proj = { ...project, elements: build(u) };
+      let m = 0;
+      for (const f of freqs) m = Math.max(m, inputGammaMag(proj, f));
+      return m;
+    };
+
+    const rnd = randomFrom(seed);
+    const maxIter = iterations * params.length;
+    const firsts = [params.map((p) => toU(p, project.elements[p.index][p.key]))];
+    for (let s = 0; s < starts; s += 1) firsts.push(params.map(() => rnd()));
+    let best = firsts[0];
+    let bestWorst = worst(best);
+    for (const x0 of firsts) {
+      let r = nelderMead(cost, x0, { step: 0.15, maxIter });
+      r = nelderMead(cost, r.x.map(clamp01), { step: 0.02, maxIter });       // restart: a fresh simplex escapes a collapsed one
+      const u = r.x.map(clamp01);
+      const m = worst(u);
+      if (m < bestWorst) { bestWorst = m; best = u; }
+    }
+    const elements = build(best);
+    const changes = params
+      .map((p) => ({ index: p.index, key: p.key, from: project.elements[p.index][p.key], to: elements[p.index][p.key] }))
+      .filter((c) => c.from !== c.to);
+    return { elements, changes, before, after: bandReport({ ...project, elements }, usableBands) };
   };
 
   /* ==========================================================================
@@ -4093,6 +4433,7 @@ const SmithCore = (() => {
       default: return null;
     }
     if (e.off) out.off = true;
+    if (e.opt === true) out.opt = true;
     return out;
   };
   const cleanLoad = (l, z0, f0) => {
@@ -4105,6 +4446,14 @@ const SmithCore = (() => {
       if (points.length) return { kind: 'table', points };
     }
     return { kind: 'z', z: cxOf(l && l.z, { re: z0, im: 0 }) };
+  };
+  /** Bands of a multi-band match: { on, rlGoal (dB), list: [{ start, stop }] }. */
+  const cleanBands = (b) => {
+    const src = b && typeof b === 'object' ? b : {};
+    const list = (Array.isArray(src.list) ? src.list.slice(0, 8) : [])
+      .map((x) => (x && posNum(x.start, 0) && posNum(x.stop, 0) ? { start: Math.min(x.start, x.stop), stop: Math.max(x.start, x.stop) } : null))
+      .filter(Boolean);
+    return { on: Boolean(src.on) && list.length > 0, rlGoal: posNum(src.rlGoal, 10), list };
   };
   const numberList = (list, ok) => (Array.isArray(list) ? list.filter((v) => typeof v === 'number' && Number.isFinite(v) && ok(v)).slice(0, 24) : []);
 
@@ -4128,9 +4477,9 @@ const SmithCore = (() => {
     };
   };
 
-  /** A well-formed project from anything that was read from a file or a link:
-   *  only known fields are kept, and every value is checked. Throws when the
-   *  input is not a project at all. */
+  /* Display formats of the three frequency plots, as on a network analyser. */
+  const PLOT_FORMATS = ['logmag', 'linmag', 'phase', 'vswr', 'rl', 'ml', 'zre', 'zim', 'zmag', 'gd'];
+  const PLOT_DEFAULT = ['logmag', 'vswr', 'phase'];
   /** User preferences, kept apart from the project. `normalizePrefs` keeps
    *  only known fields with valid values, so that stored preferences written
    *  by another version (or damaged) can never break the tool. A colour of
@@ -4157,9 +4506,13 @@ const SmithCore = (() => {
       labels: { dp: flag(labels.dp), tp: flag(labels.tp), rings: flag(labels.rings) },
       schemVertical: src.schemVertical === true,
       extended: src.extended === true,
+      plots: PLOT_DEFAULT.map((d, k) => pick(Array.isArray(src.plots) ? src.plots[k] : undefined, PLOT_FORMATS, d)),
     };
   };
 
+  /** A well-formed project from anything that was read from a file or a link:
+   *  only known fields are kept, and every value is checked. Throws when the
+   *  input is not a project at all. */
   const normalizeProject = (raw) => {
     const src = raw && typeof raw === 'object' && raw.project && typeof raw.project === 'object' ? raw.project : raw;
     if (!src || typeof src !== 'object' || Array.isArray(src)) throw new Error(t('This file does not contain a project.'));
@@ -4185,6 +4538,7 @@ const SmithCore = (() => {
         scale: sw.scale === 'log' ? 'log' : 'lin',
       },
       amp: cleanAmp(src.amp),
+      bands: cleanBands(src.bands),
     };
   };
 
@@ -4255,11 +4609,11 @@ const SmithCore = (() => {
       lineLengths, rereferenceLine,
     },
     eng: { parse: parseEng, format: formatEng, formatCx },
-    net: { applyElement, branchOf, loadState, loadCovers, evaluate, solve, inputAt, frequencyList, sweep, trajectory, stepInfo, defaultElement, primaryKey, tuneToward },
+    net: { applyElement, branchOf, loadState, loadCovers, evaluate, solve, inputAt, frequencyList, sweep, groupDelay, trajectory, stepInfo, defaultElement, primaryKey, tuneToward, bandFrequencies, bandReport, optParams, optimize },
     match: { synthesize, assess, character, throughLine, stubLength },
     eseries: { values: (name) => E_SERIES[name], snap: snapValue, snapElements },
     amp: { figures: ampFigures, stabilityCircle, gainCircle, noiseCircle, noiseFigure, conjugateMatch, powerGains, deviceAt, table: ampTable },
-    io: { stringify, parse: parseJson, parseTouchstone, parseCiti, terminated, touchstoneToTable, parseImpedanceTable, toCir, toCkt, circlesCsv, normalizeProject, normalizePrefs, exportProject, importProject, encodeLink, decodeLink },
+    io: { stringify, parse: parseJson, parseTouchstone, parseCiti, terminated, touchstoneToTable, parseImpedanceTable, toCir, toCkt, circlesCsv, normalizeProject, normalizePrefs, PLOT_FORMATS, exportProject, importProject, encodeLink, decodeLink },
   };
 })();
 </script>
@@ -4720,6 +5074,7 @@ const SmithChart = (() => {
     z0: prefs.z0, f0: prefs.f0, load: { kind: 'z', z: { re: prefs.z0, im: 0 } }, elements: [],
     markers: [], circles: { vswr: [], q: [] },
     sweep: { on: false, start: 500e6, stop: 1500e6, points: 201, scale: 'lin' },
+    bands: { on: false, rlGoal: 10, list: [] },
   });
 
   /* --- State and history ---------------------------------------------------------------- */
@@ -4739,7 +5094,9 @@ const SmithChart = (() => {
     slider: { ratio: prefs.slider, span: 45, center: null },
     nodePx: [],
   };
-  let model = { nodes: [], paths: [], steps: [], sweep: null };
+  let model = { nodes: [], paths: [], steps: [], sweep: null, bands: null };
+  /** Bands of the project that are drawn and assessed, or [] when they are off. */
+  const activeBands = (p) => (p.bands && p.bands.on ? p.bands.list : []);
   const history = { undo: [], redo: [], key: null, time: 0 };
 
   const recompute = () => {
@@ -4749,7 +5106,15 @@ const SmithChart = (() => {
       paths: p.elements.map((_, i) => net.trajectory(p, i)),
       steps: p.elements.map((_, i) => net.stepInfo(p, i)),
       sweep: p.sweep.on && p.sweep.stop > p.sweep.start ? net.sweep(p, p.sweep) : null,
+      bands: null,
     };
+    const bands = activeBands(p);
+    if (bands.length) {
+      model.bands = {
+        traces: bands.map((b) => net.sweep(p, { start: b.start, stop: b.stop, points: 61 })),
+        report: net.bandReport(p, bands),
+      };
+    }
     if (state.selected > p.elements.length) state.selected = -1;
     if (!model.sweep || state.sweepIdx >= model.sweep.length) state.sweepIdx = -1;
   };
@@ -4765,6 +5130,7 @@ const SmithChart = (() => {
     history.redo.length = 0;
     history.key = key;
     history.time = now;
+    state.optResult = null;    // the network changed: the last optimizer summary no longer applies
     mutate(state.project);
     refresh();
   };
@@ -4773,6 +5139,7 @@ const SmithChart = (() => {
     to.push(io.stringify(state.project));
     state.project = io.parse(from.pop());
     history.key = null;
+    state.optResult = null;
     refresh();
   };
   const undo = () => travel(history.undo, history.redo);
@@ -4905,6 +5272,14 @@ const SmithChart = (() => {
       if (at && at.length > 30) {
         sweep += `<path class="sweep-head" d="${CR.arrowD(at, 11)}"/><text class="ring-label" x="${(at.x + 10).toFixed(1)}" y="${(at.y - 8).toFixed(1)}">${tr('f increasing')}</text>`;
       }
+    }
+    if (model.bands) {
+      model.bands.traces.forEach((trace, k) => {
+        const gammas = trace.map((m) => m.gamma);
+        sweep += `<path class="band" d="${CR.polyD(v, gammas)}"/>`;
+        const mid = CR.toPx(v, gammas[Math.floor(gammas.length / 2)]);
+        if (mid && Number.isFinite(mid.x)) sweep += `<text class="band-label" x="${(mid.x + 8).toFixed(1)}" y="${(mid.y - 6).toFixed(1)}">B${k + 1}</text>`;
+      });
     }
     $('l-sweep').innerHTML = sweep;
 
@@ -5290,6 +5665,7 @@ const SmithChart = (() => {
     out += button('move-src', tr('Toward source'), () => change((q) => { const e = q.elements; [e[i + 1], e[i]] = [e[i], e[i + 1]]; state.selected = i + 2; }), i === count - 1);
     out += button('dup', tr('Duplicate'), () => change((q) => { q.elements.splice(i + 1, 0, io.parse(io.stringify(E()))); state.selected = i + 2; }));
     out += button('toggle', el.off ? tr('Re-enable') : tr('Disable'), () => change(() => { E().off = !E().off; }));
+    if (net.optParams({ ...el, off: false }, p).length) out += button('opt', el.opt ? tr('✓ Optimize') : tr('Optimize'), () => change(() => { if (E().opt) delete E().opt; else E().opt = true; }));
     out += button('del', tr('Delete'), () => removeElement(i));
     out += '</div>';
     return out;
@@ -5316,7 +5692,7 @@ const SmithChart = (() => {
     }
     $('editor-title').textContent = title;
     const el = node > 0 ? p.elements[node - 1] : null;
-    const key = JSON.stringify([node, el && [el.kind, el.conn, el.topology, el.term, el.alphaLaw, el.off, el.loss && el.loss.mode, el.r == null, el.l == null, el.c == null],
+    const key = JSON.stringify([node, el && [el.kind, el.conn, el.topology, el.term, el.alphaLaw, el.off, el.opt, el.loss && el.loss.mode, el.r == null, el.l == null, el.c == null],
       node === 0 && [p.load.kind, p.load.topology, state.loadFmt, p.load.r == null, p.load.l == null, p.load.c == null, p.load.kind === 'table' && p.load.points.length],
       p.elements.length, state.slider.ratio, state.slider.span]);
     const box = $('editor');
@@ -5547,6 +5923,121 @@ const SmithChart = (() => {
     if (ev.target.id === 'sw-octave') around(0.5, 2);
   });
 
+  /* --- Multi-band matching panel ---------------------------------------------------------- */
+
+  state.optResult = null;    // summary of the last optimization
+  let bandsShape = '';
+  const bandsOf = (p) => { if (!p.bands) p.bands = { on: false, rlGoal: 10, list: [] }; return p.bands; };
+  const optimisable = (p) => p.elements.map((el, i) => (el.opt && net.optParams(el, p).length ? i : -1)).filter((i) => i >= 0);
+  const fmtRl = (v) => (Number.isFinite(v) ? `${sig(v, 3)} dB` : '∞');
+  const fmtVswr = (v) => (Number.isFinite(v) ? sig(v, 3) : '∞');
+
+  const drawBandsBox = () => {
+    const p = state.project;
+    const b = p.bands || { on: false, rlGoal: 10, list: [] };
+    const box = $('bands-box');
+    const shape = `${b.list.length} ${SmithI18n.lang}`;
+    if (shape !== bandsShape || !box.firstChild) {
+      bandsShape = shape;
+      box.innerHTML = `<div class="row"><label for="bd-on">${tr('Assess')}</label><input type="checkbox" id="bd-on"><span class="empty" style="flex:1">${tr('bands on the chart and the plots')}</span></div>`
+        + b.list.map((_, k) => `<div class="row band-row"><label>B${k + 1}</label><input class="vf" id="bd-start-${k}" aria-label="${esc(tr('Start of band {0}', k + 1))}" autocomplete="off" spellcheck="false"><span>…</span><input class="vf" id="bd-stop-${k}" aria-label="${esc(tr('Stop of band {0}', k + 1))}" autocomplete="off" spellcheck="false"><button type="button" class="btn sm" data-del="${k}" aria-label="${esc(tr('Remove band {0}', k + 1))}">×</button></div>`).join('')
+        + `<div class="row"><label for="bd-goal">${tr('RL goal')}</label><input class="vf" id="bd-goal" autocomplete="off" spellcheck="false"></div>`
+        + `<div class="actions"><button type="button" class="btn sm" id="bd-add"${b.list.length >= 8 ? ' disabled' : ''}>${tr('Add a band')}</button><button type="button" class="btn sm" id="bd-opt">${tr('Optimize')}</button></div>`;
+    }
+    $('bd-on').checked = b.on;
+    $('bd-on').disabled = !b.list.length;
+    const put = (id, text) => {
+      const input = $(id);
+      if (document.activeElement === input && input.dataset.dirty === '1') return;
+      input.value = text;
+      input.removeAttribute('aria-invalid');
+    };
+    b.list.forEach((band, k) => { put(`bd-start-${k}`, eng.format(band.start, 'Hz', 5)); put(`bd-stop-${k}`, eng.format(band.stop, 'Hz', 5)); });
+    put('bd-goal', `${sig(b.rlGoal, 4)} dB`);
+
+    const idx = optimisable(p);
+    let out = '';
+    if (model.bands) {
+      out += `<table class="bands-table"><thead><tr><th>${tr('Band')}</th><th class="num">${tr('Min RL')}</th><th class="num">${tr('Max VSWR')}</th><th></th></tr></thead><tbody>`
+        + model.bands.report.map((r, k) => `<tr><td>B${k + 1}</td><td class="num">${esc(fmtRl(r.rlMin))}</td><td class="num">${esc(fmtVswr(r.vswrMax))}</td><td>${r.rlMin >= b.rlGoal ? '✓' : `✗ <span class="empty">${esc(tr('at {0}', eng.format(r.fWorst, 'Hz', 4)))}</span>`}</td></tr>`).join('')
+        + '</tbody></table>';
+    } else if (!b.list.length) out += `<p class="empty">${tr('Add the bands to cover (e.g. 863 … 870 MHz and 2.4 … 2.4835 GHz), check "Optimize" in the editor of the elements to tune, then run the optimizer: it looks for the values that maximize the worst RL over all the bands at once.')}</p>`;
+    out += `<p class="info">${idx.length ? tr('Tuned by the optimizer: {0}.', idx.map((i) => esc(`${nodeName(i + 1)} (${kindName(p.elements[i])})`)).join(', ')) : tr('No element checked "Optimize" (element editor).')}</p>`;
+    if (state.optResult) out += `<p class="info">${state.optResult}</p>`;
+    $('bands-report').innerHTML = out;
+  };
+
+  $('bands-box').addEventListener('input', (ev) => { if (ev.target.classList.contains('vf')) ev.target.dataset.dirty = '1'; });
+  $('bands-box').addEventListener('change', (ev) => {
+    const t = ev.target;
+    if (t.id === 'bd-on') { change((p) => { bandsOf(p).on = t.checked; }); return; }
+    if (!t.classList.contains('vf')) return;
+    t.dataset.dirty = '';
+    if (t.id === 'bd-goal') {
+      const v = eng.parse(String(t.value).replace(/\s*dB\s*$/i, ''), '');
+      if (v > 0 && Number.isFinite(v)) change((p) => { bandsOf(p).rlGoal = v; }); else t.setAttribute('aria-invalid', 'true');
+      return;
+    }
+    const m = /^bd-(start|stop)-(\d+)$/.exec(t.id);
+    if (!m) return;
+    const v = eng.parse(t.value, 'Hz');
+    if (!(v > 0 && Number.isFinite(v))) { t.setAttribute('aria-invalid', 'true'); return; }
+    change((p) => {
+      const band = bandsOf(p).list[Number(m[2])];
+      if (!band) return;
+      band[m[1]] = v;
+      if (band.stop < band.start) [band.start, band.stop] = [band.stop, band.start];
+    });
+  });
+  $('bands-box').addEventListener('click', (ev) => {
+    const t = ev.target.closest('button');
+    if (!t) return;
+    if (t.dataset.del != null) {
+      state.optResult = null;
+      change((p) => { const b = bandsOf(p); b.list.splice(Number(t.dataset.del), 1); if (!b.list.length) b.on = false; });
+      return;
+    }
+    if (t.id === 'bd-add') {
+      state.optResult = null;
+      change((p) => {
+        const b = bandsOf(p);
+        const last = b.list[b.list.length - 1];
+        const centre = last ? last.stop * 1.5 : p.f0;
+        b.list.push({ start: centre * 0.97, stop: centre * 1.03 });
+        b.on = true;
+      });
+      return;
+    }
+    if (t.id === 'bd-opt') runOptimiser();
+  });
+
+  const runOptimiser = () => {
+    const p = state.project;
+    const bands = p.bands ? p.bands.list : [];
+    const indices = optimisable(p);
+    if (!bands.length) { say(tr('Add at least one band.'), true); return; }
+    if (!indices.length) { say(tr('Check "Optimize" on at least one element (L, C, R, line, stub or transformer).'), true); return; }
+    const btn = $('bd-opt');
+    btn.disabled = true;
+    btn.textContent = tr('Computing…');
+    setTimeout(() => {
+      const t0 = Date.now();
+      let r;
+      try { r = net.optimize(state.project, { bands, indices }); } finally { btn.disabled = false; btn.textContent = tr('Optimize'); }
+      if (r.reason) { say(r.reason, true); return; }
+      const worst = (list) => Math.min(...list.map((x) => x.rlMin));
+      const secs = ((Date.now() - t0) / 1000).toFixed(1);
+      if (!(worst(r.after) > worst(r.before) + 1e-9)) {
+        state.optResult = esc(tr('No improvement found (worst RL {0}, {1} s). Try another topology or check other elements.', fmtRl(worst(r.before)), secs));
+        drawBandsBox();
+        return;
+      }
+      change((q) => { q.elements = r.elements; bandsOf(q).on = true; });
+      state.optResult = tr('Worst RL over the bands: {0} → <b>{1}</b> ({2} s, undo with Ctrl+Z).', esc(fmtRl(worst(r.before))), esc(fmtRl(worst(r.after))), secs);
+      drawBandsBox();
+    }, 30);
+  };
+
   const drawPanels = () => {
     const p = state.project;
     $('points-freq').textContent = tr('at {0}', eng.format(p.f0, 'Hz'));
@@ -5579,15 +6070,65 @@ const SmithChart = (() => {
     $('btn-redo').disabled = !history.redo.length;
     $('btn-plots').setAttribute('aria-pressed', String(state.plots));
     drawSweepBox();
+    drawBandsBox();
   };
 
   /* --- Frequency plots ---------------------------------------------------------------------- */
 
-  const PLOTS = [
-    { id: 'plot-s11', title: '|S11| (dB)', value: (m) => (m.mag === 0 ? -80 : Math.max(-80, -m.rl)), text: (v) => `${sig(v)} dB` },
-    { id: 'plot-vswr', title: 'VSWR', value: (m) => (m.vswr == null ? NaN : m.vswr), text: (v) => sig(v) },
-    { id: 'plot-phase', get title() { return tr('Phase of Γ (°)'); }, value: (m) => (m.ang == null ? NaN : m.ang), text: (v) => `${sig(v)}°` },
-  ];
+  /* Three plot slots; each shows one format, picked in its menu (a preference). */
+  const PLOTS = [{ id: 'plot-s11' }, { id: 'plot-vswr' }, { id: 'plot-phase' }];
+  const finiteOr = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : NaN);
+  const zPart = (part) => (m) => (m.z && Number.isFinite(m.z.re) && Number.isFinite(m.z.im) ? part(m.z) : NaN);
+  // menu and title are getters, so that they follow the language
+  const FORMATS = {
+    logmag: { get menu() { return tr('Log Mag (dB)'); }, title: '|S11| (dB)', range: 'db', value: (m) => (m.mag === 0 ? -80 : Math.max(-80, -m.rl)), text: (v) => `${sig(v)} dB` },
+    linmag: { menu: 'Lin Mag |Γ|', title: '|Γ|', range: 'lin', value: (m) => finiteOr(m.mag), text: (v) => sig(v) },
+    phase: { get menu() { return tr('Phase (°)'); }, get title() { return tr('Phase of Γ (°)'); }, range: 'phase', value: (m) => (m.ang == null ? NaN : m.ang), text: (v) => `${sig(v)}°` },
+    vswr: { menu: 'VSWR', title: 'VSWR', range: 'vswr', value: (m) => (m.vswr == null ? NaN : m.vswr), text: (v) => sig(v) },
+    rl: { get menu() { return tr('RL (dB)'); }, get title() { return tr('Return loss (dB)'); }, range: 'rl', value: (m) => (m.mag === 0 ? 80 : Math.min(80, m.rl)), text: (v) => `${sig(v)} dB` },
+    ml: { get menu() { return tr('Mismatch (dB)'); }, get title() { return tr('Mismatch loss (dB)'); }, range: 'auto0', value: (m) => finiteOr(m.ml), text: (v) => `${sig(v)} dB` },
+    zre: { menu: 'Re Zin (Ω)', title: 'Re(Zin) (Ω)', range: 'auto', value: zPart((z) => z.re), text: (v) => `${sig(v)} Ω` },
+    zim: { menu: 'Im Zin (Ω)', title: 'Im(Zin) (Ω)', range: 'auto', value: zPart((z) => z.im), text: (v) => `${sig(v)} Ω` },
+    zmag: { menu: '|Zin| (Ω)', title: '|Zin| (Ω)', range: 'auto0', value: zPart((z) => Math.hypot(z.re, z.im)), text: (v) => `${sig(v)} Ω` },
+    gd: { get menu() { return tr('Group delay (ns)'); }, get title() { return tr('Group delay of Γ (ns)'); }, range: 'auto', series: (sw) => net.groupDelay(sw.map((m) => m.f), sw.map((m) => m.gamma)).map((t) => t * 1e9), text: (v) => `${sig(v)} ns` },
+  };
+  const formatOf = (n) => FORMATS[prefs.plots[n]] || FORMATS[io.PLOT_FORMATS[0]];
+  /** Menus and accessible names of the plots, in the current language. */
+  const labelPlots = () => PLOTS.forEach((pl, n) => {
+    const sel = $(`fmt-${n}`);
+    sel.innerHTML = io.PLOT_FORMATS.map((k) => `<option value="${k}">${esc(FORMATS[k].menu)}</option>`).join('');
+    sel.value = prefs.plots[n];
+    sel.setAttribute('aria-label', tr('Format of plot {0}', n + 1));
+    $(pl.id).setAttribute('aria-label', tr('{0} versus frequency', formatOf(n).title));
+  });
+  PLOTS.forEach((pl, n) => {
+    const sel = $(`fmt-${n}`);
+    sel.addEventListener('change', () => { prefs.plots[n] = sel.value; savePrefs(); drawPlots(); });
+  });
+
+  /* Vertical range of a plot: fixed for the classic formats; for the others,
+   * from the 2nd to the 98th percentile, so that a spike at a resonance does
+   * not flatten the rest of the curve. */
+  const plotRange = (kind, finite) => {
+    if (kind === 'db') { const hi = Math.max(0, Math.ceil(Math.max(0, ...finite) / 10) * 10); const lo = Math.min(-10, Math.floor(Math.min(0, ...finite) / 10) * 10); return { lo, hi, yt: CR.ticks(lo, hi, 4) }; }
+    if (kind === 'rl') { const hi = Math.max(10, Math.ceil(Math.max(0, ...finite) / 10) * 10); const lo = Math.min(0, Math.floor(Math.min(0, ...finite) / 10) * 10); return { lo, hi, yt: CR.ticks(lo, hi, 4) }; }
+    if (kind === 'vswr') { const hi = Math.min(10, Math.max(2, Math.ceil(Math.max(1, ...finite)))); return { lo: 1, hi, yt: CR.ticks(1, hi, 4) }; }
+    if (kind === 'phase') return { lo: -180, hi: 180, yt: [-180, -90, 0, 90, 180] };
+    if (kind === 'lin') { const top = Math.max(1, ...finite); const hi = top > 1 ? Math.ceil(top * 2) / 2 : 1; return { lo: 0, hi, yt: CR.ticks(0, hi, 4) }; }
+    const sorted = [...finite].sort((a, b) => a - b);
+    let lo = sorted.length ? sorted[Math.floor((sorted.length - 1) * 0.02)] : 0;
+    let hi = sorted.length ? sorted[Math.ceil((sorted.length - 1) * 0.98)] : 1;
+    if (kind === 'auto0') lo = Math.min(0, lo);
+    if (!(hi - lo > 1e-9 * Math.max(1, Math.abs(hi)))) { const d = Math.max(1, Math.abs(hi) * 0.1); lo -= d; hi += d; }
+    const pad = (hi - lo) * 0.05;
+    lo = kind === 'auto0' && lo >= 0 ? lo : lo - pad;
+    hi += pad;
+    const t = CR.ticks(lo, hi, 4);
+    const step = t.length > 1 ? t[1] - t[0] : (hi - lo) / 4;
+    lo = Math.floor(lo / step + 1e-9) * step;
+    hi = Math.ceil(hi / step - 1e-9) * step;
+    return { lo, hi, yt: CR.ticks(lo, hi, 4) };
+  };
   let plotGeo = null;
 
   const drawPlots = () => {
@@ -5612,29 +6153,42 @@ const SmithChart = (() => {
     plotGeo = { W, H, mg, fx, ys: [] };
 
     PLOTS.forEach((pl, n) => {
-      const vals = sw.map(pl.value);
+      const fmt = formatOf(n);
+      $(`fmt-${n}`).value = prefs.plots[n];
+      $(pl.id).setAttribute('aria-label', tr('{0} versus frequency', fmt.title));
+      const vals = fmt.series ? fmt.series(sw) : sw.map(fmt.value);
       const finite = vals.filter((v) => Number.isFinite(v));
-      let lo; let hi; let yt;
-      if (n === 0) { hi = Math.max(0, Math.ceil(Math.max(0, ...finite) / 10) * 10); lo = Math.min(-10, Math.floor(Math.min(0, ...finite) / 10) * 10); yt = CR.ticks(lo, hi, 4); }
-      else if (n === 1) { lo = 1; hi = Math.min(10, Math.max(2, Math.ceil(Math.max(1, ...finite)))); yt = CR.ticks(lo, hi, 4); }
-      else { lo = -180; hi = 180; yt = [-180, -90, 0, 90, 180]; }
+      const { lo, hi, yt } = plotRange(fmt.range, finite);
       const fy = (v) => mg.t + (hi - v) / (hi - lo) * (H - mg.t - mg.b);
-      plotGeo.ys.push({ fy, vals, lo, hi });
+      plotGeo.ys.push({ fy, vals, lo, hi, fmt });
+      const span = hi - lo;
       let d = '';
       let pen = false;
       vals.forEach((v, i) => {
-        if (!Number.isFinite(v) || (n === 2 && i > 0 && Math.abs(v - vals[i - 1]) > 180)) pen = false;
+        if (!Number.isFinite(v) || (fmt.range === 'phase' && i > 0 && Math.abs(v - vals[i - 1]) > 180)) pen = false;
         if (!Number.isFinite(v)) return;
-        d += `${pen ? 'L' : 'M'}${fx(sw[i].f).toFixed(1)} ${fy(Math.min(hi * 3, v)).toFixed(1)}`;
+        d += `${pen ? 'L' : 'M'}${fx(sw[i].f).toFixed(1)} ${fy(Math.max(lo - 2 * span, Math.min(hi + 2 * span, v))).toFixed(1)}`;
         pen = true;
       });
       let s = `<defs><clipPath id="clip-${pl.id}"><rect x="${mg.l}" y="${mg.t}" width="${W - mg.l - mg.r}" height="${H - mg.t - mg.b}"/></clipPath></defs>`;
       for (const v of yt) s += `<line class="p-grid" x1="${mg.l}" x2="${W - mg.r}" y1="${fy(v).toFixed(1)}" y2="${fy(v).toFixed(1)}"/><text class="p-tick" x="${mg.l - 5}" y="${(fy(v) + 3).toFixed(1)}" text-anchor="end">${esc(sig(v, 3))}</text>`;
       for (const f of xt) if (f >= spec.start && f <= spec.stop) s += `<text class="p-tick" x="${fx(f).toFixed(1)}" y="${H - 7}" text-anchor="middle">${esc(eng.format(f, 'Hz', 3))}</text>`;
       s += `<line class="p-axis" x1="${mg.l}" x2="${W - mg.r}" y1="${H - mg.b}" y2="${H - mg.b}"/>`;
+      activeBands(state.project).forEach((b, k) => {
+        const a = Math.max(spec.start, b.start);
+        const z = Math.min(spec.stop, b.stop);
+        if (z < a) return;
+        const xa = fx(a);
+        const wd = Math.max(1.5, fx(z) - xa);
+        s += `<rect class="p-band" x="${xa.toFixed(1)}" y="${mg.t}" width="${wd.toFixed(1)}" height="${H - mg.t - mg.b}"/><text class="p-tick" x="${(xa + wd / 2).toFixed(1)}" y="${mg.t + 21}" text-anchor="middle">B${k + 1}</text>`;
+      });
+      if ((fmt.range === 'db' || fmt.range === 'rl') && activeBands(state.project).length) {
+        const g = fmt.range === 'db' ? -state.project.bands.rlGoal : state.project.bands.rlGoal;
+        if (g >= lo && g <= hi) s += `<line class="p-goal" x1="${mg.l}" x2="${W - mg.r}" y1="${fy(g).toFixed(1)}" y2="${fy(g).toFixed(1)}"/>`;
+      }
       const f0 = state.project.f0;
       if (f0 >= spec.start && f0 <= spec.stop) s += `<line class="p-f0" x1="${fx(f0).toFixed(1)}" x2="${fx(f0).toFixed(1)}" y1="${mg.t}" y2="${H - mg.b}"/><text class="p-tick" x="${(fx(f0) + 4).toFixed(1)}" y="${mg.t + 9}">f₀</text>`;
-      s += `<path class="p-line" clip-path="url(#clip-${pl.id})" d="${d}"/><text class="p-title" x="${mg.l}" y="14">${esc(pl.title)}</text><g id="cur-${pl.id}"></g>`;
+      s += `<path class="p-line" clip-path="url(#clip-${pl.id})" d="${d}"/><text class="p-title" x="${mg.l}" y="14">${esc(fmt.title)}</text><g id="cur-${pl.id}"></g>`;
       const el = $(pl.id);
       el.setAttribute('viewBox', `0 0 ${W} ${H}`);
       el.innerHTML = s;
@@ -5654,7 +6208,7 @@ const SmithChart = (() => {
       const x = fx(m.f);
       const v = ys[n].vals[i];
       const yv = Number.isFinite(v) ? Math.max(mg.t, Math.min(H - mg.b, ys[n].fy(v))) : null;
-      g.innerHTML = `<line class="p-cross" x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${mg.t}" y2="${H - mg.b}"/>${yv == null ? '' : `<circle class="p-dot" cx="${x.toFixed(1)}" cy="${yv.toFixed(1)}" r="4"/>`}<text class="p-read" x="${W - mg.r}" y="14" text-anchor="end">${esc(Number.isFinite(v) ? pl.text(v) : '-')} · ${esc(eng.format(m.f, 'Hz'))}</text>`;
+      g.innerHTML = `<line class="p-cross" x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${mg.t}" y2="${H - mg.b}"/>${yv == null ? '' : `<circle class="p-dot" cx="${x.toFixed(1)}" cy="${yv.toFixed(1)}" r="4"/>`}<text class="p-read" x="${W - mg.r}" y="14" text-anchor="end">${esc(Number.isFinite(v) ? ys[n].fmt.text(v) : '-')} · ${esc(eng.format(m.f, 'Hz'))}</text>`;
     });
   };
 
@@ -6585,9 +7139,7 @@ const SmithChart = (() => {
     SmithI18n.applyStatic(document.body);
     // elements whose content is drawn by the code carry data-i18n-skip: their own label is set here
     $('schem').setAttribute('aria-label', tr('Network schematic'));
-    $('plot-s11').setAttribute('aria-label', tr('Magnitude of S11 in decibels versus frequency'));
-    $('plot-vswr').setAttribute('aria-label', tr('VSWR versus frequency'));
-    $('plot-phase').setAttribute('aria-label', tr('Phase of the reflection coefficient versus frequency'));
+    labelPlots();
     for (const hook of langHooks) hook();
   };
   let savedLang = null;
@@ -6597,6 +7149,7 @@ const SmithChart = (() => {
     try { localStorage.setItem('smith.lang', langSelect.value); } catch (err) { /* storage unavailable */ }
     applyLang(langSelect.value);
     $('sweep-box').textContent = '';   // rebuilt by drawPanels with the new labels
+    $('bands-box').textContent = '';
     refresh();
     drawEditor(true);                  // the editor is cached by editorKey
     drawSide(true);
@@ -6782,7 +7335,8 @@ const SmithChart = (() => {
         [tr('Points'), tr('Table of the DP and TP points with Z and Q.')],
         [tr('Automatic matching'), tr('Proposes L, π, T, stub, quarter-wave or line-and-reactance networks, ranked by bandwidth or by Q.')],
         [tr('Preferred values'), tr('Rounds all R, L and C to an E series and shows the effect on the match.')],
-        [tr('Frequency sweep'), tr('Plots the network input over a frequency range, with the |S11|, VSWR and phase plots.')],
+        [tr('Frequency sweep'), tr('Plots the network input over a frequency range, with three plots. The menu at the top left of each plot picks its format, as on a network analyzer: Log Mag (|S11| in dB), Lin Mag (|Γ|), phase, VSWR, return loss, mismatch loss, real part, imaginary part and magnitude of Zin, group delay of Γ.')],
+        [tr('Multi-band'), tr('Up to 8 bands to cover at once: trace of each band on the chart (B1, B2…), bands shaded on the plots, worst RL and VSWR per band against the RL goal. "Optimize" tunes the elements checked "Optimize" in their editor to maximize the worst RL over all the bands; the topology stays yours.')],
         [tr('Circles'), tr('VSWR circles and Q loci, with presets, and the choice of displayed labels.')],
         [tr('Amplifier (S-parameters)'), tr('Stability, gain and noise of a two-port described by its S parameters; table and per-frequency plots after importing an .s2p or CITI file.')],
         [tr('Settings'), tr('Defaults, display, colors and line widths.')],
