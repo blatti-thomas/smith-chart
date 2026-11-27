@@ -11,7 +11,9 @@ jobs:
   create-release:
     runs-on: ubuntu-latest
     steps:
-      - name: Create the release if missing
+      # The release stays a draft until every build is attached, so that installed apps never
+      # see a release without its update files (latest*.yml).
+      - name: Create the draft release if missing
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
@@ -20,7 +22,7 @@ jobs:
           if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
             echo "Release $TAG already exists."
           else
-            gh release create "$TAG" --repo "$REPO" --title "$TAG" --generate-notes --verify-tag
+            gh release create "$TAG" --repo "$REPO" --title "$TAG" --generate-notes --verify-tag --draft
           fi
 
   build:
@@ -62,7 +64,18 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           shopt -s nullglob
-          files=(dist/Smith-Chart-*.exe dist/Smith-Chart-*.dmg dist/Smith-Chart-*.zip dist/Smith-Chart-*.AppImage dist/Smith-Chart-*.tar.gz)
+          files=(dist/Smith-Chart-*.exe dist/Smith-Chart-*.dmg dist/Smith-Chart-*.zip dist/Smith-Chart-*.AppImage dist/Smith-Chart-*.tar.gz dist/Smith-Chart-*.blockmap dist/latest*.yml)
           if [ ${#files[@]} -eq 0 ]; then echo "No artifacts found"; ls -la dist; exit 1; fi
           printf 'Uploading %s\n' "${files[@]}"
           gh release upload "$TAG" "${files[@]}" --repo "$REPO" --clobber
+
+  publish-release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: gh release edit "$TAG" --repo "$REPO" --draft=false --latest
