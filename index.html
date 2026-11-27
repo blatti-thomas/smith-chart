@@ -84,6 +84,8 @@ body {
 button, input, select { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 h1, h2 { margin: 0; font-weight: 600; }
+/* a hidden element stays hidden whatever its display rule (panels hidden from the Panels menu) */
+[hidden] { display: none !important; }
 
 .app {
   display: grid;
@@ -108,13 +110,13 @@ h1, h2 { margin: 0; font-weight: 600; }
 .menubar { flex: 0 0 100%; display: flex; gap: 2px; margin: -4px -6px 0; }
 .menubar > button { height: 26px; padding: 0 10px; border: 0; border-radius: 6px; background: transparent; color: var(--ink); font: inherit; cursor: pointer; }
 .menubar > button:hover, .menubar > button[aria-expanded="true"] { background: var(--wash-2); }
-.menu-pop { position: fixed; z-index: 40; min-width: 250px; padding: 4px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28); }
+.menu-pop { position: fixed; z-index: 40; min-width: 250px; max-height: calc(100vh - 16px); overflow-y: auto; padding: 4px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28); }
 .menu-pop[hidden] { display: none; }
 .menu-pop button { display: flex; align-items: center; gap: 8px; width: 100%; height: 28px; padding: 0 10px 0 6px; border: 0; border-radius: 5px; background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
 .menu-pop button:hover, .menu-pop button:focus-visible { background: var(--wash-2); outline: none; }
 .menu-pop button:disabled { color: var(--muted); cursor: default; background: transparent; }
 .menu-pop .tick { width: 14px; text-align: center; }
-.menu-pop .lbl { flex: 1; }
+.menu-pop .lbl { flex: 1; white-space: nowrap; }
 .menu-pop .key { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 .menu-pop hr { margin: 4px 6px; border: 0; border-top: 1px solid var(--hair); }
 /* help and about windows */
@@ -262,7 +264,7 @@ input[aria-invalid="true"] { border-color: var(--crit); }
   border-left: 1px solid var(--border);
 }
 .card { padding: 10px 2px 12px; border-bottom: 1px solid var(--hair); }
-.card:last-child { border-bottom: 0; }
+.card:last-child, .inspector > .card:not(:has(~ .card:not([hidden]))) { border-bottom: 0; }
 .card h2 { font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-2); margin-bottom: 8px; }
 .card h2 small { text-transform: none; letter-spacing: 0; font-weight: 400; color: var(--muted); margin-left: 6px; }
 .kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 0; font-variant-numeric: tabular-nums; }
@@ -277,8 +279,10 @@ tbody tr { cursor: pointer; }
 tbody tr:hover { background: var(--wash); }
 tbody tr[aria-selected="true"] { background: var(--wash-2); }
 td .sub { display: block; color: var(--muted); font-size: 11px; }
+/* the element description may be long (German, Spanish): it wraps instead of widening the table */
+#tbl-points td:first-child { white-space: normal; }
 .row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
-.row label { width: 46px; color: var(--ink-2); }
+.row label { flex: none; width: 46px; color: var(--ink-2); line-height: 1.25; overflow-wrap: break-word; hyphens: auto; }
 .mini-input { width: 70px; }
 .chips { display: flex; flex-wrap: wrap; gap: 4px; }
 .chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 4px 1px 8px; border: 1px solid var(--border); border-radius: 999px; font-size: 12px; }
@@ -292,6 +296,15 @@ td .sub { display: block; color: var(--muted); font-size: 11px; }
 }
 /* -------------------------------------------------------------- schematic */
 .work { grid-template-rows: auto minmax(0, 1fr) auto; grid-template-columns: minmax(0, 1fr); }
+/* fixed rows: the chart keeps its row when the schematic and the palette are hidden */
+.strip { grid-row: 1; }
+.chart-box { grid-row: 2; }
+.plots { grid-row: 3; }
+/* right-hand column hidden: the work area takes the whole width */
+@media (min-width: 861px) {
+  body.no-side .app { grid-template: auto minmax(0, 1fr) / minmax(0, 1fr); grid-template-areas: "top" "work"; }
+}
+body.no-side .inspector { display: none; }
 .schem-scroll { overflow-x: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; }
 #schem { display: block; }
 /* vertical schematic: a column on the left of the chart, the palette above both */
@@ -365,7 +378,7 @@ body.schem-v .plots { grid-column: 1 / -1; grid-row: 3; }
 .ed input[type="checkbox"] { accent-color: var(--ink); }
 .ed .seg { flex: 1; }
 .ed .seg button { flex: 1; }
-.ed .narrow { flex: none; width: 96px; }
+.ed .narrow { flex: 0 1 auto; width: auto; min-width: 96px; max-width: 60%; }
 .info { margin: 6px 0; color: var(--ink-2); font-size: 12px; font-variant-numeric: tabular-nums; }
 .info b { color: var(--ink); font-weight: 600; }
 .empty { color: var(--muted); }
@@ -527,16 +540,16 @@ body.dropping .chart-wrap, body.dropping #chart { outline: 2px dashed var(--mute
   </main>
 
   <aside class="inspector" aria-label="Inspector">
-    <details class="card ed" open>
+    <details class="card ed" id="card-editor" open>
       <summary><span id="editor-title" data-i18n-skip>Element</span></summary>
       <div id="editor" data-i18n-skip></div>
     </details>
-    <details class="card" open>
+    <details class="card" id="card-cursor" open>
       <summary><span id="cursor-title" data-i18n-skip>Cursor</span></summary>
       <dl class="kv" id="cursor-list" data-i18n-skip></dl>
       <div id="cursor-flag" data-i18n-skip></div>
     </details>
-    <details class="card" open>
+    <details class="card" id="card-points" open>
       <summary>Points <small id="points-freq" data-i18n-skip></small></summary>
       <table>
         <thead><tr><th>Point</th><th class="num">Z (Ω)</th><th class="num">Q</th></tr></thead>
@@ -552,7 +565,7 @@ body.dropping .chart-wrap, body.dropping #chart { outline: 2px dashed var(--mute
       <summary>Preferred values</summary>
       <div id="eseries-box" data-i18n-skip></div>
     </details>
-    <details class="card ed">
+    <details class="card ed" id="card-sweep">
       <summary>Frequency sweep</summary>
       <div id="sweep-box" data-i18n-skip></div>
     </details>
@@ -561,7 +574,7 @@ body.dropping .chart-wrap, body.dropping #chart { outline: 2px dashed var(--mute
       <div id="bands-box" data-i18n-skip></div>
       <div id="bands-report" data-i18n-skip></div>
     </details>
-    <details class="card">
+    <details class="card" id="card-circles">
       <summary>Circles</summary>
       <div class="row"><label for="in-vswr">VSWR</label><input class="mini-input" id="in-vswr" placeholder="2" autocomplete="off"><div class="chips" id="chips-vswr" data-i18n-skip></div></div>
       <div class="presets" id="pre-vswr" role="group" aria-label="Common VSWR circles" data-i18n-skip></div>
@@ -576,7 +589,7 @@ body.dropping .chart-wrap, body.dropping #chart { outline: 2px dashed var(--mute
       <summary>Amplifier (S-parameters)</summary>
       <div id="amp-box" data-i18n-skip></div>
     </details>
-    <details class="card" id="card-prefs">
+    <details class="card ed" id="card-prefs">
       <summary>Settings</summary>
       <div class="sub-head">New project</div>
       <div class="row"><label for="pf-z0">Z<sub>0</sub></label><input class="mini-input" id="pf-z0" autocomplete="off"></div>
@@ -801,6 +814,12 @@ SmithI18n.register('fr', {
   'Fit': 'Ajuster',
   'Wheel: zoom · drag background: pan · drag a point: tune · double-click: fit': 'Molette : zoom · glisser le fond : déplacer · glisser un point : régler · double-clic : ajuster',
   'Frequency plots': 'Graphes en fréquence',
+  'Panels': 'Panneaux',
+  'Schematic': 'Schéma',
+  'Element palette': 'Palette des éléments',
+  'Right-hand column': 'Colonne de droite',
+  'Show all panels': 'Afficher tous les panneaux',
+  'The <b>Panels</b> menu shows or hides the schematic, the element palette, the frequency plots, the right-hand column and each of its panels; the chart takes the space left free. The choice is kept on this computer.': 'Le menu <b>Panneaux</b> affiche ou masque le schéma, la palette des éléments, les graphes en fréquence, la colonne de droite et chacun de ses panneaux ; l\'abaque occupe la place libérée. Le choix est enregistré sur cet ordinateur.',
   'Turn on the sweep (right panel) to plot |S11|, VSWR, phase, Zin, group delay… versus frequency (format chosen on each plot).': 'Activez le sweep (panneau de droite) pour tracer en fonction de la fréquence |S11|, le VSWR, la phase, Zin, le retard de groupe… (format au choix sur chaque graphe).',
   'Inspector': 'Inspecteur',
   'Element': 'Élément',
@@ -1300,6 +1319,12 @@ SmithI18n.register('de', {
   'Fit': 'Anpassen',
   'Wheel: zoom · drag background: pan · drag a point: tune · double-click: fit': 'Mausrad: Zoom · Hintergrund ziehen: verschieben · Punkt ziehen: abstimmen · Doppelklick: anpassen',
   'Frequency plots': 'Frequenzdiagramme',
+  'Panels': 'Felder',
+  'Schematic': 'Schaltplan',
+  'Element palette': 'Bauteilleiste',
+  'Right-hand column': 'Rechte Spalte',
+  'Show all panels': 'Alle Felder anzeigen',
+  'The <b>Panels</b> menu shows or hides the schematic, the element palette, the frequency plots, the right-hand column and each of its panels; the chart takes the space left free. The choice is kept on this computer.': 'Das Menü <b>Felder</b> blendet den Schaltplan, die Bauteilleiste, die Frequenzdiagramme, die rechte Spalte und jedes ihrer Felder ein oder aus; das Diagramm nutzt den frei gewordenen Platz. Die Auswahl wird auf diesem Computer gespeichert.',
   'Turn on the sweep (right panel) to plot |S11|, VSWR, phase, Zin, group delay… versus frequency (format chosen on each plot).': 'Frequenzdurchlauf (rechtes Feld) einschalten, um |S11|, VSWR, Phase, Zin, Gruppenlaufzeit… über der Frequenz darzustellen (Format in jedem Diagramm wählbar).',
   'Inspector': 'Inspektor',
   'Element': 'Element',
@@ -1799,6 +1824,12 @@ SmithI18n.register('it', {
   'Fit': 'Adatta',
   'Wheel: zoom · drag background: pan · drag a point: tune · double-click: fit': 'Rotellina: zoom · trascina lo sfondo: sposta · trascina un punto: regola · doppio clic: adatta',
   'Frequency plots': 'Grafici in frequenza',
+  'Panels': 'Pannelli',
+  'Schematic': 'Schema',
+  'Element palette': 'Tavolozza degli elementi',
+  'Right-hand column': 'Colonna di destra',
+  'Show all panels': 'Mostra tutti i pannelli',
+  'The <b>Panels</b> menu shows or hides the schematic, the element palette, the frequency plots, the right-hand column and each of its panels; the chart takes the space left free. The choice is kept on this computer.': 'Il menu <b>Pannelli</b> mostra o nasconde lo schema, la tavolozza degli elementi, i grafici in frequenza, la colonna di destra e ciascuno dei suoi pannelli; la carta occupa lo spazio liberato. La scelta è salvata su questo computer.',
   'Turn on the sweep (right panel) to plot |S11|, VSWR, phase, Zin, group delay… versus frequency (format chosen on each plot).': 'Attiva lo sweep (pannello di destra) per tracciare |S11|, VSWR, fase, Zin, ritardo di gruppo… in funzione della frequenza (formato a scelta su ogni grafico).',
   'Inspector': 'Ispettore',
   'Element': 'Elemento',
@@ -2298,6 +2329,12 @@ SmithI18n.register('es', {
   'Fit': 'Ajustar',
   'Wheel: zoom · drag background: pan · drag a point: tune · double-click: fit': 'Rueda: zoom · arrastrar el fondo: desplazar · arrastrar un punto: ajustar · doble clic: ajustar',
   'Frequency plots': 'Gráficos en frecuencia',
+  'Panels': 'Paneles',
+  'Schematic': 'Esquema',
+  'Element palette': 'Paleta de elementos',
+  'Right-hand column': 'Columna derecha',
+  'Show all panels': 'Mostrar todos los paneles',
+  'The <b>Panels</b> menu shows or hides the schematic, the element palette, the frequency plots, the right-hand column and each of its panels; the chart takes the space left free. The choice is kept on this computer.': 'El menú <b>Paneles</b> muestra u oculta el esquema, la paleta de elementos, los gráficos en frecuencia, la columna derecha y cada uno de sus paneles; la carta ocupa el espacio liberado. La elección se guarda en este equipo.',
   'Turn on the sweep (right panel) to plot |S11|, VSWR, phase, Zin, group delay… versus frequency (format chosen on each plot).': 'Active el barrido (panel derecho) para trazar |S11|, VSWR, fase, Zin, retardo de grupo… en función de la frecuencia (formato a elegir en cada gráfico).',
   'Inspector': 'Inspector',
   'Element': 'Elemento',
@@ -4671,6 +4708,8 @@ const SmithCore = (() => {
   /* Display formats of the three frequency plots, as on a network analyser. */
   const PLOT_FORMATS = ['logmag', 'linmag', 'phase', 'vswr', 'rl', 'ml', 'zre', 'zim', 'zmag', 'gd'];
   const PLOT_DEFAULT = ['logmag', 'vswr', 'phase'];
+  /** Panels that the Panels menu can hide: work area, right-hand column, and each card of the column. */
+  const PANELS = ['schematic', 'palette', 'plots', 'inspector', 'card-editor', 'card-cursor', 'card-points', 'card-match', 'card-eseries', 'card-sweep', 'card-bands', 'card-circles', 'card-amp', 'card-prefs', 'card-files'];
   /** User preferences, kept apart from the project. `normalizePrefs` keeps
    *  only known fields with valid values, so that stored preferences written
    *  by another version (or damaged) can never break the tool. A colour of
@@ -4699,6 +4738,7 @@ const SmithCore = (() => {
       extended: src.extended === true,
       shuntWord: pick(src.shuntWord, ['parallel', 'shunt'], null),   // null: the usual word of the language
       plots: PLOT_DEFAULT.map((d, k) => pick(Array.isArray(src.plots) ? src.plots[k] : undefined, PLOT_FORMATS, d)),
+      hidden: Array.isArray(src.hidden) ? PANELS.filter((id) => src.hidden.includes(id)) : [],   // hidden panels
     };
   };
 
@@ -4805,7 +4845,7 @@ const SmithCore = (() => {
     match: { synthesize, assess, character, throughLine, stubLength },
     eseries: { values: (name) => E_SERIES[name], snap: snapValue, snapElements },
     amp: { figures: ampFigures, stabilityCircle, gainCircle, noiseCircle, noiseFigure, conjugateMatch, powerGains, deviceAt, table: ampTable },
-    io: { stringify, parse: parseJson, parseTouchstone, parseCiti, terminated, touchstoneToTable, parseImpedanceTable, toCir, toCkt, circlesCsv, normalizeProject, normalizePrefs, PLOT_FORMATS, exportProject, importProject, encodeLink, decodeLink },
+    io: { stringify, parse: parseJson, parseTouchstone, parseCiti, terminated, touchstoneToTable, parseImpedanceTable, toCir, toCkt, circlesCsv, normalizeProject, normalizePrefs, PANELS, PLOT_FORMATS, exportProject, importProject, encodeLink, decodeLink },
   };
 })();
 </script>
@@ -5282,7 +5322,7 @@ const SmithChart = (() => {
     selected: -1,        // selected node: 0 = load, i + 1 = element i, -1 = none
     sweepIdx: -1,        // highlighted sweep sample
     flip: false,         // schematic: load on the left
-    plots: true,
+    plots: !prefs.hidden.includes('plots'),
     loadFmt: 'z',        // how a fixed load is typed in
     slider: { ratio: prefs.slider, span: 45, center: null },
     nodePx: [],
@@ -6423,7 +6463,7 @@ const SmithChart = (() => {
     });
     el.addEventListener('pointerleave', () => setSweepIdx(-1));
   }
-  $('btn-plots').addEventListener('click', () => { state.plots = !state.plots; drawPanels(); drawPlots(); });
+  $('btn-plots').addEventListener('click', () => setPanel('plots', !state.plots));
 
   /* --- Side panels: matching and preferred values ------------------------------------------ */
 
@@ -6961,6 +7001,7 @@ const SmithChart = (() => {
     const reader = new FileReader();
     reader.onload = () => {
       try { (/\.json$/i.test(dropped.name) ? openProjectText : importDataText)(String(reader.result), dropped.name); } catch (err) { say(err.message, true); }
+      if (!panelShown('card-files')) setPanel('card-files', true);
       $('card-files').open = true;
     };
     reader.onerror = () => say(tr('Could not read the file.'), true);
@@ -7271,6 +7312,34 @@ const SmithChart = (() => {
     for (const key of WIDTH_PREFS) setVar(`--w-${key}`, prefs.widths[key] === 1 ? null : String(prefs.widths[key]));
     document.body.classList.toggle('schem-v', prefs.schemVertical);
   };
+  /* Panels hidden from the Panels menu; the chart takes the space they leave. */
+  const CARD_PANELS = io.PANELS.filter((id) => id.startsWith('card-'));
+  const isShown = (id) => !prefs.hidden.includes(id);
+  const sideShown = () => isShown('inspector') && CARD_PANELS.some(isShown);
+  /** What the Panels menu shows as ticked: a card counts as shown only when its column is. */
+  const panelShown = (id) => (id === 'inspector' ? sideShown() : isShown(id) && (!id.startsWith('card-') || isShown('inspector')));
+  const applyPanels = () => {
+    state.plots = isShown('plots');
+    for (const id of CARD_PANELS) $(id).hidden = !isShown(id);
+    document.querySelector('.schem-scroll').hidden = !isShown('schematic');
+    $('palette').hidden = !isShown('palette');
+    document.querySelector('.strip').hidden = !isShown('schematic') && !isShown('palette');
+    // the column goes away when it is hidden or when all its cards are
+    document.body.classList.toggle('no-side', !sideShown());
+  };
+  /** Show or hide one panel; showing a card also shows the column that holds it, and showing
+   *  a column whose cards are all hidden shows them all again. */
+  const setPanel = (id, show) => {
+    const off = new Set(prefs.hidden);
+    if (show) {
+      off.delete(id);
+      if (id.startsWith('card-')) off.delete('inspector');
+      if (id === 'inspector' && CARD_PANELS.every((c) => off.has(c))) CARD_PANELS.forEach((c) => off.delete(c));
+    } else off.add(id);
+    prefs.hidden = io.PANELS.filter((p) => off.has(p));
+    applyPanels(); savePrefs(); drawPanels(); drawPlots(); drawSchematic();
+  };
+  const showAllPanels = () => { prefs.hidden = []; applyPanels(); savePrefs(); drawPanels(); drawPlots(); drawSchematic(); };
   function savePrefs() {
     prefs.mode = state.mode; prefs.units = state.units; prefs.eseries = state.eseries;
     try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch (err) { /* storage unavailable */ }
@@ -7306,9 +7375,10 @@ const SmithChart = (() => {
     Object.assign(prefs, io.normalizePrefs(null));
     state.labels = prefs.labels; state.mode = prefs.mode; state.units = prefs.units; state.eseries = prefs.eseries; state.slider.ratio = prefs.slider;
     SmithI18n.setVariant(prefs.shuntWord);
-    applyPrefs(); savePrefs(); showPrefs(); fitView(); relabel();
+    applyPrefs(); applyPanels(); savePrefs(); showPrefs(); fitView(); relabel();
   });
   applyPrefs();
+  applyPanels();
   showPrefs();
 
   // a project carried by the link takes precedence over the default example
@@ -7373,7 +7443,7 @@ const SmithChart = (() => {
   /* --- Menu bar, documentation and about ---------------------------------------------------- */
 
   const press = (id) => () => $(id).click();
-  const openPrefs = () => { for (const d of document.querySelectorAll('.inspector details')) if (d.id !== 'card-prefs') d.open = false; $('card-prefs').open = true; $('card-prefs').scrollIntoView({ block: 'start' }); };
+  const openPrefs = () => { if (!isShown('card-prefs') || !isShown('inspector')) setPanel('card-prefs', true); for (const d of document.querySelectorAll('.inspector details')) if (d.id !== 'card-prefs') d.open = false; $('card-prefs').open = true; $('card-prefs').scrollIntoView({ block: 'start' }); };
   /** Scroll the documentation to a heading, inside its own pane only. */
   const goToHelp = (anchor) => { const pane = $('help-text'); pane.scrollTop = Math.max(0, $(anchor).offsetTop - 16); };
   const showSheet = (id, anchor) => {
@@ -7424,10 +7494,20 @@ const SmithChart = (() => {
       [tr('Vertical schematic'), press('pf-vertical'), { on: () => prefs.schemVertical }],
       [tr('Flip schematic'), press('btn-flip'), { on: () => Boolean(state.flip) }],
       [tr('Course mode'), press('btn-course'), { on: () => Boolean(state.course) }],
-      [tr('Frequency plots'), press('btn-plots'), { on: () => state.plots }],
       null,
       [tr('Fit view'), () => { fitView(); drawAll(); }, { key: '0' }],
       [tr('Dark theme'), press('btn-theme'), { on: isDark }],
+    ]],
+    [tr('Panels'), [
+      ...[['schematic', tr('Schematic')], ['palette', tr('Element palette')], ['plots', tr('Frequency plots')], ['inspector', tr('Right-hand column')]]
+        .map(([id, label]) => [label, () => setPanel(id, !panelShown(id)), { on: () => panelShown(id) }]),
+      null,
+      ...[['card-editor', tr('Element')], ['card-cursor', tr('Cursor')], ['card-points', tr('Points')], ['card-match', tr('Automatic matching')],
+        ['card-eseries', tr('Preferred values')], ['card-sweep', tr('Frequency sweep')], ['card-bands', tr('Multi-band')], ['card-circles', tr('Circles')],
+        ['card-amp', tr('Amplifier (S-parameters)')], ['card-prefs', tr('Settings')], ['card-files', tr('Files and exports')]]
+        .map(([id, label]) => [label, () => setPanel(id, !panelShown(id)), { on: () => panelShown(id) }]),
+      null,
+      [tr('Show all panels'), showAllPanels, { off: () => !prefs.hidden.length }],
     ]],
     [tr('Options'), [
       [tr('Settings…'), openPrefs],
@@ -7463,9 +7543,11 @@ const SmithChart = (() => {
       return `<button type="button" role="${opt.on ? 'menuitemcheckbox' : 'menuitem'}" data-item="${n}"${opt.on ? ` aria-checked="${on}"` : ''}${opt.off && opt.off() ? ' disabled' : ''}><span class="tick">${on ? '✓' : ''}</span><span class="lbl">${esc(label)}</span><span class="key">${esc(opt.key || '')}</span></button>`;
     }).join('');
     const r = head.getBoundingClientRect();
-    menuPop.style.left = `${Math.round(r.left)}px`;
     menuPop.style.top = `${Math.round(r.bottom + 2)}px`;
+    menuPop.style.maxHeight = `${Math.max(120, Math.round(window.innerHeight - r.bottom - 10))}px`;
+    menuPop.style.left = '0px';
     menuPop.hidden = false;
+    menuPop.style.left = `${Math.round(Math.max(4, Math.min(r.left, window.innerWidth - menuPop.offsetWidth - 4)))}px`;
     head.setAttribute('aria-expanded', 'true');
     menuOpen = index;
     if (focusFirst) { const first = menuPop.querySelector('button:not(:disabled)'); if (first) first.focus(); }
@@ -7557,6 +7639,7 @@ const SmithChart = (() => {
         [tr('Settings'), tr('Defaults, display, colors and line widths.')],
         [tr('Files and exports'), tr('Project, imported measurements, exports.')],
       ]),
+      P(tr('The <b>Panels</b> menu shows or hides the schematic, the element palette, the frequency plots, the right-hand column and each of its panels; the chart takes the space left free. The choice is kept on this computer.')),
 
       H('h-files', tr('Files')),
       LIST('ul', [
