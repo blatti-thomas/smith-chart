@@ -139,6 +139,11 @@ dialog.sheet.small { width: min(460px, 94vw); }
 .about { padding: 18px 20px 20px; line-height: 1.55; }
 .about p { margin: 0 0 10px; color: var(--ink-2); font-size: 13px; }
 .about .name { color: var(--ink); font-size: 17px; font-weight: 600; }
+/* update notice (desktop application only) */
+.update-bar { position: fixed; right: 16px; bottom: 16px; z-index: 30; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; max-width: min(460px, calc(100vw - 32px)); padding: 10px 12px; background: var(--panel); color: var(--ink); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28); font-size: 13px; }
+.update-bar[hidden] { display: none; }
+.update-bar .update-text { flex: 1 1 220px; }
+.update-bar .update-actions { display: flex; gap: 6px; margin-left: auto; }
 @media (max-width: 700px) { .sheet-body { grid-template-columns: minmax(0, 1fr); } .sheet-toc { display: none; } }
 .field { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); }
 .field input, .field select, .mini-input {
@@ -636,6 +641,11 @@ body.dropping .chart-wrap, body.dropping #chart { outline: 2px dashed var(--mute
 
 <div class="menu-pop" id="menu-pop" role="menu" hidden></div>
 
+<div class="update-bar" id="update-bar" role="status" aria-live="polite" hidden data-i18n-skip>
+  <span class="update-text" id="update-text"></span>
+  <span class="update-actions" id="update-actions"></span>
+</div>
+
 <dialog class="sheet" id="dlg-help" aria-labelledby="help-title">
   <div class="sheet-head"><h2 id="help-title">Smith Chart documentation</h2><button type="button" class="btn sm" data-close>Close</button></div>
   <div class="sheet-body">
@@ -648,6 +658,7 @@ body.dropping .chart-wrap, body.dropping #chart { outline: 2px dashed var(--mute
   <div class="sheet-head"><h2 id="about-title">About</h2><button type="button" class="btn sm" data-close>Close</button></div>
   <div class="about">
     <p class="name">Smith Chart</p>
+    <p id="about-version" hidden data-i18n-skip></p>
     <p>Interactive Smith chart and impedance matching tool, built for the SysRF course at HEIG-VD.</p>
     <p><b>Author: Thomas Blatti</b><br>© 2026 Thomas Blatti. Released under the MIT license.</p>
     <p>Independent rewrite, inspired by the Smith software by Fritz Dellsperger. No code from that software is used.</p>
@@ -1205,6 +1216,21 @@ SmithI18n.register('fr', {
   '{0} versus frequency': '{0} en fonction de la fréquence',
   'Multi-band': 'Multi-bandes',
   'Up to 8 bands to cover at once: trace of each band on the chart (B1, B2…), bands shaded on the plots, worst RL and VSWR per band against the RL goal. "Optimize" tunes the elements checked "Optimize" in their editor to maximize the worst RL over all the bands; the topology stays yours.': 'Jusqu\'à 8 bandes à couvrir en même temps : trace de chaque bande sur l\'abaque (B1, B2…), bandes grisées sur les graphes, pire RL et VSWR par bande face au RL visé. « Optimiser » règle les éléments cochés « Optimiser » dans leur éditeur pour maximiser le pire RL sur toutes les bandes ; la topologie reste la vôtre.',
+  'Check for updates…': 'Rechercher des mises à jour…',
+  'Checking for updates…': 'Recherche de mises à jour…',
+  'The application is up to date (version {0}).': 'L\'application est à jour (version {0}).',
+  'Version {0} is available. You have version {1}.': 'La version {0} est disponible. Vous avez la version {1}.',
+  'Downloading version {0}: {1} %': 'Téléchargement de la version {0} : {1} %',
+  'Version {0} is ready. Restart the application to install it.': 'La version {0} est prête. Redémarrez l\'application pour l\'installer.',
+  'Update error: {0}': 'Erreur de mise à jour : {0}',
+  'Updates are only available in the installed application.': 'Les mises à jour ne sont disponibles que dans l\'application installée.',
+  'Install': 'Installer',
+  'Download': 'Télécharger',
+  'Later': 'Plus tard',
+  'Restart now': 'Redémarrer maintenant',
+  'Version {0}': 'Version {0}',
+  'Updates': 'Mises à jour',
+  'The desktop application checks for a new version at startup; <b>Help, Check for updates…</b> checks on demand. With the Windows installer and the Linux AppImage, "Install" downloads the update and "Restart now" installs it. On macOS and with the portable versions, "Download" opens the download page.': 'L\'application de bureau recherche une nouvelle version au démarrage ; <b>Aide, Rechercher des mises à jour…</b> le fait à la demande. Avec l\'installateur Windows et l\'AppImage Linux, « Installer » télécharge la mise à jour et « Redémarrer maintenant » l\'installe. Sur macOS et avec les versions portables, « Télécharger » ouvre la page de téléchargement.',
 });
 
 // Deutsch
@@ -1688,6 +1714,21 @@ SmithI18n.register('de', {
   '{0} versus frequency': '{0} über der Frequenz',
   'Multi-band': 'Mehrband',
   'Up to 8 bands to cover at once: trace of each band on the chart (B1, B2…), bands shaded on the plots, worst RL and VSWR per band against the RL goal. "Optimize" tunes the elements checked "Optimize" in their editor to maximize the worst RL over all the bands; the topology stays yours.': 'Bis zu 8 gleichzeitig abzudeckende Bänder: Verlauf jedes Bands im Diagramm (B1, B2…), schattierte Bänder in den Kurven, schlechteste RL und VSWR je Band gegenüber dem RL-Ziel. „Optimieren“ stimmt die in ihrem Editor mit „Optimieren“ angekreuzten Elemente so ab, dass die schlechteste RL über alle Bänder maximal wird; die Topologie bleibt Ihre.',
+  'Check for updates…': 'Nach Updates suchen…',
+  'Checking for updates…': 'Suche nach Updates…',
+  'The application is up to date (version {0}).': 'Die Anwendung ist aktuell (Version {0}).',
+  'Version {0} is available. You have version {1}.': 'Version {0} ist verfügbar. Sie haben Version {1}.',
+  'Downloading version {0}: {1} %': 'Version {0} wird heruntergeladen: {1} %',
+  'Version {0} is ready. Restart the application to install it.': 'Version {0} ist bereit. Starten Sie die Anwendung neu, um sie zu installieren.',
+  'Update error: {0}': 'Update-Fehler: {0}',
+  'Updates are only available in the installed application.': 'Updates gibt es nur in der installierten Anwendung.',
+  'Install': 'Installieren',
+  'Download': 'Herunterladen',
+  'Later': 'Später',
+  'Restart now': 'Jetzt neu starten',
+  'Version {0}': 'Version {0}',
+  'Updates': 'Updates',
+  'The desktop application checks for a new version at startup; <b>Help, Check for updates…</b> checks on demand. With the Windows installer and the Linux AppImage, "Install" downloads the update and "Restart now" installs it. On macOS and with the portable versions, "Download" opens the download page.': 'Die Desktop-Anwendung sucht beim Start nach einer neuen Version; <b>Hilfe, Nach Updates suchen…</b> sucht auf Anfrage. Mit dem Windows-Installationsprogramm und dem Linux-AppImage lädt „Installieren“ das Update herunter und „Jetzt neu starten“ installiert es. Unter macOS und mit den portablen Versionen öffnet „Herunterladen“ die Download-Seite.',
 });
 
 // italiano
@@ -2171,6 +2212,21 @@ SmithI18n.register('it', {
   '{0} versus frequency': '{0} in funzione della frequenza',
   'Multi-band': 'Multibanda',
   'Up to 8 bands to cover at once: trace of each band on the chart (B1, B2…), bands shaded on the plots, worst RL and VSWR per band against the RL goal. "Optimize" tunes the elements checked "Optimize" in their editor to maximize the worst RL over all the bands; the topology stays yours.': 'Fino a 8 bande da coprire insieme: traccia di ogni banda sulla carta (B1, B2…), bande ombreggiate sui grafici, peggior RL e VSWR per banda rispetto all\'RL obiettivo. «Ottimizza» regola gli elementi spuntati «Ottimizza» nel loro editor per massimizzare il peggior RL su tutte le bande; la topologia resta la tua.',
+  'Check for updates…': 'Cerca aggiornamenti…',
+  'Checking for updates…': 'Ricerca aggiornamenti…',
+  'The application is up to date (version {0}).': 'L\'applicazione è aggiornata (versione {0}).',
+  'Version {0} is available. You have version {1}.': 'La versione {0} è disponibile. Hai la versione {1}.',
+  'Downloading version {0}: {1} %': 'Download della versione {0}: {1} %',
+  'Version {0} is ready. Restart the application to install it.': 'La versione {0} è pronta. Riavvia l\'applicazione per installarla.',
+  'Update error: {0}': 'Errore di aggiornamento: {0}',
+  'Updates are only available in the installed application.': 'Gli aggiornamenti sono disponibili solo nell\'applicazione installata.',
+  'Install': 'Installa',
+  'Download': 'Scarica',
+  'Later': 'Più tardi',
+  'Restart now': 'Riavvia ora',
+  'Version {0}': 'Versione {0}',
+  'Updates': 'Aggiornamenti',
+  'The desktop application checks for a new version at startup; <b>Help, Check for updates…</b> checks on demand. With the Windows installer and the Linux AppImage, "Install" downloads the update and "Restart now" installs it. On macOS and with the portable versions, "Download" opens the download page.': 'L\'applicazione desktop cerca una nuova versione all\'avvio; <b>Aiuto, Cerca aggiornamenti…</b> la cerca su richiesta. Con l\'installer Windows e l\'AppImage Linux, «Installa» scarica l\'aggiornamento e «Riavvia ora» lo installa. Su macOS e con le versioni portabili, «Scarica» apre la pagina di download.',
 });
 
 // español
@@ -2654,6 +2710,21 @@ SmithI18n.register('es', {
   '{0} versus frequency': '{0} en función de la frecuencia',
   'Multi-band': 'Multibanda',
   'Up to 8 bands to cover at once: trace of each band on the chart (B1, B2…), bands shaded on the plots, worst RL and VSWR per band against the RL goal. "Optimize" tunes the elements checked "Optimize" in their editor to maximize the worst RL over all the bands; the topology stays yours.': 'Hasta 8 bandas que cubrir a la vez: traza de cada banda en la carta (B1, B2…), bandas sombreadas en los gráficos, peor RL y VSWR por banda frente al RL objetivo. «Optimizar» ajusta los elementos marcados «Optimizar» en su editor para maximizar el peor RL sobre todas las bandas; la topología sigue siendo suya.',
+  'Check for updates…': 'Buscar actualizaciones…',
+  'Checking for updates…': 'Buscando actualizaciones…',
+  'The application is up to date (version {0}).': 'La aplicación está actualizada (versión {0}).',
+  'Version {0} is available. You have version {1}.': 'La versión {0} está disponible. Tiene la versión {1}.',
+  'Downloading version {0}: {1} %': 'Descargando la versión {0}: {1} %',
+  'Version {0} is ready. Restart the application to install it.': 'La versión {0} está lista. Reinicie la aplicación para instalarla.',
+  'Update error: {0}': 'Error de actualización: {0}',
+  'Updates are only available in the installed application.': 'Las actualizaciones solo están disponibles en la aplicación instalada.',
+  'Install': 'Instalar',
+  'Download': 'Descargar',
+  'Later': 'Más tarde',
+  'Restart now': 'Reiniciar ahora',
+  'Version {0}': 'Versión {0}',
+  'Updates': 'Actualizaciones',
+  'The desktop application checks for a new version at startup; <b>Help, Check for updates…</b> checks on demand. With the Windows installer and the Linux AppImage, "Install" downloads the update and "Restart now" installs it. On macOS and with the portable versions, "Download" opens the download page.': 'La aplicación de escritorio busca una nueva versión al iniciarse; <b>Ayuda, Buscar actualizaciones…</b> la busca a petición. Con el instalador de Windows y la AppImage de Linux, «Instalar» descarga la actualización y «Reiniciar ahora» la instala. En macOS y con las versiones portátiles, «Descargar» abre la página de descarga.',
 });
 </script>
 
@@ -7168,6 +7239,7 @@ const SmithChart = (() => {
     if (!dlg.open) dlg.showModal();
     if (anchor && $(anchor)) goToHelp(anchor);
   };
+  const desktop = window.smithDesktop || null;   // set by preload.js in the desktop application only
   const pickSeg = (seg, key, value) => () => document.querySelector(`#${seg} [data-${key}="${value}"]`).click();
   const isDark = () => (root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches);
   // an entry: [label, action, { key, on: () => checked, off: () => disabled }] ; null is a separator
@@ -7224,6 +7296,7 @@ const SmithChart = (() => {
       [tr('Keyboard shortcuts'), () => showSheet('dlg-help', 'h-keys')],
       [tr('RF conventions'), () => showSheet('dlg-help', 'h-rf')],
       null,
+      ...(desktop ? [[tr('Check for updates…'), () => desktop.checkForUpdates()]] : []),
       [tr('About Smith Chart'), () => showSheet('dlg-about')],
     ]],
   ];
@@ -7354,6 +7427,9 @@ const SmithChart = (() => {
       H('h-prefs', tr('Settings')),
       P(tr('The "Settings" panel (Options menu) sets the Z0 and frequency of a new project, the vertical schematic, the extended chart, the colors, the line widths, the slider range and the default E series. Settings are stored on this computer, not in the project. "Reset to defaults" returns to the starting palette, chosen to stay readable with color-vision deficiency.')),
 
+      H('h-updates', tr('Updates')),
+      P(tr('The desktop application checks for a new version at startup; <b>Help, Check for updates…</b> checks on demand. With the Windows installer and the Linux AppImage, "Install" downloads the update and "Restart now" installs it. On macOS and with the portable versions, "Download" opens the download page.')),
+
       H('h-keys', tr('Keyboard shortcuts')),
       TABLE([tr('Key'), tr('Action')], [
         ['<kbd>Ctrl</kbd> + <kbd>Z</kbd>, <kbd>Ctrl</kbd> + <kbd>Y</kbd>', tr('Undo, redo')],
@@ -7393,6 +7469,58 @@ const SmithChart = (() => {
   };
   langHooks.push(() => { closeMenu(); MENUS = buildMenus(); renderMenubar(); renderHelp(); });
   langHooks[langHooks.length - 1]();
+
+  /* --- Updates (desktop application only, see updater.js) ------------------------------------ */
+
+  const updateBar = $('update-bar');
+  let update = null;                // last state sent by the main process
+  let dismissed = null;             // version whose notice was closed with "Later"
+  const renderUpdate = () => {
+    if (update && update.current) {
+      $('about-version').textContent = tr('Version {0}', update.current);
+      $('about-version').hidden = false;
+    }
+    if (!update || updateBar.hidden) return;
+    const v = update.version;
+    const view = {
+      checking: [tr('Checking for updates…'), []],
+      none: [tr('The application is up to date (version {0}).', update.current), ['close']],
+      available: [tr('Version {0} is available. You have version {1}.', v, update.current), [update.canInstall ? 'install' : 'download', 'later']],
+      downloading: [tr('Downloading version {0}: {1} %', v, update.percent || 0), []],
+      ready: [tr('Version {0} is ready. Restart the application to install it.', v), ['restart', 'later']],
+      error: [tr('Update error: {0}', update.message || ''), ['close']],
+      dev: [tr('Updates are only available in the installed application.'), ['close']],
+    }[update.state];
+    if (!view) { updateBar.hidden = true; return; }
+    const LABEL = { install: tr('Install'), download: tr('Download'), restart: tr('Restart now'), later: tr('Later'), close: tr('Close') };
+    $('update-text').textContent = view[0];
+    $('update-actions').innerHTML = view[1].map((a) => `<button type="button" class="btn sm" data-update="${a}">${esc(LABEL[a])}</button>`).join('');
+  };
+  const onUpdate = (next) => {
+    update = next;
+    // automatic checks stay silent unless there is something to install
+    const shown = next.manual || ['available', 'downloading', 'ready'].includes(next.state);
+    updateBar.hidden = !shown || (next.state === 'available' && !next.manual && dismissed === next.version);
+    renderUpdate();
+  };
+  if (desktop) {
+    desktop.onUpdateState(onUpdate);
+    desktop.getUpdateState().then((s) => { if (s && !update) onUpdate(s); });   // a pushed state may already be newer
+    langHooks.push(renderUpdate);
+    updateBar.addEventListener('click', (ev) => {
+      const b = ev.target.closest('button[data-update]');
+      if (!b) return;
+      const action = b.dataset.update;
+      if (action === 'later' || action === 'close') {
+        if (update && update.state === 'available') dismissed = update.version;
+        updateBar.hidden = true;
+        return;
+      }
+      if (action === 'download') updateBar.hidden = true;   // the download page opens in the browser
+      desktop.installUpdate();
+    });
+  }
+
   $('help-toc').addEventListener('click', (ev) => { const b = ev.target.closest('button[data-goto]'); if (b) goToHelp(b.dataset.goto); });
   for (const dlg of document.querySelectorAll('dialog.sheet')) {
     dlg.addEventListener('click', (ev) => { if (ev.target === dlg || ev.target.closest('[data-close]')) dlg.close(); });

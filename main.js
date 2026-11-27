@@ -1,8 +1,11 @@
 'use strict';
 const { app, BrowserWindow, Menu, shell } = require('electron');
 const path = require('path');
+const { setupUpdates } = require('./updater');
 
 const INDEX = path.join(__dirname, 'index.html');
+const PRELOAD = path.join(__dirname, 'preload.js');
+let mainWindow = null;
 
 function isExternal(url) {
   return /^https?:\/\//i.test(url);
@@ -21,6 +24,7 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      preload: PRELOAD,
     },
   });
 
@@ -39,6 +43,8 @@ function createWindow() {
     if (isExternal(url)) shell.openExternal(url);
   });
 
+  win.on('closed', () => { if (mainWindow === win) mainWindow = null; });
+  mainWindow = win;
   win.loadFile(INDEX);
 }
 
@@ -55,6 +61,7 @@ app.whenReady().then(() => {
     Menu.setApplicationMenu(null);
   }
   createWindow();
+  setupUpdates(() => mainWindow);
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

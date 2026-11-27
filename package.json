@@ -1,6 +1,6 @@
 {
   "name": "smith-chart",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "Smith chart tool: impedance matching, stability circles, Touchstone import.",
   "license": "MIT",
   "author": "Thomas Blatti",
@@ -33,6 +33,8 @@
     "files": [
       "index.html",
       "main.js",
+      "preload.js",
+      "updater.js",
       "package.json"
     ],
     "win": {
@@ -101,10 +103,21 @@
         }
       ],
       "artifactName": "Smith-Chart-Linux-${arch}.${ext}"
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "blatti-thomas",
+        "repo": "smith-chart",
+        "releaseType": "release"
+      }
+    ]
   },
   "allowScripts": {
     "electron": true,
     "electron-winstaller": false
+  },
+  "dependencies": {
+    "electron-updater": "6.8.11"
   }
 }
