@@ -134,6 +134,20 @@ for (const lang of LANGS) {
   test(`${lang}: same inline tags as the English key`, () => must(Object.keys(dict).filter((k) => tags(k) !== tags(String(dict[k]))).map((k) => `${k}  ->  ${dict[k]}`), 'tag mismatch'));
 }
 
+group('Wording variants');
+const variants = ctx.SmithI18n.variants;
+test('variants exist for en (parallel) and fr, de, it, es (shunt)', () => {
+  const got = Object.keys(variants).sort().map((l) => `${l}:${Object.keys(variants[l]).join('+')}`).join(' ');
+  if (got !== 'de:shunt en:parallel es:shunt fr:shunt it:shunt') throw new Error(got);
+});
+for (const [lang, byName] of Object.entries(variants)) {
+  for (const [name, dict] of Object.entries(byName)) {
+    test(`${lang}/${name}: only keys used by the page, same placeholders, no empty value`, () => must(Object.keys(dict).filter((k) => !keyUsage.has(k) || typeof dict[k] !== 'string' || !dict[k].trim() || placeholders(k) !== placeholders(dict[k])), 'bad variant entries'));
+  }
+}
+const en = variants.en.parallel;
+test('every variant covers the same keys', () => must(Object.entries(variants).flatMap(([l, b]) => Object.values(b).flatMap((d) => Object.keys(en).filter((k) => !(k in d)).map((k) => `${l}: ${k}`))), 'keys missing'));
+
 /* ------------------------------------------------------------------ (c) leftover French */
 
 group('No French left in the code');

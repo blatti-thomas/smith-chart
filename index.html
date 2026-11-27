@@ -584,6 +584,7 @@ body.dropping .chart-wrap, body.dropping #chart { outline: 2px dashed var(--mute
       <div class="sub-head">Display</div>
       <label class="check"><input type="checkbox" id="pf-vertical"> Vertical schematic</label>
       <label class="check"><input type="checkbox" id="pf-extended"> Extended chart (r &lt; 0, up to |Γ| = 2)</label>
+      <div class="row"><label for="pf-shunt">Shunt or parallel wording</label><select id="pf-shunt" data-i18n-skip></select></div>
       <div class="sub-head">Colors</div>
       <div class="row"><label for="pc-z">Z plane</label><input type="color" id="pc-z"></div>
       <div class="row"><label for="pc-y">Y plane</label><input type="color" id="pc-y"></div>
@@ -685,11 +686,23 @@ const SmithI18n = (() => {
   const dicts = {};
   let lang = 'en';
   const format = (s, args) => (args.length ? s.replace(/\{(\d+)\}/g, (m, i) => (i < args.length ? String(args[i]) : m)) : s);
+  // Variants: alternative wordings of some keys, chosen in the settings (e.g. "shunt" for "parallel").
+  // A language without the chosen variant keeps its usual wording.
+  const variants = {};
+  let variant = null;
+  const has = (o, key) => Boolean(o) && Object.prototype.hasOwnProperty.call(o, key);
   const t = (key, ...args) => {
+    const v = variant && variants[lang] && variants[lang][variant];
+    if (has(v, key)) return format(v[key], args);
     const d = dicts[lang];
-    return format(d && Object.prototype.hasOwnProperty.call(d, key) ? d[key] : key, args);
+    return format(has(d, key) ? d[key] : key, args);
   };
   const register = (code, dict) => { dicts[code] = Object.assign(dicts[code] || {}, dict); };
+  const registerVariant = (code, name, dict) => {
+    variants[code] = variants[code] || {};
+    variants[code][name] = Object.assign(variants[code][name] || {}, dict);
+  };
+  const setVariant = (name) => { variant = typeof name === 'string' ? name : null; };
   const supported = (code) => LANGS.some(([c]) => c === code);
   const detect = () => {
     const wanted = (typeof navigator !== 'undefined' && (navigator.languages || [navigator.language])) || [];
@@ -724,7 +737,7 @@ const SmithI18n = (() => {
       }
     }
   };
-  return { LANGS, dicts, t, register, supported, detect, setLang, applyStatic, get lang() { return lang; } };
+  return { LANGS, dicts, variants, t, register, registerVariant, supported, detect, setLang, setVariant, applyStatic, get lang() { return lang; } };
 })();
 </script>
 
@@ -1231,6 +1244,7 @@ SmithI18n.register('fr', {
   'Version {0}': 'Version {0}',
   'Updates': 'Mises à jour',
   'The desktop application checks for a new version at startup; <b>Help, Check for updates…</b> checks on demand. With the Windows installer and the Linux AppImage, "Install" downloads the update and "Restart now" installs it. On macOS and with the portable versions, "Download" opens the download page.': 'L\'application de bureau recherche une nouvelle version au démarrage ; <b>Aide, Rechercher des mises à jour…</b> le fait à la demande. Avec l\'installateur Windows et l\'AppImage Linux, « Installer » télécharge la mise à jour et « Redémarrer maintenant » l\'installe. Sur macOS et avec les versions portables, « Télécharger » ouvre la page de téléchargement.',
+  'Shunt or parallel wording': 'Nom du montage en dérivation',
 });
 
 // Deutsch
@@ -1729,6 +1743,7 @@ SmithI18n.register('de', {
   'Version {0}': 'Version {0}',
   'Updates': 'Updates',
   'The desktop application checks for a new version at startup; <b>Help, Check for updates…</b> checks on demand. With the Windows installer and the Linux AppImage, "Install" downloads the update and "Restart now" installs it. On macOS and with the portable versions, "Download" opens the download page.': 'Die Desktop-Anwendung sucht beim Start nach einer neuen Version; <b>Hilfe, Nach Updates suchen…</b> sucht auf Anfrage. Mit dem Windows-Installationsprogramm und dem Linux-AppImage lädt „Installieren“ das Update herunter und „Jetzt neu starten“ installiert es. Unter macOS und mit den portablen Versionen öffnet „Herunterladen“ die Download-Seite.',
+  'Shunt or parallel wording': 'Bezeichnung des Querzweigs',
 });
 
 // italiano
@@ -2227,6 +2242,7 @@ SmithI18n.register('it', {
   'Version {0}': 'Versione {0}',
   'Updates': 'Aggiornamenti',
   'The desktop application checks for a new version at startup; <b>Help, Check for updates…</b> checks on demand. With the Windows installer and the Linux AppImage, "Install" downloads the update and "Restart now" installs it. On macOS and with the portable versions, "Download" opens the download page.': 'L\'applicazione desktop cerca una nuova versione all\'avvio; <b>Aiuto, Cerca aggiornamenti…</b> la cerca su richiesta. Con l\'installer Windows e l\'AppImage Linux, «Installa» scarica l\'aggiornamento e «Riavvia ora» lo installa. Su macOS e con le versioni portabili, «Scarica» apre la pagina di download.',
+  'Shunt or parallel wording': 'Nome del collegamento in derivazione',
 });
 
 // español
@@ -2725,6 +2741,110 @@ SmithI18n.register('es', {
   'Version {0}': 'Versión {0}',
   'Updates': 'Actualizaciones',
   'The desktop application checks for a new version at startup; <b>Help, Check for updates…</b> checks on demand. With the Windows installer and the Linux AppImage, "Install" downloads the update and "Restart now" installs it. On macOS and with the portable versions, "Download" opens the download page.': 'La aplicación de escritorio busca una nueva versión al iniciarse; <b>Ayuda, Buscar actualizaciones…</b> la busca a petición. Con el instalador de Windows y la AppImage de Linux, «Instalar» descarga la actualización y «Reiniciar ahora» la instala. En macOS y con las versiones portátiles, «Descargar» abre la página de descarga.',
+  'Shunt or parallel wording': 'Nombre de la conexión en derivación',
+});
+
+// Wording variants chosen in the settings: shunt connections called "parallel" or "shunt".
+// English says "shunt" and the other languages "parallel" by default; each variant gives the other word.
+SmithI18n.registerVariant('en', 'parallel', {
+  'Add a shunt element': 'Add a parallel element',
+  'Shunt': 'Parallel',
+  'Shunt resistor': 'Parallel resistor',
+  'Shunt inductor': 'Parallel inductor',
+  'Shunt capacitor': 'Parallel capacitor',
+  'Shunt open-circuit stub': 'Parallel open-circuit stub',
+  'Shunt short-circuit stub': 'Parallel short-circuit stub',
+  'Series R-L-C inserted in shunt': 'Series R-L-C inserted in parallel',
+  'Parallel R-L-C, in shunt': 'Parallel R-L-C, connected in parallel',
+  'Series R-L-C, in shunt': 'Series R-L-C, in parallel',
+  'shunt resistor': 'parallel resistor',
+  'shunt inductor': 'parallel inductor',
+  'shunt capacitor': 'parallel capacitor',
+  'R-L-C in shunt': 'R-L-C in parallel',
+  'Select the load or an element (schematic, chart or points table) to edit it. The "Series" and "Shunt" buttons add an element after the selection, on the source side.': 'Select the load or an element (schematic, chart or points table) to edit it. The "Series" and "Parallel" buttons add an element after the selection, on the source side.',
+  'Add elements with the "Series" and "Shunt" buttons. The new element is inserted after the selected element, on the source side.': 'Add elements with the "Series" and "Parallel" buttons. The new element is inserted after the selected element, on the source side.',
+  'Available elements: R, L and C in series or in shunt, transmission line (lossless or lossy), open or short-circuited stub, ideal transformer, compound R-L-C. A transformer of ratio n gives Zin = n² · Z.': 'Available elements: R, L and C in series or in parallel, transmission line (lossless or lossy), open or short-circuited stub, ideal transformer, compound R-L-C. A transformer of ratio n gives Zin = n² · Z.',
+  'A series element moves the point along an r circle; a shunt element, along a g circle.': 'A series element moves the point along an r circle; a parallel element, along a g circle.',
+});
+SmithI18n.registerVariant('fr', 'shunt', {
+  'Add a shunt element': 'Ajouter un élément shunt',
+  'Shunt': 'Shunt',
+  'Shunt resistor': 'Résistance shunt',
+  'Shunt inductor': 'Inductance shunt',
+  'Shunt capacitor': 'Capacité shunt',
+  'Shunt open-circuit stub': 'Stub shunt en circuit ouvert',
+  'Shunt short-circuit stub': 'Stub shunt court-circuité',
+  'Series R-L-C inserted in shunt': 'R-L-C série inséré en shunt',
+  'Parallel R-L-C, in shunt': 'R-L-C parallèle, en shunt',
+  'Series R-L-C, in shunt': 'R-L-C série, en shunt',
+  'shunt resistor': 'résistance shunt',
+  'shunt inductor': 'inductance shunt',
+  'shunt capacitor': 'capacité shunt',
+  'R-L-C in shunt': 'R-L-C en shunt',
+  'Select the load or an element (schematic, chart or points table) to edit it. The "Series" and "Shunt" buttons add an element after the selection, on the source side.': 'Sélectionnez la charge ou un élément (schéma, abaque ou tableau des points) pour le modifier. Les boutons « Série » et « Shunt » ajoutent un élément après la sélection, côté source.',
+  'Add elements with the "Series" and "Shunt" buttons. The new element is inserted after the selected element, on the source side.': 'Ajoutez des éléments avec les boutons « Série » et « Shunt ». Le nouvel élément s\'insère après l\'élément sélectionné, côté source.',
+  'Available elements: R, L and C in series or in shunt, transmission line (lossless or lossy), open or short-circuited stub, ideal transformer, compound R-L-C. A transformer of ratio n gives Zin = n² · Z.': 'Éléments disponibles : R, L et C en série ou en shunt, ligne de transmission (sans pertes ou avec pertes), stub ouvert ou court-circuité, transformateur idéal, R-L-C composé. Un transformateur de rapport n donne Zin = n² · Z.',
+  'A series element moves the point along an r circle; a shunt element, along a g circle.': 'Un élément série déplace le point le long d\'un cercle r ; un élément shunt, le long d\'un cercle g.',
+});
+SmithI18n.registerVariant('de', 'shunt', {
+  'Add a shunt element': 'Shunt-Element hinzufügen',
+  'Shunt': 'Shunt',
+  'Shunt resistor': 'Shunt-Widerstand',
+  'Shunt inductor': 'Shunt-Induktivität',
+  'Shunt capacitor': 'Shunt-Kapazität',
+  'Shunt open-circuit stub': 'Shunt-Leerlauf-Stub',
+  'Shunt short-circuit stub': 'Shunt-Kurzschluss-Stub',
+  'Series R-L-C inserted in shunt': 'Serien-R-L-C als Shunt eingefügt',
+  'Parallel R-L-C, in shunt': 'Parallel-R-L-C, als Shunt geschaltet',
+  'Series R-L-C, in shunt': 'Serien-R-L-C, als Shunt geschaltet',
+  'shunt resistor': 'Shunt-Widerstand',
+  'shunt inductor': 'Shunt-Induktivität',
+  'shunt capacitor': 'Shunt-Kapazität',
+  'R-L-C in shunt': 'R-L-C als Shunt',
+  'Select the load or an element (schematic, chart or points table) to edit it. The "Series" and "Shunt" buttons add an element after the selection, on the source side.': 'Last oder ein Element (Schaltplan, Diagramm oder Punktetabelle) zum Bearbeiten auswählen. Die Schaltflächen „Reihe“ und „Shunt“ fügen ein Element hinter der Auswahl auf der Quellenseite ein.',
+  'Add elements with the "Series" and "Shunt" buttons. The new element is inserted after the selected element, on the source side.': 'Elemente mit den Schaltflächen „Reihe“ und „Shunt“ hinzufügen. Das neue Element wird hinter dem gewählten Element auf der Quellenseite eingefügt.',
+  'Available elements: R, L and C in series or in shunt, transmission line (lossless or lossy), open or short-circuited stub, ideal transformer, compound R-L-C. A transformer of ratio n gives Zin = n² · Z.': 'Verfügbare Elemente: R, L und C in Reihe oder als Shunt, Leitung (verlustfrei oder verlustbehaftet), Leerlauf- oder Kurzschluss-Stub, idealer Transformator, zusammengesetztes R-L-C. Ein Transformator mit dem Verhältnis n ergibt Zin = n² · Z.',
+  'A series element moves the point along an r circle; a shunt element, along a g circle.': 'Ein Serienelement verschiebt den Punkt entlang eines r-Kreises; ein Shunt-Element entlang eines g-Kreises.',
+});
+SmithI18n.registerVariant('it', 'shunt', {
+  'Add a shunt element': 'Aggiungi un elemento shunt',
+  'Shunt': 'Shunt',
+  'Shunt resistor': 'Resistenza shunt',
+  'Shunt inductor': 'Induttanza shunt',
+  'Shunt capacitor': 'Capacità shunt',
+  'Shunt open-circuit stub': 'Stub shunt a circuito aperto',
+  'Shunt short-circuit stub': 'Stub shunt in cortocircuito',
+  'Series R-L-C inserted in shunt': 'R-L-C serie inserito in shunt',
+  'Parallel R-L-C, in shunt': 'R-L-C parallelo, in shunt',
+  'Series R-L-C, in shunt': 'R-L-C serie, in shunt',
+  'shunt resistor': 'resistenza shunt',
+  'shunt inductor': 'induttanza shunt',
+  'shunt capacitor': 'capacità shunt',
+  'R-L-C in shunt': 'R-L-C in shunt',
+  'Select the load or an element (schematic, chart or points table) to edit it. The "Series" and "Shunt" buttons add an element after the selection, on the source side.': 'Seleziona il carico o un elemento (schema, carta o tabella dei punti) per modificarlo. I pulsanti «Serie» e «Shunt» aggiungono un elemento dopo la selezione, lato sorgente.',
+  'Add elements with the "Series" and "Shunt" buttons. The new element is inserted after the selected element, on the source side.': 'Aggiungi gli elementi con i pulsanti «Serie» e «Shunt». Il nuovo elemento viene inserito dopo l\'elemento selezionato, lato sorgente.',
+  'Available elements: R, L and C in series or in shunt, transmission line (lossless or lossy), open or short-circuited stub, ideal transformer, compound R-L-C. A transformer of ratio n gives Zin = n² · Z.': 'Elementi disponibili: R, L e C in serie o in shunt, linea di trasmissione (senza o con perdite), stub aperto o in cortocircuito, trasformatore ideale, R-L-C composto. Un trasformatore di rapporto n dà Zin = n² · Z.',
+  'A series element moves the point along an r circle; a shunt element, along a g circle.': 'Un elemento in serie sposta il punto lungo un cerchio r; un elemento shunt, lungo un cerchio g.',
+});
+SmithI18n.registerVariant('es', 'shunt', {
+  'Add a shunt element': 'Añadir un elemento shunt',
+  'Shunt': 'Shunt',
+  'Shunt resistor': 'Resistencia shunt',
+  'Shunt inductor': 'Inductancia shunt',
+  'Shunt capacitor': 'Capacidad shunt',
+  'Shunt open-circuit stub': 'Stub shunt en circuito abierto',
+  'Shunt short-circuit stub': 'Stub shunt en cortocircuito',
+  'Series R-L-C inserted in shunt': 'R-L-C serie insertado en shunt',
+  'Parallel R-L-C, in shunt': 'R-L-C paralelo, en shunt',
+  'Series R-L-C, in shunt': 'R-L-C serie, en shunt',
+  'shunt resistor': 'resistencia shunt',
+  'shunt inductor': 'inductancia shunt',
+  'shunt capacitor': 'capacidad shunt',
+  'R-L-C in shunt': 'R-L-C en shunt',
+  'Select the load or an element (schematic, chart or points table) to edit it. The "Series" and "Shunt" buttons add an element after the selection, on the source side.': 'Seleccione la carga o un elemento (esquema, carta o tabla de puntos) para editarlo. Los botones «Serie» y «Shunt» añaden un elemento después de la selección, del lado de la fuente.',
+  'Add elements with the "Series" and "Shunt" buttons. The new element is inserted after the selected element, on the source side.': 'Añada elementos con los botones «Serie» y «Shunt». El elemento nuevo se inserta después del elemento seleccionado, del lado de la fuente.',
+  'Available elements: R, L and C in series or in shunt, transmission line (lossless or lossy), open or short-circuited stub, ideal transformer, compound R-L-C. A transformer of ratio n gives Zin = n² · Z.': 'Elementos disponibles: R, L y C en serie o en shunt, línea de transmisión (sin pérdidas o con pérdidas), stub abierto o en cortocircuito, transformador ideal, R-L-C compuesto. Un transformador de relación n da Zin = n² · Z.',
+  'A series element moves the point along an r circle; a shunt element, along a g circle.': 'Un elemento en serie desplaza el punto a lo largo de un círculo r; un elemento shunt, a lo largo de un círculo g.',
 });
 </script>
 
@@ -4577,6 +4697,7 @@ const SmithCore = (() => {
       labels: { dp: flag(labels.dp), tp: flag(labels.tp), rings: flag(labels.rings) },
       schemVertical: src.schemVertical === true,
       extended: src.extended === true,
+      shuntWord: pick(src.shuntWord, ['parallel', 'shunt'], null),   // null: the usual word of the language
       plots: PLOT_DEFAULT.map((d, k) => pick(Array.isArray(src.plots) ? src.plots[k] : undefined, PLOT_FORMATS, d)),
     };
   };
@@ -5139,6 +5260,7 @@ const SmithChart = (() => {
   const prefs = (() => {
     try { return io.normalizePrefs(JSON.parse(localStorage.getItem(PREFS_KEY) || 'null')); } catch (err) { return io.normalizePrefs(null); }
   })();
+  SmithI18n.setVariant(prefs.shuntWord);
 
   /** The project the tool starts with, and the one "Nouveau" gives: a matched load, no element. */
   const emptyProject = () => ({
@@ -7183,7 +7305,8 @@ const SmithChart = (() => {
   $('pf-reset').addEventListener('click', () => {
     Object.assign(prefs, io.normalizePrefs(null));
     state.labels = prefs.labels; state.mode = prefs.mode; state.units = prefs.units; state.eseries = prefs.eseries; state.slider.ratio = prefs.slider;
-    applyPrefs(); savePrefs(); showPrefs(); fitView(); refresh();
+    SmithI18n.setVariant(prefs.shuntWord);
+    applyPrefs(); savePrefs(); showPrefs(); fitView(); relabel();
   });
   applyPrefs();
   showPrefs();
@@ -7216,14 +7339,33 @@ const SmithChart = (() => {
   let savedLang = null;
   try { savedLang = localStorage.getItem('smith.lang'); } catch (err) { /* storage unavailable */ }
   applyLang(SmithI18n.supported(savedLang) ? savedLang : SmithI18n.detect());
-  langSelect.addEventListener('change', () => {
-    try { localStorage.setItem('smith.lang', langSelect.value); } catch (err) { /* storage unavailable */ }
-    applyLang(langSelect.value);
+  /** Redraw every text after a change of language or wording. */
+  function relabel(code = SmithI18n.lang) {
+    applyLang(code);
     $('sweep-box').textContent = '';   // rebuilt by drawPanels with the new labels
     $('bands-box').textContent = '';
     refresh();
     drawEditor(true);                  // the editor is cached by editorKey
     drawSide(true);
+  }
+  langSelect.addEventListener('change', () => {
+    try { localStorage.setItem('smith.lang', langSelect.value); } catch (err) { /* storage unavailable */ }
+    relabel(langSelect.value);
+  });
+
+  // Settings: shunt connections called "parallel" or "shunt"; without a choice, the usual word of the language.
+  const shuntSelect = $('pf-shunt');
+  const showShuntWord = () => {
+    shuntSelect.innerHTML = [['parallel', tr('Parallel')], ['shunt', 'Shunt']].map(([v, label]) => `<option value="${v}">${esc(label)}</option>`).join('');
+    shuntSelect.value = prefs.shuntWord || (SmithI18n.lang === 'en' ? 'shunt' : 'parallel');
+  };
+  showShuntWord();
+  langHooks.push(showShuntWord);
+  shuntSelect.addEventListener('change', () => {
+    prefs.shuntWord = shuntSelect.value;
+    SmithI18n.setVariant(prefs.shuntWord);
+    savePrefs();
+    relabel();
   });
 
   fitView();

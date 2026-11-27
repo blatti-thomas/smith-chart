@@ -1845,14 +1845,14 @@ test('trajectory of an element pushed to an extreme value: no jump and no sharp 
 });
 test('settings: defaults, valid fields kept, doubtful values discarded', () => {
   const d = io.normalizePrefs(null);
-  same(JSON.stringify(d), JSON.stringify({ z0: 50, f0: 1e9, colors: { z: null, y: null, sweep: null, traj: null, ring: null }, widths: { grid: 1, traj: 1, ring: 1, sweep: 1 }, slider: 0, eseries: 'E24', mode: 'zy', units: 'norm', labels: { dp: true, tp: true, rings: true }, schemVertical: false, extended: false, plots: ['logmag', 'vswr', 'phase'] }));
+  same(JSON.stringify(d), JSON.stringify({ z0: 50, f0: 1e9, colors: { z: null, y: null, sweep: null, traj: null, ring: null }, widths: { grid: 1, traj: 1, ring: 1, sweep: 1 }, slider: 0, eseries: 'E24', mode: 'zy', units: 'norm', labels: { dp: true, tp: true, rings: true }, schemVertical: false, extended: false, shuntWord: null, plots: ['logmag', 'vswr', 'phase'] }));
   same(JSON.stringify(io.normalizePrefs('x')), JSON.stringify(d));
   same(JSON.stringify(io.normalizePrefs({ colors: 3, widths: null, labels: 'no' })), JSON.stringify(d));
-  const good = { z0: 75, f0: 2.4e9, colors: { z: '#AA0011', y: '#0011aa', sweep: null, traj: '#123456', ring: '#abcdef' }, widths: { grid: 0.5, traj: 3, ring: 1.5, sweep: 2 }, slider: 10, eseries: 'E96', mode: 'y', units: 'abs', labels: { dp: false, tp: true, rings: false }, schemVertical: true, extended: true, plots: ['gd', 'zre', 'rl'] };
+  const good = { z0: 75, f0: 2.4e9, colors: { z: '#AA0011', y: '#0011aa', sweep: null, traj: '#123456', ring: '#abcdef' }, widths: { grid: 0.5, traj: 3, ring: 1.5, sweep: 2 }, slider: 10, eseries: 'E96', mode: 'y', units: 'abs', labels: { dp: false, tp: true, rings: false }, schemVertical: true, extended: true, shuntWord: 'shunt', plots: ['gd', 'zre', 'rl'] };
   const kept = io.normalizePrefs(JSON.parse(JSON.stringify(good)));
   same(JSON.stringify(kept), JSON.stringify({ ...good, colors: { ...good.colors, z: '#aa0011' } }));
   same(JSON.stringify(io.normalizePrefs(kept)), JSON.stringify(kept));                       // idempotent
-  const bad = io.normalizePrefs({ z0: -5, f0: 'abc', colors: { z: 'red', y: '#12345', sweep: 'url(x)', traj: '#12345g', ring: 7 }, widths: { grid: 0, traj: 99, ring: NaN, sweep: '2' }, slider: 3, eseries: 'E48', mode: 'both', units: 'ohm', labels: { dp: 0 }, schemVertical: 'yes', extended: 1, plots: ['smith', 7], extra: { evil: true } });
+  const bad = io.normalizePrefs({ z0: -5, f0: 'abc', colors: { z: 'red', y: '#12345', sweep: 'url(x)', traj: '#12345g', ring: 7 }, widths: { grid: 0, traj: 99, ring: NaN, sweep: '2' }, slider: 3, eseries: 'E48', mode: 'both', units: 'ohm', labels: { dp: 0 }, schemVertical: 'yes', extended: 1, shuntWord: 'both', plots: ['smith', 7], extra: { evil: true } });
   same(JSON.stringify(bad), JSON.stringify(d));
 });
 test('extended chart: the outer grid stays between |Γ| = 1 and the limit, on r < 0 circles or x arcs', () => {
