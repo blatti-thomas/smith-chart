@@ -53,6 +53,13 @@ On macOS, open the app with right-click → Open the first time (or run
 On Linux, make the AppImage executable (`chmod +x Smith-Chart-Linux-x86_64.AppImage`) and run it; it needs FUSE 2
 (`libfuse2`) on recent Ubuntu releases, otherwise use the archive.
 
+### Updates
+
+From version 0.3.0, the desktop application checks for a new release at startup (and on demand with
+**Help → Check for updates…**). With the Windows installer and the Linux AppImage, the update downloads and
+installs from the application. On macOS (the app is not signed) and with the portable versions, the notice
+opens the download page.
+
 You can also skip the installer: download the repository and open `index.html` in a browser.
 
 ## Files
@@ -243,6 +250,10 @@ git push origin v0.2.0
 
 The asset names contain no version number, so the download links above always point to the latest
 release and never need editing.
+
+The release stays a draft until the three builds are attached, then it is published. The update files
+(`latest.yml`, `latest-mac.yml`, `latest-linux.yml` and the `.blockmap` files) must stay in the release:
+installed apps read them to find and download updates.
 
 ## License
 
