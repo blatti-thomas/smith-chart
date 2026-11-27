@@ -1,6 +1,6 @@
 {
   "name": "smith-chart",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Smith chart tool: impedance matching, stability circles, Touchstone import.",
   "license": "MIT",
   "author": "Thomas Blatti",
